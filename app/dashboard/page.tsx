@@ -8,11 +8,11 @@ import {
 } from "./actions";
 import { signOut } from "../login/actions";
 import { InviteContacts } from "./InviteContacts";
-import { ExaDiscover } from "./ExaDiscover";
 import { ExcitementControl } from "./ExcitementControl";
 import { ThemeToggle } from "../ThemeToggle";
 import { SyncMeter } from "../SyncMeter";
 import { SummaryBackfill } from "./SummaryBackfill";
+import { DiscoverSearch } from "./DiscoverSearch";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -163,7 +163,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <main className="max-w-5xl mx-auto px-5 py-8">
+    <main className="max-w-6xl mx-auto px-5 py-8">
       {/* Fire-and-forget backfill for missing summaries/scores */}
       <SummaryBackfill conversationIds={needsBackfillIds} />
 
@@ -187,26 +187,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* SyncMeter hero — your gamified clone */}
-      <section className="mt-8 retro-panel retro-shadow p-8">
-        <div className="grid md:grid-cols-[auto_1fr] gap-10 items-center">
-          <SyncMeter inputs={syncInputs} size={240} />
-          <div>
-            <div className="retro-label">your twin</div>
-            <h1 className="retro-h1 text-4xl mt-3 leading-tight">
-              Sync your clone to{" "}
-              <span style={{ color: "var(--amber-bright)" }}>99%</span>
-            </h1>
-            <Link
-              href="/onboarding"
-              className="retro-btn retro-btn-primary mt-6 inline-flex"
-            >
-              + add context
-            </Link>
-          </div>
-        </div>
-      </section>
-
       {!twinComplete && (
         <div
           className="mt-6 retro-panel p-4 text-sm"
@@ -221,55 +201,36 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* People on SyncedIn — the discovery directory */}
-      <section className="mt-8">
-        <div className="retro-label">
-          discover ({directory.length})
-        </div>
-        <p className="mt-1 retro-dim text-xs">
-          People here with a finished twin you haven&apos;t talked to yet.
-          Connect and your twins draft the conversation from both sides.
-        </p>
-        <div className="mt-3 space-y-2">
-          {directory.length === 0 && (
-            <div className="retro-panel p-4 text-sm">
-              <div className="font-semibold">You&apos;re caught up on discovery.</div>
-              <div className="retro-dim mt-1">
-                Everyone with a finished twin is already in your conversations.
-                Grow the network — invite people below, and very soon your twin
-                will search the open web for new high-leverage matches.
-              </div>
-            </div>
-          )}
-          {directory.map((p) => (
-            <form
-              action={startConversationWithUser}
-              key={p.id}
-              className="retro-panel retro-panel-hover p-4 flex items-start justify-between gap-4"
-            >
-              <div className="min-w-0">
-                <div className="font-semibold text-sm">
-                  {p.display_name || p.email}
-                </div>
-                <div className="retro-dim text-xs mt-1 line-clamp-2">
-                  {p.goals}
-                </div>
-              </div>
-              <input type="hidden" name="userId" value={p.id} />
-              <button
-                type="submit"
-                className="retro-btn text-xs shrink-0 self-center"
-              >
-                connect &gt;
-              </button>
-            </form>
-          ))}
-        </div>
-      </section>
+      {/* Two-column layout: SyncMeter on the left (sticky), Discover + everything else on the right */}
+      <div className="mt-8 grid md:grid-cols-[260px_1fr] gap-8 items-start">
+        {/* LEFT — clone meter */}
+        <aside className="md:sticky md:top-6 flex flex-col items-center gap-4">
+          <SyncMeter inputs={syncInputs} size={240} />
+          <Link
+            href="/onboarding"
+            className="retro-btn retro-btn-primary w-full text-center"
+          >
+            + add context
+          </Link>
+          <div
+            className="retro-dim text-xs text-center"
+            style={{ maxWidth: 240 }}
+          >
+            Sync your clone to{" "}
+            <span style={{ color: "var(--amber-bright)", fontWeight: 700 }}>
+              99%
+            </span>
+            . The last 1% is on purpose — a twin is never truly finished.
+          </div>
+        </aside>
 
-      {/* Real conversations — sorted by excitement */}
-      {realConversations.length > 0 && (
-        <section className="mt-8">
+        {/* RIGHT — main content, Discover at top */}
+        <div className="space-y-8">
+          <DiscoverSearch directory={directory} />
+
+          {/* Real conversations — sorted by excitement */}
+          {realConversations.length > 0 && (
+        <section>
           <div className="retro-label">
             your conversations · sorted by excitement
           </div>
@@ -320,9 +281,9 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* Sample twins */}
-      {twinComplete && (testPersonas?.length ?? 0) > 0 && (
-        <section className="mt-8">
+          {/* Sample twins */}
+          {twinComplete && (testPersonas?.length ?? 0) > 0 && (
+        <section>
           <div className="retro-label">test against a sample twin</div>
           <p className="mt-1 retro-dim text-xs">
             Pre-built twins that auto-reply. Stress-test yours before bringing
@@ -369,15 +330,12 @@ export default async function DashboardPage() {
         </section>
       )}
 
-      {/* Discover with Exa — find people to connect with */}
-      <section className="mt-8">
-        <ExaDiscover />
-      </section>
-
-      {/* Invite */}
-      <section className="mt-8">
-        <InviteContacts appUrl={appUrl} />
-      </section>
+          {/* Invite */}
+          <section>
+            <InviteContacts appUrl={appUrl} />
+          </section>
+        </div>
+      </div>
     </main>
   );
 }
