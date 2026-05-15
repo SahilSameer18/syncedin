@@ -107,7 +107,7 @@ export function InviteContacts({ appUrl }: { appUrl: string }) {
 
   return (
     <div className="retro-panel p-4">
-      <div className="retro-label">// invite people</div>
+      <div className="retro-label">invite people</div>
       <p className="mt-2 retro-dim text-xs leading-relaxed">
         SyncedIn is only useful with people in it. Pull contacts from your
         phone or paste emails — invites open in your own email app, so they

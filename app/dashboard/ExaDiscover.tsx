@@ -97,7 +97,7 @@ export function ExaDiscover() {
 
   return (
     <div className="retro-panel p-4">
-      <div className="retro-label">// discover with exa</div>
+      <div className="retro-label">discover with exa</div>
       <p className="mt-2 retro-dim text-xs leading-relaxed">
         Describe the kind of person you want to connect with. Your twin
         searches the open web, finds real matches, and drafts the first

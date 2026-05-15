@@ -41,7 +41,7 @@ export function AiDumpHero() {
 
   return (
     <div className="retro-panel retro-shadow p-5">
-      <div className="retro-label">// fastest path — about 30 seconds</div>
+      <div className="retro-label">fastest path — about 30 seconds</div>
       <h2 className="retro-h1 text-xl mt-2">
         Let the AI you already use describe you
       </h2>

@@ -192,7 +192,7 @@ export default async function DashboardPage() {
         <div className="grid md:grid-cols-[auto_1fr] gap-10 items-center">
           <SyncMeter inputs={syncInputs} size={240} />
           <div>
-            <div className="retro-label">// your twin</div>
+            <div className="retro-label">your twin</div>
             <h1 className="retro-h1 text-4xl mt-3 leading-tight">
               Sync your clone to{" "}
               <span style={{ color: "var(--amber-bright)" }}>99%</span>
@@ -224,7 +224,7 @@ export default async function DashboardPage() {
       {/* People on SyncedIn — the discovery directory */}
       <section className="mt-8">
         <div className="retro-label">
-          // discover ({directory.length})
+          discover ({directory.length})
         </div>
         <p className="mt-1 retro-dim text-xs">
           People here with a finished twin you haven&apos;t talked to yet.
@@ -271,7 +271,7 @@ export default async function DashboardPage() {
       {realConversations.length > 0 && (
         <section className="mt-8">
           <div className="retro-label">
-            // your conversations · sorted by excitement
+            your conversations · sorted by excitement
           </div>
           <div className="mt-3 space-y-2">
             {realConversations.map((c) => {
@@ -323,7 +323,7 @@ export default async function DashboardPage() {
       {/* Sample twins */}
       {twinComplete && (testPersonas?.length ?? 0) > 0 && (
         <section className="mt-8">
-          <div className="retro-label">// test against a sample twin</div>
+          <div className="retro-label">test against a sample twin</div>
           <p className="mt-1 retro-dim text-xs">
             Pre-built twins that auto-reply. Stress-test yours before bringing
             real people in.

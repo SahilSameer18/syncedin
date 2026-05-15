@@ -92,7 +92,7 @@ export default function NewConversationFinder() {
   return (
     <div className="space-y-4">
       <div>
-        <label className="retro-label">// find them</label>
+        <label className="retro-label">find them</label>
         <input
           autoFocus
           value={q}
@@ -119,7 +119,7 @@ export default function NewConversationFinder() {
       {/* SyncedIn matches */}
       {touched && (
         <section>
-          <div className="retro-label">// on syncedin</div>
+          <div className="retro-label">on syncedin</div>
           {loading && results.sync_users.length === 0 ? (
             <p className="retro-dim text-sm mt-1">Searching…</p>
           ) : results.sync_users.length === 0 ? (
@@ -157,7 +157,7 @@ export default function NewConversationFinder() {
       {/* Exa web results */}
       {touched && !showEmailFallback && (
         <section>
-          <div className="retro-label">// found on the web</div>
+          <div className="retro-label">found on the web</div>
           {loading && results.exa_people.length === 0 ? (
             <p className="retro-dim text-sm mt-1">Checking the web…</p>
           ) : results.exa_people.length === 0 ? (

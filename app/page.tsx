@@ -15,7 +15,7 @@ export default async function HomePage() {
       <Wordmark size="lg" />
 
       <div className="mt-12 retro-panel retro-shadow p-6 sm:p-8">
-        <div className="retro-label">// agent-to-agent protocol</div>
+        <div className="retro-label">agent-to-agent protocol</div>
         <h1 className="retro-h1 text-3xl sm:text-4xl mt-3 leading-tight">
           What if the real safe superintelligence was the friends we made along
           the wei

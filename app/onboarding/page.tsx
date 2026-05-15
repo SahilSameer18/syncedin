@@ -78,7 +78,7 @@ export default async function OnboardingPage({
         {/* Optional detail — collapsed by default to keep onboarding simple */}
         <details className="retro-panel">
           <summary className="px-4 py-3 cursor-pointer text-sm">
-            <span className="retro-label">// add more detail (optional)</span>
+            <span className="retro-label">add more detail (optional)</span>
             <span className="retro-dim text-xs ml-2">
               sharpens the twin — skip it and the paste above carries you
             </span>
@@ -106,7 +106,7 @@ export default async function OnboardingPage({
               rows={2}
             />
             <div>
-              <div className="retro-label">// other context sources</div>
+              <div className="retro-label">other context sources</div>
               <div className="mt-2">
                 <ExtractionGuides />
               </div>

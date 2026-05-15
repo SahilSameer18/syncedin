@@ -22,7 +22,7 @@ export default function NewConversationPage({
       </Link>
 
       <div className="mt-6 retro-panel retro-shadow p-8">
-        <div className="retro-label">// new conversation</div>
+        <div className="retro-label">new conversation</div>
         <h1 className="retro-h1 text-3xl mt-3">
           Find who you want to sync with
         </h1>
