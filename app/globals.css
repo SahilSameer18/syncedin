@@ -1,0 +1,255 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─────────────────────────────────────────────────────────────
+   SyncedIn — "cassette futurism"
+   Future + past blended: a clean modern dark UI (sans body type,
+   soft depth, accent bloom, gentle radii) carrying retro signals
+   (mono labels, the blue glow, a blinking cursor used sparingly).
+   No scanlines, no flat hard edges — that read as cheap/old.
+   Variable NAMES are kept stable so components don't break; only
+   their values + the component classes changed.
+   ───────────────────────────────────────────────────────────── */
+
+:root,
+:root[data-theme="dark"] {
+  --bg: #04050a;
+  --panel: #11142233;
+  --panel-2: #1a2038;
+  --border: #2e375a;
+  --border-bright: #5b67a0;
+  --text: #ffffff;
+  --text-dim: #b0b8d0;
+  --amber: #4d8cff; /* primary accent — SyncedIn blue, brighter */
+  --amber-bright: #8ab4ff;
+  --accent-glow: rgba(77, 140, 255, 0.55);
+  --green: #5ee5b2;
+  --red: #ff7878;
+  --radius: 12px;
+}
+
+/* Solid panel fills (used when a real surface is needed). */
+:root,
+:root[data-theme="dark"] {
+  --panel-solid: #131829;
+}
+
+/* Light mode — same blue accent, inverted surfaces. */
+:root[data-theme="light"] {
+  --bg: #eef2fb;
+  --panel: #ffffff;
+  --panel-solid: #ffffff;
+  --panel-2: #e6ecf8;
+  --border: #c5cee0;
+  --border-bright: #8d9bbe;
+  --text: #0a0c14;
+  --text-dim: #434a5e;
+  --amber: #1f5bff;
+  --amber-bright: #4d7eff;
+  --accent-glow: rgba(31, 91, 255, 0.45);
+  --green: #008a5c;
+  --red: #c62828;
+  --radius: 12px;
+}
+
+:root[data-theme="light"] body {
+  background:
+    radial-gradient(
+      1100px 560px at 72% -12%,
+      rgba(47, 107, 255, 0.12),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 10% 110%,
+      rgba(91, 139, 255, 0.08),
+      transparent 55%
+    ),
+    var(--bg);
+}
+
+html,
+body {
+  background:
+    radial-gradient(
+      1100px 560px at 72% -12%,
+      rgba(59, 124, 255, 0.1),
+      transparent 60%
+    ),
+    radial-gradient(
+      900px 500px at 10% 110%,
+      rgba(111, 160, 255, 0.06),
+      transparent 55%
+    ),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Mono only where it earns the retro signal: labels, code, the wordmark. */
+.font-mono,
+.retro-label,
+code,
+pre,
+kbd {
+  font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Monaco,
+    "Courier New", monospace;
+}
+
+input,
+textarea,
+select {
+  font-size: 16px; /* prevent iOS zoom */
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--amber);
+  color: #fff;
+}
+
+@layer components {
+  /* Panel — solid, high-contrast surface that POPS off the background. */
+  .retro-panel {
+    background: var(--panel-solid);
+    border: 1px solid var(--border-bright);
+    border-radius: var(--radius);
+  }
+
+  .retro-panel-hover {
+    transition: border-color 0.15s ease, background 0.15s ease,
+      box-shadow 0.15s ease, transform 0.06s ease;
+  }
+  .retro-panel-hover:hover {
+    border-color: var(--amber);
+    background: var(--panel-2);
+    box-shadow: 0 0 0 1px var(--amber),
+      0 14px 36px -16px var(--accent-glow);
+  }
+
+  /* Strong elevation + accent bloom. */
+  .retro-shadow {
+    box-shadow: 0 22px 60px -22px rgba(0, 0, 0, 0.95),
+      0 0 0 1px var(--border-bright),
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .retro-h1 {
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    color: var(--text);
+  }
+
+  /* Section label — uppercase tracked-out mono, bright. */
+  .retro-label {
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--amber-bright);
+  }
+
+  .retro-input {
+    width: 100%;
+    background: var(--panel-solid);
+    border: 1.5px solid var(--border-bright);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: 16px;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  .retro-input::placeholder {
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+  .retro-input:focus {
+    border-color: var(--amber);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
+
+  .retro-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1.5px solid var(--border-bright);
+    border-radius: var(--radius);
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 12px 22px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.12s ease, border-color 0.12s ease,
+      box-shadow 0.12s ease, transform 0.04s ease;
+  }
+  .retro-btn:hover:not(:disabled) {
+    background: var(--panel-solid);
+    border-color: var(--amber);
+    box-shadow: 0 0 0 1px var(--amber), 0 8px 24px -10px var(--accent-glow);
+  }
+  .retro-btn:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+  .retro-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* Primary — bright gradient fill, stronger pulsing bloom. */
+  .retro-btn-primary {
+    border: 1.5px solid var(--amber-bright);
+    background: linear-gradient(180deg, var(--amber-bright), var(--amber));
+    color: #ffffff;
+    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
+    animation: retro-glow 2.4s ease-in-out infinite;
+  }
+  .retro-btn-primary:hover:not(:disabled) {
+    background: linear-gradient(180deg, #b1cdff, var(--amber-bright));
+    box-shadow: 0 0 56px -2px var(--accent-glow),
+      0 0 0 2px var(--amber-bright);
+    animation: none;
+  }
+  @keyframes retro-glow {
+    0%,
+    100% {
+      box-shadow: 0 0 22px -6px var(--accent-glow);
+    }
+    50% {
+      box-shadow: 0 0 44px 0 var(--accent-glow);
+    }
+  }
+
+  /* Accent text — class names kept; --amber is now the blue. */
+  .retro-amber {
+    color: var(--amber);
+  }
+  .retro-green {
+    color: var(--green);
+  }
+  .retro-red {
+    color: var(--red);
+  }
+  .retro-dim {
+    color: var(--text-dim);
+  }
+
+  /* Blinking cursor — used sparingly, the one overt retro flourish. */
+  .retro-cursor::after {
+    content: "▮";
+    color: var(--amber);
+    margin-left: 2px;
+    animation: retro-blink 1.2s steps(1) infinite;
+  }
+  @keyframes retro-blink {
+    50% {
+      opacity: 0;
+    }
+  }
+}

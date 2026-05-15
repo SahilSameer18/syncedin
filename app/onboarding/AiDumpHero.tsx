@@ -1,0 +1,83 @@
+"use client";
+
+import { useState } from "react";
+
+// The fastest onboarding path: the AI you already talk to knows you best.
+// Copy this prompt → paste into that AI → paste its answer into the dump box.
+const AI_PROMPT = `Give me everything you know about me — my personality, current goals, active projects, communication style, key relationships and the dynamics with each, ongoing deals or negotiations, professional background, what I'm good at and what I struggle with, my deal-breakers, how I make decisions, what I'm trying to accomplish in the next 6–12 months, and what kinds of opportunities I'd say yes to immediately.
+
+Be specific and concrete. Don't summarize — include exact phrases I use, quotes from past conversations if you have them, and named examples. If you have memories or stored context about me, surface all of it. If you don't know something, say "unknown" rather than guessing.
+
+Output as plain text, structured by these headings:
+# Background
+# Current goals (next 6–12 months)
+# Active projects
+# Communication style (with examples of how I write)
+# Key relationships
+# Ongoing deals / negotiations
+# Decision style
+# Deal-breakers and constraints
+# Opportunities I'd say yes to immediately`;
+
+const APPS = [
+  { name: "ChatGPT", url: "https://chatgpt.com" },
+  { name: "Claude", url: "https://claude.ai" },
+  { name: "Gemini", url: "https://gemini.google.com/app" },
+  { name: "Grok", url: "https://grok.com" }
+];
+
+export function AiDumpHero() {
+  const [copied, setCopied] = useState(false);
+
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(AI_PROMPT);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked */
+    }
+  }
+
+  return (
+    <div className="retro-panel retro-shadow p-5">
+      <div className="retro-label">// fastest path — about 30 seconds</div>
+      <h2 className="retro-h1 text-xl mt-2">
+        Let the AI you already use describe you
+      </h2>
+      <p className="mt-1.5 retro-dim text-sm leading-relaxed">
+        It already knows your goals, your voice, how you think. Copy the
+        prompt, open your AI, paste its answer into the box below — that&apos;s
+        a real twin in one step.
+      </p>
+
+      <button
+        type="button"
+        onClick={copyPrompt}
+        className="retro-btn retro-btn-primary w-full mt-4"
+      >
+        {copied ? "✓ Prompt copied — now open your AI" : "1 · Copy the prompt"}
+      </button>
+
+      <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {APPS.map((a) => (
+          <a
+            key={a.name}
+            href={a.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="retro-btn text-xs"
+          >
+            2 · Open {a.name}
+          </a>
+        ))}
+      </div>
+
+      <p className="mt-3 retro-dim text-[11px]">
+        3 · Paste the AI&apos;s full answer into the box below. Don&apos;t want
+        to? A scan of your public footprint via Exa is coming as a one-click
+        alternative.
+      </p>
+    </div>
+  );
+}

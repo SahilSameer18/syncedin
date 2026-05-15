@@ -1,0 +1,124 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+
+function origin() {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
+    "http://localhost:3000"
+  );
+}
+
+// ── Magic link ────────────────────────────────────────────────────────────
+export async function login(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email) redirect("/login?error=missing_email");
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: `${origin()}/auth/callback` }
+  });
+
+  if (error) {
+    console.error("signInWithOtp error", error);
+    const detail = encodeURIComponent(
+      `${error.message}${error.status ? ` (status ${error.status})` : ""}`
+    );
+    redirect(`/login?error=send_failed&detail=${detail}`);
+  }
+  redirect("/login?sent=1");
+}
+
+// ── Password sign-in ──────────────────────────────────────────────────────
+export async function signInWithPassword(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!email || !password) redirect("/login?error=missing_credentials");
+
+  const supabase = createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+  if (error) {
+    const detail = encodeURIComponent(error.message);
+    redirect(`/login?error=password_failed&detail=${detail}`);
+  }
+  redirect("/dashboard");
+}
+
+// ── Password sign-up ──────────────────────────────────────────────────────
+// If Supabase has "Confirm email" on, the user still gets a confirmation
+// email. Once confirmed (or if confirmation is off) they can password-login
+// forever after — the redundancy that doesn't depend on magic links working.
+export async function signUpWithPassword(formData: FormData) {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+  if (!email || !password) redirect("/login?error=missing_credentials");
+  if (password.length < 8) {
+    redirect(
+      `/login?error=password_failed&detail=${encodeURIComponent(
+        "Password must be at least 8 characters."
+      )}`
+    );
+  }
+
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: `${origin()}/auth/callback` }
+  });
+  if (error) {
+    const detail = encodeURIComponent(error.message);
+    redirect(`/login?error=password_failed&detail=${detail}`);
+  }
+  // If a session came back immediately, email confirmation is off — go in.
+  if (data.session) redirect("/dashboard");
+  // Otherwise they need to confirm via email first.
+  redirect("/login?sent=1");
+}
+
+// ── OAuth (Google / Apple) ────────────────────────────────────────────────
+// These require the provider to be enabled in Supabase → Auth → Providers
+// with OAuth credentials. The code is ready; the provider config is not.
+export async function signInWithGoogle() {
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: `${origin()}/auth/callback` }
+  });
+  if (error || !data.url) {
+    redirect(
+      `/login?error=oauth_failed&detail=${encodeURIComponent(
+        error?.message ?? "Google sign-in is not configured yet."
+      )}`
+    );
+  }
+  redirect(data.url);
+}
+
+export async function signInWithApple() {
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "apple",
+    options: { redirectTo: `${origin()}/auth/callback` }
+  });
+  if (error || !data.url) {
+    redirect(
+      `/login?error=oauth_failed&detail=${encodeURIComponent(
+        error?.message ?? "Apple sign-in is not configured yet."
+      )}`
+    );
+  }
+  redirect(data.url);
+}
+
+// ── Sign out ──────────────────────────────────────────────────────────────
+export async function signOut() {
+  const supabase = createClient();
+  await supabase.auth.signOut();
+  redirect("/");
+}
