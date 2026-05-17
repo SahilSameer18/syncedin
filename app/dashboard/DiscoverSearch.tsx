@@ -39,6 +39,8 @@ export function DiscoverSearch({
   const [drafting, setDrafting] = useState<string | null>(null);
   const [draftFor, setDraftFor] = useState<ExaPerson | null>(null);
   const [draftText, setDraftText] = useState("");
+  const [shortText, setShortText] = useState("");
+  const [inviteUrl, setInviteUrl] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -85,6 +87,8 @@ export function DiscoverSearch({
     setDraftFor(p);
     setDrafting(p.url);
     setDraftText("");
+    setShortText("");
+    setInviteUrl("");
     try {
       const r = await fetch("/api/exa-draft-outreach", {
         method: "POST",
@@ -97,6 +101,8 @@ export function DiscoverSearch({
       });
       const j = await r.json();
       setDraftText(j.message ?? "");
+      setShortText(j.short_message ?? "");
+      setInviteUrl(j.invite_url ?? "");
     } catch {
       setDraftText("");
     } finally {
@@ -116,12 +122,35 @@ export function DiscoverSearch({
         </div>
       </div>
 
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by name — find them on SyncedIn or anywhere on the web"
-        className="retro-input mt-3"
-      />
+      <div className="mt-3 relative">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search by name. Find them on SyncedIn or anywhere on the web."
+          className="retro-input"
+          style={{ paddingRight: q ? 80 : 16 }}
+        />
+        {q && (
+          <button
+            type="button"
+            onClick={() => setQ("")}
+            className="retro-dim hover:text-white"
+            style={{
+              position: "absolute",
+              right: 8,
+              top: "50%",
+              transform: "translateY(-50%)",
+              fontSize: 12,
+              padding: "4px 10px",
+              borderRadius: 6,
+              border: "1px solid var(--border-bright)",
+              background: "var(--panel-2)"
+            }}
+          >
+            × clear
+          </button>
+        )}
+      </div>
 
       {/* Empty state — show the existing directory of finished twins */}
       {!searching && (
@@ -164,9 +193,16 @@ export function DiscoverSearch({
         </div>
       )}
 
-      {/* Search results */}
+      {/* Search results — capped so the chats below stay reachable */}
       {searching && (
-        <div className="mt-4 space-y-5">
+        <div
+          className="mt-4 space-y-5"
+          style={{
+            maxHeight: "60vh",
+            overflowY: "auto",
+            paddingRight: 4
+          }}
+        >
           {/* Email shortcut */}
           {isEmail(q) && (
             <div className="retro-panel p-3">
@@ -300,29 +336,76 @@ export function DiscoverSearch({
                         )}
 
                         {draftFor?.url === p.url && draftText && (
-                          <div className="mt-3">
-                            <textarea
-                              value={draftText}
-                              onChange={(e) => setDraftText(e.target.value)}
-                              rows={5}
-                              className="retro-input"
-                            />
-                            <div className="flex gap-2 mt-2">
-                              <button
-                                type="button"
-                                onClick={() => copy(draftText)}
-                                className="retro-btn retro-btn-primary text-sm"
+                          <div className="mt-3 space-y-3">
+                            {/* Short connection-request note (max 200 chars) */}
+                            {shortText && (
+                              <div>
+                                <div
+                                  className="retro-label flex items-center justify-between"
+                                  style={{ color: "var(--amber-bright)" }}
+                                >
+                                  <span>connection note · {shortText.length}/200</span>
+                                </div>
+                                <textarea
+                                  value={shortText}
+                                  onChange={(e) =>
+                                    setShortText(e.target.value.slice(0, 200))
+                                  }
+                                  rows={2}
+                                  className="retro-input mt-1 text-sm"
+                                  maxLength={200}
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => copy(shortText)}
+                                  className="retro-btn text-sm mt-2"
+                                >
+                                  Copy connection note
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Long DM with personal invite link */}
+                            <div>
+                              <div
+                                className="retro-label"
+                                style={{ color: "var(--amber-bright)" }}
                               >
-                                Copy
-                              </button>
-                              <a
-                                href={p.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="retro-btn text-sm"
-                              >
-                                Open profile →
-                              </a>
+                                direct message (with invite link)
+                              </div>
+                              <textarea
+                                value={draftText}
+                                onChange={(e) => setDraftText(e.target.value)}
+                                rows={6}
+                                className="retro-input mt-1 text-sm"
+                              />
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => copy(draftText)}
+                                  className="retro-btn retro-btn-primary text-sm"
+                                >
+                                  Copy DM
+                                </button>
+                                {inviteUrl && (
+                                  <a
+                                    href={inviteUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="retro-btn text-sm"
+                                  >
+                                    Preview invite page →
+                                  </a>
+                                )}
+                                <a
+                                  href={p.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="retro-btn text-sm"
+                                >
+                                  Open profile →
+                                </a>
+                              </div>
                             </div>
                           </div>
                         )}

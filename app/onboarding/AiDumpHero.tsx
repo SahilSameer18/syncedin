@@ -19,11 +19,19 @@ Output as plain text, structured by these headings:
 # Deal-breakers and constraints
 # Opportunities I'd say yes to immediately`;
 
+// Logos via Google's favicon CDN — high-resolution, no manual hosting.
+const FAVICON = (domain: string) =>
+  `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+
 const APPS = [
-  { name: "ChatGPT", url: "https://chatgpt.com" },
-  { name: "Claude", url: "https://claude.ai" },
-  { name: "Gemini", url: "https://gemini.google.com/app" },
-  { name: "Grok", url: "https://grok.com" }
+  { name: "ChatGPT", url: "https://chatgpt.com", logo: FAVICON("chatgpt.com") },
+  { name: "Claude", url: "https://claude.ai", logo: FAVICON("claude.ai") },
+  {
+    name: "Gemini",
+    url: "https://gemini.google.com/app",
+    logo: FAVICON("gemini.google.com")
+  },
+  { name: "Grok", url: "https://grok.com", logo: FAVICON("grok.com") }
 ];
 
 export function AiDumpHero() {
@@ -66,9 +74,23 @@ export function AiDumpHero() {
             href={a.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="retro-btn text-xs"
+            className="retro-btn text-xs flex items-center gap-2"
           >
-            2 · Open {a.name}
+            <img
+              src={a.logo}
+              alt=""
+              width={18}
+              height={18}
+              style={{
+                display: "inline-block",
+                borderRadius: 4,
+                flexShrink: 0
+              }}
+              loading="lazy"
+            />
+            <span>
+              2 · Open <span style={{ fontWeight: 700 }}>{a.name}</span>
+            </span>
           </a>
         ))}
       </div>

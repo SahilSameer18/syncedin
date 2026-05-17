@@ -23,76 +23,89 @@ export default async function DashboardPage() {
 
   const service = createServiceClient();
 
-  // Current user's full twin record (used for Sync %)
-  const { data: twin } = await supabase
-    .from("twin_profiles")
-    .select(
-      "user_id, goals, deal_preferences, communication_style, deal_breakers, ai_export_blob"
-    )
-    .eq("user_id", user.id)
-    .maybeSingle();
-  const { data: myProfile } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .maybeSingle();
-  const twinComplete = Boolean(twin?.goals);
+  // Parallelize the independent first wave: my twin, my profile, my
+  // conversations, sample personas, all real users for discovery.
+  const [
+    { data: twin },
+    { data: myProfile },
+    { data: conversations },
+    { data: testPersonas },
+    { data: allRealUsers }
+  ] = await Promise.all([
+    supabase
+      .from("twin_profiles")
+      .select(
+        "user_id, goals, deal_preferences, communication_style, deal_breakers, ai_export_blob"
+      )
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("conversations")
+      .select(
+        "id, participant_a, participant_b, status, created_at, summary, counterpart_summary, excitement_score, excitement_locked"
+      )
+      .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
+      .order("created_at", { ascending: false }),
+    service
+      .from("profiles")
+      .select("id, display_name, email")
+      .eq("is_test_persona", true)
+      .order("display_name", { ascending: true }),
+    service
+      .from("profiles")
+      .select("id, display_name, email")
+      .eq("is_test_persona", false)
+      .neq("id", user.id)
+  ]);
 
-  // This user's conversations
-  const { data: conversations } = await supabase
-    .from("conversations")
-    .select(
-      "id, participant_a, participant_b, status, created_at, summary, counterpart_summary, excitement_score, excitement_locked"
-    )
-    .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
-    .order("created_at", { ascending: false });
+  const twinComplete = Boolean(twin?.goals);
 
   const otherIds = (conversations ?? []).map((c) =>
     c.participant_a === user.id ? c.participant_b : c.participant_a
   );
-  const { data: others } = otherIds.length
-    ? await service
-        .from("profiles")
-        .select("id, display_name, email, is_test_persona")
-        .in("id", otherIds)
-    : { data: [] as any[] };
+  const personaIds = (testPersonas ?? []).map((p) => p.id);
+  const realUserIds = (allRealUsers ?? []).map((p) => p.id);
+
+  // Parallelize the second wave that depends on the first.
+  const [
+    { data: others },
+    { data: personaTwins },
+    { data: realTwins }
+  ] = await Promise.all([
+    otherIds.length
+      ? service
+          .from("profiles")
+          .select("id, display_name, email, is_test_persona")
+          .in("id", otherIds)
+      : Promise.resolve({ data: [] as any[] }),
+    personaIds.length
+      ? service
+          .from("twin_profiles")
+          .select("user_id, goals")
+          .in("user_id", personaIds)
+      : Promise.resolve({ data: [] as any[] }),
+    realUserIds.length
+      ? service
+          .from("twin_profiles")
+          .select("user_id, goals, deal_preferences")
+          .in("user_id", realUserIds)
+      : Promise.resolve({ data: [] as any[] })
+  ]);
+
   const nameById = new Map(
     (others ?? []).map((p) => [p.id, p.display_name || p.email] as const)
   );
   const isTestById = new Map(
     (others ?? []).map((p) => [p.id, p.is_test_persona] as const)
   );
-
-  // Sample twins (test personas)
-  const { data: testPersonas } = await service
-    .from("profiles")
-    .select("id, display_name, email")
-    .eq("is_test_persona", true)
-    .order("display_name", { ascending: true });
-  const personaIds = (testPersonas ?? []).map((p) => p.id);
-  const { data: personaTwins } = personaIds.length
-    ? await service
-        .from("twin_profiles")
-        .select("user_id, goals")
-        .in("user_id", personaIds)
-    : { data: [] as any[] };
   const personaGoal = new Map(
     (personaTwins ?? []).map((t) => [t.user_id, t.goals ?? ""] as const)
   );
-
-  // Directory: every real user with a completed twin (besides me)
-  const { data: allRealUsers } = await service
-    .from("profiles")
-    .select("id, display_name, email")
-    .eq("is_test_persona", false)
-    .neq("id", user.id);
-  const realUserIds = (allRealUsers ?? []).map((p) => p.id);
-  const { data: realTwins } = realUserIds.length
-    ? await service
-        .from("twin_profiles")
-        .select("user_id, goals, deal_preferences")
-        .in("user_id", realUserIds)
-    : { data: [] as any[] };
   const twinByUser = new Map(
     (realTwins ?? []).map((t) => [t.user_id, t] as const)
   );

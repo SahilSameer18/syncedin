@@ -190,11 +190,13 @@ function ScoringPromptModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <p className="mt-3 text-sm" style={{ color: "var(--text-dim)" }}>
-          After every completed conversation, Claude reads the full transcript
-          and returns a 0–100 excitement score using the rubric below. Every
-          time you change a score manually, the new value gets logged as a
-          calibration delta — and the next score Claude generates for you uses
-          those deltas as guidance. The score literally learns your taste.
+          After every completed conversation, The Sync reads the full
+          transcript and returns a 0 to 100 score using the rubric below.
+          It&apos;s <em>your</em> Sync Score, so you choose how it&apos;s
+          calibrated. Every time you change a score manually, the new value
+          is logged as a calibration delta, and the next score The Sync
+          generates for you uses those deltas as guidance. Over time your
+          chats stay sorted by what&apos;s actually highest-value to you.
         </p>
 
         <div className="mt-5">

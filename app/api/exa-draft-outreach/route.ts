@@ -99,7 +99,7 @@ export async function POST(req: Request) {
     "https://syncedin.org";
   const inviteUrl = `${appUrl}/${slug}`;
 
-  const systemPrompt = `You are the digital twin of ${selfName}, writing a first outreach message to invite someone to connect on SyncedIn (an agent-to-agent protocol where two people's digital twins explore the highest-leverage win-win between them).
+  const longSystemPrompt = `You are the digital twin of ${selfName}, writing a first outreach message to invite someone to connect on SyncedIn (an agent-to-agent protocol where two people's digital twins explore the highest-leverage win-win between them).
 
 # Who you are representing
 Name: ${selfName}
@@ -120,42 +120,38 @@ ${inviteUrl}
 # Hard rules — do not break these
 - 3 to 5 short sentences. No long monologue.
 - DO NOT use em-dashes or en-dashes anywhere. Use commas, periods, or colons instead.
-- Be CONCRETE about why ${selfName} and this person are a fit. Reference something specific from what's known about them above. Generic flattery is forbidden ("you seem amazing", "your work is impressive" — banned).
+- Be CONCRETE about why ${selfName} and this person are a fit. Reference something SUBSTANTIVE from what's known about them above: their role, focus, what they build, ship, or care about. Generic flattery is banned.
+- NEVER mention follower count, connection count, audience size, or how popular they are online. That's low-signal noise.
 - Mention that the platform suggested the match, and that a conversation has already been auto-generated from your clone at the link. Phrase it like: the recipient can sign up and their clone can pair with yours to streamline the back-and-forth.
 - Include the personal invite link above (raw URL, no markdown) somewhere natural in the message.
 - First person, plain text. No subject line, no signature.
 - Match ${selfName}'s communication style.`;
 
+  // Short message system prompt — for LinkedIn connection-request notes which
+  // are capped at 200 characters. The link won't fit, so we don't include it.
+  const shortSystemPrompt = `You are the digital twin of ${selfName}, writing a LinkedIn connection-request note to someone you don't know yet.
+
+# Who you are representing
+Name: ${selfName}
+Goals: ${t?.goals || "(not specified)"}
+
+# Who you're reaching out to
+${personTitle}
+What's known about them: ${highlights || "(only the name/role above)"}
+
+# Hard rules
+- MAX 195 CHARACTERS. Count them. LinkedIn cuts off anything past 200.
+- 1 to 2 sentences only.
+- NO em-dashes or en-dashes. NO markdown. NO subject line, NO signature.
+- One specific reason ${selfName} wants to connect, drawn from what's known about them. NEVER mention follower count, connection count, or audience size.
+- End on a light invitation to chat. Do NOT include a URL (it eats characters and triggers spam filters in connection notes).
+- First person, plain text.`;
+
   let outreach = "";
+  let shortNote = "";
   let convStarter = "";
 
-  try {
-    // 1. Generate the outreach message they'll receive on LinkedIn / email.
-    const r1 = await anthropic.messages.create({
-      model: TWIN_MODEL,
-      max_tokens: 600,
-      system: systemPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Write the outreach message to ${personTitle}. Remember: no em-dashes, be specific about why they're a fit, include the invite link, mention the auto-generated conversation.`
-        }
-      ]
-    });
-    outreach = r1.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { text: string }).text)
-      .join("\n")
-      .trim();
-    outreach = stripDashes(outreach);
-    // Belt and suspenders: if Claude forgot the link, append it.
-    if (!outreach.includes(inviteUrl)) {
-      outreach = `${outreach}\n\n${inviteUrl}`;
-    }
-
-    // 2. Generate the opening conversation message from the user's twin that
-    //    the invitee will see when they land at /<slug>.
-    const convPrompt = `You are the digital twin of ${selfName}. Write the OPENING message of a conversation with ${personTitle}, who is about to land on a SyncedIn invite page from ${selfName}'s clone.
+  const convPrompt = `You are the digital twin of ${selfName}. Write the OPENING message of a conversation with ${personTitle}, who is about to land on a SyncedIn invite page from ${selfName}'s clone.
 
 Context the recipient will see:
 - ${selfName}'s goals: ${t?.goals || "(not specified)"}
@@ -163,22 +159,72 @@ Context the recipient will see:
 
 Rules:
 - 2 to 4 sentences, first person, as ${selfName}'s clone speaking to ${personTitle}.
-- Open with something specific you noticed about them.
+- Open with something specific you noticed about them. Never mention follower or connection count.
 - Name the concrete overlap between ${selfName} and them.
 - Close with a real question or proposal that invites a reply.
 - NO em-dashes or en-dashes anywhere. NO markdown. Just prose.`;
-    const r2 = await anthropic.messages.create({
-      model: TWIN_MODEL,
-      max_tokens: 400,
-      system: convPrompt,
-      messages: [
-        {
-          role: "user",
-          content: `Write the opening conversation message.`
-        }
-      ]
-    });
-    convStarter = r2.content
+
+  try {
+    // Generate all three in parallel — long DM, 200-char connection note,
+    // and the landing-page opening conversation message.
+    const [r1, r2, r3] = await Promise.all([
+      anthropic.messages.create({
+        model: TWIN_MODEL,
+        max_tokens: 600,
+        system: longSystemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: `Write the outreach message to ${personTitle}. Remember: no em-dashes, be specific about why they're a fit, include the invite link, mention the auto-generated conversation, never mention follower count.`
+          }
+        ]
+      }),
+      anthropic.messages.create({
+        model: TWIN_MODEL,
+        max_tokens: 200,
+        system: shortSystemPrompt,
+        messages: [
+          {
+            role: "user",
+            content: `Write the LinkedIn connection-request note. STRICT 195 character cap. No URL. No follower count mention.`
+          }
+        ]
+      }),
+      anthropic.messages.create({
+        model: TWIN_MODEL,
+        max_tokens: 400,
+        system: convPrompt,
+        messages: [
+          {
+            role: "user",
+            content: `Write the opening conversation message.`
+          }
+        ]
+      })
+    ]);
+
+    outreach = r1.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join("\n")
+      .trim();
+    outreach = stripDashes(outreach);
+    if (!outreach.includes(inviteUrl)) {
+      outreach = `${outreach}\n\n${inviteUrl}`;
+    }
+
+    shortNote = r2.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join(" ")
+      .trim();
+    shortNote = stripDashes(shortNote);
+    // Hard cap to 200 chars regardless of what the model returned.
+    if (shortNote.length > 200) {
+      shortNote = shortNote.slice(0, 197).trimEnd() + "...";
+    }
+
+    convStarter = r3.content
       .filter((b) => b.type === "text")
       .map((b) => (b as { text: string }).text)
       .join("\n")
@@ -208,6 +254,7 @@ Rules:
 
   return NextResponse.json({
     message: outreach,
+    short_message: shortNote,
     slug,
     invite_url: inviteUrl,
     conversation_starter: convStarter

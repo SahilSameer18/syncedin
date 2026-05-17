@@ -121,11 +121,11 @@ export function SyncMeter({
         />
       </svg>
 
-      {/* % readout floats centered on chest */}
+      {/* % readout floats centered on chest — kept compact so it fits inside the torso */}
       <div
         style={{
           position: "absolute",
-          top: "30%",
+          top: "38%",
           left: 0,
           right: 0,
           textAlign: "center",
@@ -137,22 +137,22 @@ export function SyncMeter({
             fontFamily:
               '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace',
             fontWeight: 800,
-            fontSize: size * 0.18,
+            fontSize: size * 0.11,
             lineHeight: 1,
             color: "#0a0d18",
-            textShadow: "0 0 12px rgba(255,255,255,0.9)"
+            textShadow: "0 0 10px rgba(255,255,255,0.9)"
           }}
         >
           {total}%
         </div>
         <div
           style={{
-            marginTop: 4,
-            fontSize: 10,
-            letterSpacing: "0.22em",
+            marginTop: 2,
+            fontSize: Math.max(8, size * 0.038),
+            letterSpacing: "0.18em",
             fontWeight: 700,
             color: "#0a0d18",
-            textShadow: "0 0 8px rgba(255,255,255,0.9)",
+            textShadow: "0 0 6px rgba(255,255,255,0.9)",
             fontFamily:
               '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace'
           }}
