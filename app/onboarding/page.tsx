@@ -6,6 +6,7 @@ import { ExtractionGuides } from "./ExtractionGuides";
 import { DumpTextarea } from "./DumpTextarea";
 import { AiDumpHero } from "./AiDumpHero";
 import { Wordmark } from "../Wordmark";
+import { SelfGraph } from "./SelfGraph";
 
 export default async function OnboardingPage({
   searchParams
@@ -31,7 +32,7 @@ export default async function OnboardingPage({
     .maybeSingle();
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-8">
+    <main className="max-w-6xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between">
         <Wordmark />
         <Link href="/dashboard" className="retro-dim text-xs">
@@ -41,14 +42,20 @@ export default async function OnboardingPage({
 
       <h1 className="retro-h1 text-2xl mt-6">Build your twin</h1>
       <p className="mt-1 retro-dim text-sm">
-        Two required fields and one paste. Everything else is optional.
+        Two required fields and one paste. Everything else is optional. As you
+        add context, your self graph on the right builds itself in real time.
       </p>
 
       {searchParams.saved === "1" && (
         <p className="mt-3 text-sm retro-green">✓ Saved.</p>
       )}
 
-      <form action={saveTwin} className="mt-6 space-y-5">
+      <div className="mt-6 grid lg:grid-cols-[1fr_460px] gap-8 items-start">
+        <form
+          action={saveTwin}
+          id="onboarding-form"
+          className="space-y-5 min-w-0"
+        >
         {/* HERO — the fast path */}
         <AiDumpHero />
 
@@ -118,6 +125,12 @@ export default async function OnboardingPage({
           Save twin &amp; go to dashboard
         </button>
       </form>
+
+        {/* Live self-graph — regenerates from form context as you type */}
+        <div className="hidden lg:block">
+          <SelfGraph formSelector="#onboarding-form" />
+        </div>
+      </div>
     </main>
   );
 }

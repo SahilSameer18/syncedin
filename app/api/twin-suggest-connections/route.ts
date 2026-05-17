@@ -15,7 +15,7 @@ import type { Profile, TwinProfile } from "@/lib/types";
  *  4. Merge + dedupe results and return grouped by query, so the UI can show
  *     "[rationale] → [matched people]".
  */
-export async function POST() {
+export async function POST(req: Request) {
   const supabase = createClient();
   const {
     data: { user }
@@ -23,6 +23,18 @@ export async function POST() {
   if (!user) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  // Optional custom intent — e.g. "founders in fintech", "investors who back
+  // AI music platforms", "biotech CEOs with humanitarian focus". If present,
+  // the twin's plan must respond to it directly while still using the user's
+  // own context as the lens.
+  let body: { intent?: string } = {};
+  try {
+    body = await req.json();
+  } catch {
+    /* no body is fine — open-ended planning */
+  }
+  const intent = (body.intent ?? "").trim().slice(0, 280);
 
   const service = createServiceClient();
   const [{ data: profile }, { data: twin }] = await Promise.all([
@@ -45,13 +57,17 @@ export async function POST() {
   }
 
   // Step 1: Claude proposes the search queries.
-  const planPrompt = `You are ${selfName}'s digital twin. Your job: figure out who ${selfName} should reach out to RIGHT NOW based on what they're working on.
+  const intentBlock = intent
+    ? `\n\n# PRIMARY DIRECTIVE FROM ${selfName.toUpperCase()}\n${selfName} wants you to find people that match this specific intent: "${intent}". Every suggestion MUST serve this intent. Use ${selfName}'s context above only as the lens that sharpens the search, not as a constraint that overrides the intent.`
+    : "";
+
+  const planPrompt = `You are ${selfName}'s digital twin. Your job: figure out who ${selfName} should reach out to RIGHT NOW.
 
 # What ${selfName} has told you
 Goals: ${t.goals}
 Deal preferences: ${t.deal_preferences || "(not specified)"}
 Deal-breakers: ${t.deal_breakers || "(not specified)"}
-Other context: ${(t.ai_export_blob || "").slice(0, 4000)}
+Other context: ${(t.ai_export_blob || "").slice(0, 4000)}${intentBlock}
 
 Return ONLY valid JSON with this exact shape:
 {
@@ -68,7 +84,7 @@ Rules:
 - 3 or 4 suggestions. No more.
 - The rationale is from ${selfName}'s point of view, written as their twin would speak ("I want to find...", "These are the people who...").
 - Each search_query targets a concrete archetype (role + domain + signal), not a single named person.
-- Match the user's goals concretely. Avoid generic categories like "founders" with nothing else attached.`;
+- Match the user's goals concretely. Avoid generic categories like "founders" with nothing else attached.${intent ? `\n- ALL suggestions must serve the intent "${intent}" above.` : ""}`;
 
   type Plan = { rationale: string; search_query: string };
   let plan: Plan[] = [];

@@ -121,12 +121,40 @@ export function DiscoverSearch({
   };
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [intent, setIntent] = useState("");
+  const [lastIntent, setLastIntent] = useState("");
 
-  async function askTwin() {
+  // Cycling placeholder examples — rotate every ~3s so users see different
+  // ways to use the freeform intent box.
+  const SAMPLE_INTENTS = [
+    "founders building in fintech right now",
+    "investors who back AI music platforms",
+    "biotech CEOs with humanitarian focus",
+    "engineers shipping agentic infra",
+    "operators in vertical SaaS",
+    "writers covering the AI agent space",
+    "lawyers who advise on token launches",
+    "people building knowledge graphs",
+    "product designers obsessed with retro UI"
+  ];
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  useEffect(() => {
+    if (intent.trim()) return; // freeze rotation if user is typing
+    const t = setInterval(
+      () => setPlaceholderIdx((i) => (i + 1) % SAMPLE_INTENTS.length),
+      3000
+    );
+    return () => clearInterval(t);
+  }, [intent]);
+
+  async function askTwin(useIntent: string) {
     setSuggesting(true);
+    setLastIntent(useIntent);
     try {
       const r = await fetch("/api/twin-suggest-connections", {
-        method: "POST"
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(useIntent ? { intent: useIntent } : {})
       });
       const j = await r.json();
       setSuggestions(j.suggestions ?? []);
@@ -179,18 +207,47 @@ export function DiscoverSearch({
       {/* Twin-recommended connections */}
       {!searching && (
         <div className="mt-4">
-          <button
-            type="button"
-            onClick={askTwin}
-            disabled={suggesting}
-            className="retro-btn w-full"
+          <div className="flex gap-2">
+            <input
+              value={intent}
+              onChange={(e) => setIntent(e.target.value.slice(0, 280))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  askTwin(intent.trim());
+                }
+              }}
+              placeholder={
+                intent
+                  ? ""
+                  : `Ask your twin: e.g. "${SAMPLE_INTENTS[placeholderIdx]}"`
+              }
+              className="retro-input flex-1"
+              maxLength={280}
+            />
+            <button
+              type="button"
+              onClick={() => askTwin(intent.trim())}
+              disabled={suggesting}
+              className="retro-btn retro-btn-primary shrink-0"
+            >
+              {suggesting
+                ? "thinking…"
+                : intent.trim()
+                ? "search"
+                : suggestions
+                ? "again"
+                : "ask twin"}
+            </button>
+          </div>
+          <div
+            className="retro-dim text-xs mt-2"
+            style={{ minHeight: 18 }}
           >
-            {suggesting
-              ? "Your twin is thinking…"
-              : suggestions
-              ? "Ask your twin again"
-              : "Ask your twin who to connect with →"}
-          </button>
+            {lastIntent
+              ? `searched: "${lastIntent}"`
+              : "Leave it blank to let your twin pick. Or type any intent — your twin combines it with your own context to find the right people."}
+          </div>
 
           {suggestions && suggestions.length === 0 && !suggesting && (
             <p className="retro-dim text-sm mt-3">
