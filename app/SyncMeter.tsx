@@ -23,42 +23,58 @@ export function SyncMeter({
   const HEAD_CX = 100;
   const HEAD_CY = 36;
   const HEAD_R = 22;
+  // Body silhouette: arms hang DOWN by the sides with rounded hands,
+  // torso tapers from shoulders to waist, two legs with feet.
   const BODY =
-    "M 78 64 " +
-    "L 122 64 " +
-    "L 138 76 " +
-    "L 156 124 " +
-    "C 158 134 152 140 144 138 " +
-    "L 138 130 " +
-    "L 130 124 " +
-    "L 134 116 " +
-    "L 128 100 " +
-    "L 128 142 " +
-    "L 134 192 " +
-    "L 130 244 " +
-    "L 124 292 " +
-    "L 124 304 " +
-    "C 124 308 120 310 116 310 " +
-    "C 112 310 110 308 110 304 " +
-    "L 108 244 " +
-    "L 104 192 " +
-    "L 96 192 " +
-    "L 92 244 " +
-    "L 90 304 " +
-    "C 90 308 86 310 82 310 " +
-    "C 78 310 76 308 76 304 " +
-    "L 76 292 " +
-    "L 70 244 " +
-    "L 66 192 " +
-    "L 72 142 " +
-    "L 72 100 " +
-    "L 66 116 " +
-    "L 70 124 " +
-    "L 62 130 " +
-    "L 56 138 " +
-    "C 48 140 42 134 44 124 " +
-    "L 62 76 " +
-    "L 78 64 " +
+    // ── Neck + right shoulder slope
+    "M 92 64 " +
+    "L 108 64 " +
+    "C 120 68 132 74 138 84 " +
+    "C 142 90 144 98 142 108 " +
+    // ── Outer right arm down
+    "L 142 184 " +
+    // ── Right hand (rounded)
+    "C 142 194 140 200 132 200 " +
+    "C 124 200 122 194 122 184 " +
+    // ── Inner right arm back up to armpit
+    "L 124 108 " +
+    "C 124 98 122 92 118 88 " +
+    // ── Right side of torso down to hip
+    "L 122 140 " +
+    "L 126 200 " +
+    // ── Outer right leg down
+    "L 124 268 " +
+    "L 122 304 " +
+    // ── Right foot
+    "C 122 310 118 312 114 312 " +
+    "C 110 312 108 310 108 304 " +
+    // ── Inner right leg up
+    "L 106 268 " +
+    "L 102 200 " +
+    // ── Crotch
+    "L 98 200 " +
+    // ── Inner left leg down
+    "L 94 268 " +
+    "L 92 304 " +
+    // ── Left foot
+    "C 92 310 88 312 84 312 " +
+    "C 80 312 76 310 76 304 " +
+    // ── Outer left leg up
+    "L 74 268 " +
+    "L 78 200 " +
+    // ── Left side of torso up
+    "L 78 140 " +
+    "L 82 88 " +
+    "C 78 92 76 98 76 108 " +
+    // ── Inner left arm down
+    "L 78 184 " +
+    // ── Left hand (rounded)
+    "C 78 194 76 200 68 200 " +
+    "C 60 200 58 194 58 184 " +
+    // ── Outer left arm back up to shoulder
+    "L 58 108 " +
+    "C 56 98 58 90 62 84 " +
+    "C 68 74 80 68 92 64 " +
     "Z";
   const HEAD = `M ${HEAD_CX} ${HEAD_CY - HEAD_R} a ${HEAD_R} ${HEAD_R} 0 1 0 0.001 0 Z`;
   const silhouette = `${HEAD} ${BODY}`;

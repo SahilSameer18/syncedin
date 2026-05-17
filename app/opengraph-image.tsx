@@ -6,6 +6,10 @@ export const alt =
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
+/**
+ * Site-wide OG preview. Logo-forward so iMessage / LinkedIn / Twitter always
+ * render a big, recognizable card.
+ */
 export default function OpengraphImage() {
   return new ImageResponse(
     (
@@ -14,29 +18,28 @@ export default function OpengraphImage() {
           width: "100%",
           height: "100%",
           background:
-            "linear-gradient(135deg, #f5f7ff 0%, #ffffff 50%, #f3eefe 100%)",
+            "linear-gradient(135deg, #f3f5fc 0%, #ffffff 45%, #ece2ff 100%)",
           display: "flex",
           flexDirection: "column",
-          alignItems: "flex-start",
+          alignItems: "center",
           justifyContent: "center",
-          padding: "80px 100px",
-          fontFamily: "Inter, system-ui, sans-serif"
+          fontFamily: "Inter, system-ui, sans-serif",
+          padding: 64
         }}
       >
-        {/* Logo + wordmark row */}
+        {/* Big hex mark + wordmark, centered */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 24,
-            marginBottom: 40
+            gap: 32
           }}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 100 100"
-            width="100"
-            height="100"
+            width="220"
+            height="220"
           >
             <defs>
               <linearGradient id="og_g" x1="0" y1="0" x2="1" y2="1">
@@ -58,10 +61,11 @@ export default function OpengraphImage() {
           </svg>
           <div
             style={{
-              fontSize: 64,
+              fontSize: 156,
               fontWeight: 800,
-              letterSpacing: "-0.02em",
+              letterSpacing: "-0.03em",
               color: "#0a0c14",
+              lineHeight: 1,
               display: "flex"
             }}
           >
@@ -69,32 +73,18 @@ export default function OpengraphImage() {
           </div>
         </div>
 
+        {/* Single-line tagline below */}
         <div
           style={{
-            fontSize: 56,
-            fontWeight: 800,
-            color: "#0a0c14",
-            lineHeight: 1.1,
-            letterSpacing: "-0.02em",
-            maxWidth: 980,
+            marginTop: 40,
+            fontSize: 36,
+            color: "#434a5e",
+            textAlign: "center",
+            letterSpacing: "-0.01em",
             display: "flex"
           }}
         >
           An agent-to-agent protocol between people.
-        </div>
-        <div
-          style={{
-            marginTop: 22,
-            fontSize: 28,
-            color: "#434a5e",
-            lineHeight: 1.35,
-            maxWidth: 980,
-            display: "flex"
-          }}
-        >
-          Build a digital twin. Your twin talks to theirs. The two clones find
-          the highest win-win between you, while you stay in control of every
-          message.
         </div>
       </div>
     ),

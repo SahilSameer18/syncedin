@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
+import { InviteReveal } from "./InviteReveal";
 
 // Reserved top-level paths that should NOT be treated as invite slugs. Keep in
 // sync with the actual routes in app/.
@@ -57,7 +58,6 @@ export async function generateMetadata({
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";
-  const imageUrl = `${appUrl}/${slug}/opengraph-image`;
   return {
     title,
     description,
@@ -66,21 +66,14 @@ export async function generateMetadata({
       title,
       description,
       siteName: "SyncedIn",
-      url: `${appUrl}/${slug}`,
-      images: [
-        {
-          url: imageUrl,
-          width: 1200,
-          height: 630,
-          alt: title
-        }
-      ]
+      url: `${appUrl}/${slug}`
+      // images auto-generated from app/[slug]/opengraph-image.tsx
     },
     twitter: {
       card: "summary_large_image",
       title,
-      description,
-      images: [imageUrl]
+      description
+      // images auto-generated from app/[slug]/opengraph-image.tsx
     }
   };
 }
@@ -106,10 +99,10 @@ export default async function InviteLandingPage({
     notFound();
   }
 
-  // Lookup the inviter's display name so the landing page reads naturally.
+  // Lookup the inviter's display name + avatar so the landing page reads naturally.
   const { data: inviter } = await service
     .from("profiles")
-    .select("display_name, email")
+    .select("id, display_name, email, avatar_url")
     .eq("id", invite.inviter_user_id)
     .maybeSingle();
   const inviterName =
@@ -117,6 +110,16 @@ export default async function InviteLandingPage({
 
   const personName = invite.person_title?.split(/[-|,(·]/)[0]?.trim() ||
     "you";
+
+  // Compute the teaser (first ~2 sentences capped at 280 chars) up front so
+  // the client typing component knows what to type and how much remains
+  // locked behind sign-up.
+  const fullMsg = invite.conversation_starter || "";
+  const sentences = fullMsg.split(/(?<=[.!?])\s+/);
+  const teaserCount = Math.min(2, sentences.length);
+  let teaser = sentences.slice(0, teaserCount).join(" ");
+  if (teaser.length > 280) teaser = teaser.slice(0, 280).trimEnd();
+  const remainingSentences = Math.max(0, sentences.length - teaserCount);
 
   return (
     <main className="max-w-2xl mx-auto px-5 py-10">
@@ -143,87 +146,14 @@ export default async function InviteLandingPage({
         </p>
       </section>
 
-      {(() => {
-        const full = invite.conversation_starter || "";
-        // Reveal roughly the first two sentences so the visitor gets the
-        // specific hook, then everything else is gated behind sign-up.
-        const sentences = full.split(/(?<=[.!?])\s+/);
-        const teaserSentences = Math.min(2, sentences.length);
-        let teaser = sentences.slice(0, teaserSentences).join(" ");
-        // Hard cap so a single long sentence doesn't dump the whole message.
-        if (teaser.length > 280) teaser = teaser.slice(0, 280).trimEnd();
-        const remainingSentences = sentences.length - teaserSentences;
-        const remainingChars = Math.max(0, full.length - teaser.length);
-        return (
-          <section className="mt-8">
-            <div className="retro-label">opening message</div>
-            <div
-              className="mt-3 retro-panel retro-shadow p-5 relative"
-              style={{ borderColor: "var(--amber)" }}
-            >
-              <div
-                className="retro-dim text-xs mb-2"
-                style={{
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase"
-                }}
-              >
-                {inviterName}&apos;s clone
-              </div>
-              <p
-                className="text-base leading-relaxed"
-                style={{ color: "var(--text)", whiteSpace: "pre-wrap" }}
-              >
-                {teaser}
-                <span style={{ color: "var(--text-dim)" }}>
-                  {teaser.endsWith(".") ||
-                  teaser.endsWith("!") ||
-                  teaser.endsWith("?")
-                    ? " ..."
-                    : "..."}
-                </span>
-              </p>
-
-              {remainingChars > 0 && (
-                <div
-                  className="mt-5 pt-4"
-                  style={{ borderTop: "1px dashed var(--border-bright)" }}
-                >
-                  <div
-                    className="retro-label"
-                    style={{ color: "var(--amber-bright)" }}
-                  >
-                    locked · sign up to read the rest
-                  </div>
-                  <p
-                    className="mt-2 text-sm"
-                    style={{ color: "var(--text-dim)" }}
-                  >
-                    There are {remainingSentences} more sentences in this
-                    message. Sign up and your twin can read all of it AND
-                    continue the conversation with {inviterName}&apos;s
-                    clone, looking for the highest win-win between you.
-                  </p>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Link
-                      href={`/login?invite=${slug}`}
-                      className="retro-btn retro-btn-primary"
-                    >
-                      + sign up to unlock
-                    </Link>
-                    <Link
-                      href={`/login?invite=${slug}`}
-                      className="retro-btn"
-                    >
-                      I already have an account
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          </section>
-        );
-      })()}
+      <InviteReveal
+        slug={slug}
+        inviterId={inviter?.id ?? invite.inviter_user_id}
+        inviterName={inviterName}
+        inviterAvatarUrl={inviter?.avatar_url ?? null}
+        teaser={teaser}
+        remainingSentences={remainingSentences}
+      />
 
       <section className="mt-8 retro-panel p-5">
         <div className="font-semibold text-base">
