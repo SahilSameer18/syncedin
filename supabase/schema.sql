@@ -240,6 +240,69 @@ create policy "conv_update_participant" on public.conversations
   );
 
 -- =========================================================================
+-- Feedback / Requests — public Change.org style page where any signed-in
+-- user can post a request and anyone can vote up or down.
+-- =========================================================================
+
+create table if not exists public.feedback_posts (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references public.profiles(id) on delete set null,
+  author_name text,
+  title text not null,
+  body text,
+  category text default 'idea' check (
+    category in ('idea', 'bug', 'feature', 'other')
+  ),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists feedback_posts_created_idx
+  on public.feedback_posts (created_at desc);
+
+alter table public.feedback_posts enable row level security;
+
+drop policy if exists "feedback_posts_public_read" on public.feedback_posts;
+create policy "feedback_posts_public_read" on public.feedback_posts
+  for select using (true);
+
+drop policy if exists "feedback_posts_insert_own" on public.feedback_posts;
+create policy "feedback_posts_insert_own" on public.feedback_posts
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "feedback_posts_delete_own" on public.feedback_posts;
+create policy "feedback_posts_delete_own" on public.feedback_posts
+  for delete using (auth.uid() = user_id);
+
+create table if not exists public.feedback_votes (
+  post_id uuid not null references public.feedback_posts(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  value smallint not null check (value in (-1, 1)),
+  created_at timestamptz not null default now(),
+  primary key (post_id, user_id)
+);
+
+create index if not exists feedback_votes_post_idx
+  on public.feedback_votes (post_id);
+
+alter table public.feedback_votes enable row level security;
+
+drop policy if exists "feedback_votes_public_read" on public.feedback_votes;
+create policy "feedback_votes_public_read" on public.feedback_votes
+  for select using (true);
+
+drop policy if exists "feedback_votes_insert_own" on public.feedback_votes;
+create policy "feedback_votes_insert_own" on public.feedback_votes
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "feedback_votes_update_own" on public.feedback_votes;
+create policy "feedback_votes_update_own" on public.feedback_votes
+  for update using (auth.uid() = user_id);
+
+drop policy if exists "feedback_votes_delete_own" on public.feedback_votes;
+create policy "feedback_votes_delete_own" on public.feedback_votes
+  for delete using (auth.uid() = user_id);
+
+-- =========================================================================
 -- Pending invites — landing pages at syncedin.org/<slug>
 -- When a user has their twin draft an outreach to a person Exa found, we
 -- generate a public landing-page invite. The recipient hits the URL, sees

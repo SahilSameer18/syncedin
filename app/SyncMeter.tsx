@@ -1,13 +1,14 @@
 import { computeSyncScore, type SyncInputs } from "@/lib/sync-score";
 
 /**
- * SyncMeter v5 — gamified clone visual.
+ * SyncMeter v6 — clean human silhouette, perfectly symmetric.
  *
- * Single continuous silhouette (head + body + arms + legs as one outline,
- * arms are part of the body outline so there are no overlapping internal
- * lines). Strictly symmetric around the center axis. White % readout in
- * the chest area. Rainbow fill rises from the feet upward, mapped to the
- * actual body height so 79% really looks like 79%.
+ * Single continuous outline. Arms hang at the sides with a curved armpit
+ * transition into the torso. Legs are mirror-symmetric with the same
+ * width. Rainbow fill rises from feet up, mapped to actual body height
+ * so 79% = 79% of the body. The % readout lives strictly inside the
+ * chest area between the arms (centered, narrow width) so it never
+ * crosses the arm outlines.
  */
 export function SyncMeter({
   inputs,
@@ -17,71 +18,71 @@ export function SyncMeter({
   size?: number;
 }) {
   const { total } = computeSyncScore(inputs);
-  const FILL_TOP = 16; // very top of head
-  const FILL_BOTTOM = 313; // foot bottom
-  const fillY =
-    FILL_BOTTOM - (FILL_BOTTOM - FILL_TOP) * (total / 100);
+  const FILL_TOP = 16;
+  const FILL_BOTTOM = 313;
+  const fillY = FILL_BOTTOM - (FILL_BOTTOM - FILL_TOP) * (total / 100);
 
-  // ── Head: a separate circle ────────────────────────────────────────────
+  // Head is a separate circle on top
   const HEAD_CX = 100;
-  const HEAD_CY = 38;
+  const HEAD_CY = 40;
   const HEAD_R = 22;
   const headPath = `M ${HEAD_CX} ${HEAD_CY - HEAD_R} a ${HEAD_R} ${HEAD_R} 0 1 0 0.001 0 Z`;
 
-  // ── Body + arms + legs as ONE continuous outline ──────────────────────
-  // Traced clockwise from the neck-left bottom. Arms are integrated into
-  // the outline (down outer, around hand, up inner, into armpit, down
-  // torso), so there are no double lines anywhere.
+  // Body + arms + legs as one continuous symmetric outline.
+  // Tracing clockwise from neck-left bottom.
   const bodyPath = [
-    // neck top
-    "M 88 64",
-    "L 112 64",
-    // right shoulder slope outward to outer arm top
-    "C 128 66 138 72 142 80",
+    "M 88 66",
+    "L 112 66",
+    // right shoulder slope
+    "C 124 68 132 74 138 82",
+    // outer top of right arm
+    "C 144 82 148 86 148 96",
     // outer right arm DOWN
-    "L 142 188",
-    // right hand (rounded bottom)
-    "C 144 202 142 212 132 212",
-    "C 122 212 120 202 122 188",
-    // inner right arm UP toward armpit
-    "L 122 88",
-    // armpit: curve inward into the torso side
-    "C 122 84 118 86 114 92",
+    "L 148 198",
+    // right hand
+    "C 148 210 144 214 138 214",
+    "C 132 214 128 210 128 198",
+    // inner right arm UP
+    "L 128 96",
+    // right armpit (curve into torso)
+    "C 128 102 124 108 116 112",
     // right side of torso DOWN
-    "L 112 200",
-    // right outer thigh outward + down
-    "L 122 270",
-    "L 124 305",
+    "L 116 200",
+    // right hip outward
+    "L 120 215",
+    // outer right leg DOWN
+    "L 118 305",
     // right foot
-    "C 124 311 120 313 116 313",
-    "C 112 313 110 311 110 305",
-    // right inner thigh UP to crotch
-    "L 108 270",
-    "L 102 200",
-    // crotch (flat)
-    "L 98 200",
-    // left inner thigh DOWN
-    "L 92 270",
-    "L 90 305",
+    "C 118 311 114 313 110 313",
+    "C 106 313 104 311 104 305",
+    // inner right leg UP to crotch
+    "L 104 215",
+    // crotch V
+    "C 102 209 98 209 96 215",
+    // inner left leg DOWN
+    "L 96 305",
     // left foot
-    "C 90 311 86 313 82 313",
-    "C 78 313 76 311 76 305",
-    // left outer thigh UP
-    "L 78 270",
-    "L 88 200",
-    // left side of torso UP to armpit
-    "L 86 92",
-    // left armpit: curve outward into inner arm
-    "C 82 86 78 84 78 88",
+    "C 96 311 92 313 88 313",
+    "C 84 313 82 311 82 305",
+    // outer left leg UP
+    "L 80 215",
+    // left hip inward
+    "L 84 200",
+    // left side of torso UP
+    "L 84 112",
+    // left armpit
+    "C 76 108 72 102 72 96",
     // inner left arm DOWN
-    "L 78 188",
-    // left hand (rounded)
-    "C 80 202 78 212 68 212",
-    "C 58 212 56 202 58 188",
+    "L 72 198",
+    // left hand
+    "C 72 210 68 214 62 214",
+    "C 56 214 52 210 52 198",
     // outer left arm UP
-    "L 58 80",
+    "L 52 96",
+    // outer top of left arm
+    "C 52 86 56 82 62 82",
     // left shoulder slope back to neck
-    "C 62 72 72 66 88 64",
+    "C 68 74 76 68 88 66",
     "Z"
   ].join(" ");
 
@@ -112,15 +113,11 @@ export function SyncMeter({
             <stop offset="90%" stopColor="#ff4d6d" />
             <stop offset="100%" stopColor="#ff77ee" />
           </linearGradient>
-          <clipPath
-            id="syncBodyClip"
-            clipPathUnits="userSpaceOnUse"
-          >
+          <clipPath id="syncBodyClip" clipPathUnits="userSpaceOnUse">
             <path d={silhouette} fillRule="evenodd" />
           </clipPath>
         </defs>
 
-        {/* Unfilled base */}
         <g clipPath="url(#syncBodyClip)">
           <rect x="0" y="0" width="200" height="320" fill="#eceef5" />
           <rect
@@ -132,7 +129,6 @@ export function SyncMeter({
           />
         </g>
 
-        {/* Crisp outline */}
         <path
           d={silhouette}
           fill="none"
@@ -144,13 +140,17 @@ export function SyncMeter({
         />
       </svg>
 
-      {/* % readout — chest height, white text */}
+      {/* % readout — chest-only, narrow so it never crosses the arm outlines.
+          Chest spans roughly viewBox x=84-116 (32 wide of 200 total = 16%).
+          We give it ~28% of the container width centered, with extra
+          breathing room. */}
       <div
         style={{
           position: "absolute",
-          top: "35%",
-          left: 0,
-          right: 0,
+          top: "39%",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "28%",
           textAlign: "center",
           pointerEvents: "none"
         }}
@@ -160,11 +160,11 @@ export function SyncMeter({
             fontFamily:
               '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace',
             fontWeight: 800,
-            fontSize: size * 0.13,
+            fontSize: size * 0.115,
             lineHeight: 1,
             color: "#ffffff",
             textShadow:
-              "0 1px 2px rgba(0,0,0,0.45), 0 0 14px rgba(0,0,0,0.35)"
+              "0 1px 2px rgba(0,0,0,0.5), 0 0 14px rgba(0,0,0,0.35)"
           }}
         >
           {total}%
@@ -172,12 +172,12 @@ export function SyncMeter({
         <div
           style={{
             marginTop: 2,
-            fontSize: Math.max(9, size * 0.042),
+            fontSize: Math.max(8, size * 0.034),
             letterSpacing: "0.22em",
             fontWeight: 700,
             color: "#ffffff",
             textShadow:
-              "0 1px 2px rgba(0,0,0,0.5), 0 0 10px rgba(0,0,0,0.35)",
+              "0 1px 2px rgba(0,0,0,0.55), 0 0 10px rgba(0,0,0,0.35)",
             fontFamily:
               '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace'
           }}
