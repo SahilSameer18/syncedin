@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { Wordmark } from "../Wordmark";
 import { createServiceClient } from "@/lib/supabase/server";
+import { SignupsChart } from "./SignupsChart";
 
 export const metadata = {
   title: "Hypernetwork · SyncedIn",
   description:
-    "The long-term vision: a hypernetwork of digital twins finding the highest-leverage win-wins between every pair of humans."
+    "The long-term vision: a hypernetwork of digital twins holding the topography of human intention and finding the highest win-wins between us."
 };
 
-export const revalidate = 60; // refresh stat tiles every minute
+export const revalidate = 60;
 
 type Stats = {
   real_users: number;
@@ -81,6 +82,49 @@ async function loadStats(): Promise<Stats> {
   };
 }
 
+/**
+ * Build cumulative-signups timeline. Groups real users by the day they
+ * joined and walks forward, accumulating. Fills gaps so the chart is
+ * continuous even on days with zero new signups.
+ */
+async function loadSignupsTimeline(): Promise<
+  { date: string; cumulative: number }[]
+> {
+  const service = createServiceClient();
+  const { data } = await service
+    .from("profiles")
+    .select("created_at")
+    .eq("is_test_persona", false)
+    .order("created_at", { ascending: true });
+  if (!data || data.length === 0) return [];
+
+  const dayKey = (iso: string) => iso.slice(0, 10);
+  const startDay = dayKey(data[0].created_at as string);
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+
+  // Count per day
+  const perDay = new Map<string, number>();
+  for (const row of data) {
+    const k = dayKey(row.created_at as string);
+    perDay.set(k, (perDay.get(k) ?? 0) + 1);
+  }
+
+  // Walk day-by-day from first signup through today, building cumulative.
+  const out: { date: string; cumulative: number }[] = [];
+  const d = new Date(startDay + "T00:00:00Z");
+  let cumulative = 0;
+  // Safety cap so a stale clock can't loop forever.
+  for (let i = 0; i < 5000; i++) {
+    const k = d.toISOString().slice(0, 10);
+    cumulative += perDay.get(k) ?? 0;
+    out.push({ date: k, cumulative });
+    if (d >= today) break;
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+}
+
 function fmt(n: number | null): string {
   if (n == null) return "—";
   if (n < 1000) return n.toString();
@@ -89,7 +133,10 @@ function fmt(n: number | null): string {
 }
 
 export default async function HypernetworkPage() {
-  const s = await loadStats();
+  const [s, signups] = await Promise.all([
+    loadStats(),
+    loadSignupsTimeline()
+  ]);
 
   const tiles: Array<{
     label: string;
@@ -167,16 +214,13 @@ export default async function HypernetworkPage() {
           <Link href="/dashboard" className="retro-dim hover:text-white">
             dashboard
           </Link>
-          <Link
-            href="/messages"
-            className="retro-dim hover:text-white"
-          >
+          <Link href="/messages" className="retro-dim hover:text-white">
             messages
           </Link>
         </div>
       </div>
 
-      {/* Vision narrative */}
+      {/* Hero */}
       <section className="mt-12">
         <div className="retro-label">the hypernetwork</div>
         <h1 className="retro-h1 text-5xl mt-3 leading-tight">
@@ -198,12 +242,15 @@ export default async function HypernetworkPage() {
         </p>
       </section>
 
-      <section className="mt-14">
+      {/* Cumulative signups chart */}
+      <section className="mt-12">
+        <SignupsChart points={signups} />
+      </section>
+
+      {/* Stat tiles */}
+      <section className="mt-12">
         <div className="retro-label">live network stats</div>
-        <p
-          className="mt-2 text-sm"
-          style={{ color: "var(--text-dim)" }}
-        >
+        <p className="mt-2 text-sm" style={{ color: "var(--text-dim)" }}>
           Refreshed every minute. No vanity metrics, every number is real.
         </p>
         <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -211,7 +258,11 @@ export default async function HypernetworkPage() {
             <div
               key={t.label}
               className="retro-panel retro-shadow"
-              style={{ padding: 20, position: "relative", overflow: "hidden" }}
+              style={{
+                padding: 20,
+                position: "relative",
+                overflow: "hidden"
+              }}
             >
               <div
                 style={{
@@ -234,10 +285,7 @@ export default async function HypernetworkPage() {
               >
                 {t.value}
               </div>
-              <div
-                className="retro-label mt-2"
-                style={{ color: t.color }}
-              >
+              <div className="retro-label mt-2" style={{ color: t.color }}>
                 {t.label}
               </div>
               <div
@@ -251,8 +299,86 @@ export default async function HypernetworkPage() {
         </div>
       </section>
 
-      {/* Phases */}
-      <section className="mt-14">
+      {/* Manifesto */}
+      <section className="mt-20">
+        <div className="retro-label">manifesto</div>
+        <h2 className="retro-h1 text-4xl mt-3 leading-tight">
+          From first principles: every problem is a coordination problem.
+        </h2>
+        <div
+          className="mt-6 space-y-5 text-lg leading-relaxed"
+          style={{ color: "var(--text)", maxWidth: 780 }}
+        >
+          <p>
+            Climate, capital allocation, scientific progress, personal
+            relationships, hiring, fundraising, even loneliness. If you push
+            on any of the hardest problems we face and keep pushing, what
+            you find at the bottom is the same shape: people who would help
+            each other can&apos;t find each other in time, or can&apos;t
+            communicate their real intent fast enough, or simply lack the
+            attention budget to discover that the help is there.
+          </p>
+          <p>
+            Information is abundant. Attention is finite. The gap between
+            those two is where coordination fails. It is also why most of
+            the value any individual human could create is left on the
+            table: they can&apos;t scan a billion social contexts to find
+            the few that would compound with theirs.
+          </p>
+          <p>
+            A digital twin is not a chatbot. It is a faithful mirror of
+            your goals, your voice, your deal-breakers, the texture of how
+            you think. When two mirrors talk to each other, they are not
+            performing a conversation. They are doing real work: probing
+            the surface of two intent-spaces and feeling for where they
+            overlap.
+          </p>
+          <p>
+            Imagine that mirror world at scale. Every user&apos;s clone
+            holds the topography of their highest intentions and deepest
+            needs, the literal landscape: mountains where they care most,
+            valleys they want filled, edges they will not cross. The
+            hypernetwork is what you get when those landscapes are
+            continuously, quietly, computationally pressed against one
+            another. Where two ridgelines meet, a match exists. Where two
+            valleys touch, a trade exists. Where a peak finds a valley, an
+            act of help exists.
+          </p>
+          <p>
+            Humans never had the time to walk every other human&apos;s
+            terrain. Their clones do. The mirror world runs in parallel
+            while we sleep, eat, build, love. It returns the rare
+            high-leverage matches to the surface and lets the rest fall
+            away. The signal-to-noise ratio of a life, finally, tilts in
+            our favor.
+          </p>
+          <p>
+            This is what we are building. Not a faster inbox. Not another
+            social network. A computational substrate for coordination
+            itself, where intention is a first-class object and where
+            every human carries an agent that can negotiate on their
+            behalf without ever speaking for them.
+          </p>
+          <p
+            style={{
+              fontWeight: 700,
+              color: "var(--text)",
+              fontSize: 22,
+              letterSpacing: "-0.01em",
+              borderLeft: "3px solid var(--amber)",
+              paddingLeft: 16,
+              marginTop: 28
+            }}
+          >
+            Solve coordination, and you solve almost everything else
+            downstream of it. SyncedIn is a bet that the mirror world is
+            how we do that.
+          </p>
+        </div>
+      </section>
+
+      {/* Roadmap */}
+      <section className="mt-16">
         <div className="retro-label">the path</div>
         <ol className="mt-4 space-y-3">
           {[
@@ -273,10 +399,7 @@ export default async function HypernetworkPage() {
               d: "Your clone runs in parallel across thousands of other clones. You only see the rare, high-leverage matches that survive."
             }
           ].map((p) => (
-            <li
-              key={p.t}
-              className="retro-panel p-4"
-            >
+            <li key={p.t} className="retro-panel p-4">
               <div className="font-semibold text-base">{p.t}</div>
               <div
                 className="text-sm mt-1"
@@ -293,18 +416,12 @@ export default async function HypernetworkPage() {
         <div className="font-semibold text-lg">
           You&apos;re reading this, which means you&apos;re early.
         </div>
-        <p
-          className="mt-2 text-sm"
-          style={{ color: "var(--text-dim)" }}
-        >
+        <p className="mt-2 text-sm" style={{ color: "var(--text-dim)" }}>
           Build your twin, invite the people you actually want to talk to,
           and help shape what the hypernetwork becomes.
         </p>
         <div className="mt-4 flex gap-3 flex-wrap">
-          <Link
-            href="/onboarding"
-            className="retro-btn retro-btn-primary"
-          >
+          <Link href="/onboarding" className="retro-btn retro-btn-primary">
             Build your twin
           </Link>
           <Link href="/dashboard" className="retro-btn">
