@@ -29,23 +29,25 @@ export function SyncMeter({
   const headPath = `M ${HEAD_CX} ${HEAD_CY - HEAD_R} a ${HEAD_R} ${HEAD_R} 0 1 0 0.001 0 Z`;
 
   // Body + arms + legs as one continuous symmetric outline.
-  // Tracing clockwise from neck-left bottom.
+  // Arms: ~12 wide (slimmer than legs), extending to mid-thigh y=244.
+  // Legs: ~16 wide, ending at the feet y=313.
+  // All coordinates mirror around the center axis x=100.
   const bodyPath = [
     "M 88 66",
     "L 112 66",
-    // right shoulder slope
+    // right shoulder slope outward
     "C 124 68 132 74 138 82",
-    // outer top of right arm
-    "C 144 82 148 86 148 96",
-    // outer right arm DOWN
-    "L 148 198",
-    // right hand
-    "C 148 210 144 214 138 214",
-    "C 132 214 128 210 128 198",
-    // inner right arm UP
-    "L 128 96",
-    // right armpit (curve into torso)
-    "C 128 102 124 108 116 112",
+    // small rounded cap on top of right arm
+    "C 142 82 144 86 144 94",
+    // outer right arm DOWN (longer, to mid-thigh)
+    "L 144 232",
+    // right hand bottom (rounded)
+    "C 144 240 142 244 138 244",
+    "C 134 244 132 240 132 232",
+    // inner right arm UP toward armpit
+    "L 132 94",
+    // right armpit curving into torso
+    "C 132 100 128 106 116 110",
     // right side of torso DOWN
     "L 116 200",
     // right hip outward
@@ -64,23 +66,23 @@ export function SyncMeter({
     // left foot
     "C 96 311 92 313 88 313",
     "C 84 313 82 311 82 305",
-    // outer left leg UP
+    // outer left leg UP to hip
     "L 80 215",
-    // left hip inward
+    // left hip inward to waist
     "L 84 200",
     // left side of torso UP
-    "L 84 112",
-    // left armpit
-    "C 76 108 72 102 72 96",
+    "L 84 110",
+    // left armpit curving from torso to inner arm
+    "C 72 106 68 100 68 94",
     // inner left arm DOWN
-    "L 72 198",
-    // left hand
-    "C 72 210 68 214 62 214",
-    "C 56 214 52 210 52 198",
+    "L 68 232",
+    // left hand bottom (rounded)
+    "C 68 240 66 244 62 244",
+    "C 58 244 56 240 56 232",
     // outer left arm UP
-    "L 52 96",
-    // outer top of left arm
-    "C 52 86 56 82 62 82",
+    "L 56 94",
+    // small rounded cap on top of left arm
+    "C 56 86 58 82 62 82",
     // left shoulder slope back to neck
     "C 68 74 76 68 88 66",
     "Z"

@@ -17,10 +17,12 @@ type Candidate = {
  */
 export function SelfDiscovery({
   name,
-  onConfirm
+  onConfirm,
+  onAdvance
 }: {
   name: string;
   onConfirm: (snippet: string, source: string) => void;
+  onAdvance?: () => void;
 }) {
   const [candidates, setCandidates] = useState<Candidate[] | null>(null);
   const [searching, setSearching] = useState(false);
@@ -89,6 +91,10 @@ export function SelfDiscovery({
       if (j.dossier) {
         onConfirm(j.dossier, c.url);
         setConfirmed(c.url);
+        if (onAdvance) {
+          // Brief visible confirmation before jumping forward.
+          setTimeout(() => onAdvance(), 900);
+        }
       } else {
         setError("That didn't pull a usable dossier. Try another card.");
       }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AiDumpHero } from "./AiDumpHero";
 import { Avatar } from "../Avatar";
+import { AvatarUpload } from "./AvatarUpload";
 import { ContextSources } from "./ContextSources";
 import { SelfDiscovery } from "./SelfDiscovery";
 import { saveTwin } from "./actions";
@@ -158,52 +159,35 @@ export function OnboardingWizard({
               people on SyncedIn.
             </p>
 
-            <div className="mt-6 grid sm:grid-cols-[auto_1fr] gap-6 items-start">
-              <div className="flex flex-col items-center gap-2">
-                <Avatar
-                  id={userId}
-                  name={state.display_name || "you"}
-                  avatarUrl={state.avatar_url || null}
-                  size={120}
-                />
+            <div className="mt-6 space-y-5">
+              <label className="block">
                 <div
-                  className="retro-dim text-[11px] text-center"
-                  style={{ color: "var(--text-dim)" }}
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--text)" }}
                 >
-                  preview
+                  Your name
                 </div>
-              </div>
-              <div className="space-y-4">
-                <label className="block">
-                  <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                    Your name
-                  </div>
-                  <input
-                    autoFocus
-                    value={state.display_name}
-                    onChange={(e) => set("display_name", e.target.value)}
-                    placeholder="Jane Doe"
-                    className="retro-input mt-1"
-                  />
-                </label>
-                <label className="block">
-                  <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
-                    Photo URL (optional)
-                  </div>
-                  <input
-                    value={state.avatar_url}
-                    onChange={(e) => set("avatar_url", e.target.value)}
-                    placeholder="https://...   or skip and use the gradient placeholder"
-                    className="retro-input mt-1"
-                  />
-                  <div
-                    className="text-xs mt-1"
-                    style={{ color: "var(--text-dim)" }}
-                  >
-                    Tip: open your LinkedIn profile photo, right-click → Copy
-                    Image Address.
-                  </div>
-                </label>
+                <input
+                  autoFocus
+                  value={state.display_name}
+                  onChange={(e) => set("display_name", e.target.value)}
+                  placeholder="Jane Doe"
+                  className="retro-input mt-1"
+                />
+              </label>
+              <div>
+                <div
+                  className="text-sm font-semibold mb-2"
+                  style={{ color: "var(--text)" }}
+                >
+                  Your photo (optional)
+                </div>
+                <AvatarUpload
+                  id={userId}
+                  name={state.display_name}
+                  value={state.avatar_url}
+                  onChange={(next) => set("avatar_url", next)}
+                />
               </div>
             </div>
 
