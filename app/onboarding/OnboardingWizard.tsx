@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AiDumpHero } from "./AiDumpHero";
 import { Avatar } from "../Avatar";
 import { ContextSources } from "./ContextSources";
+import { SelfDiscovery } from "./SelfDiscovery";
 import { saveTwin } from "./actions";
 
 type Initial = {
@@ -205,6 +206,15 @@ export function OnboardingWizard({
                 </label>
               </div>
             </div>
+
+            {/* Intelligent auto-discovery — finds you on the web and pulls
+                a clean dossier into your context if you confirm. */}
+            <SelfDiscovery
+              name={state.display_name}
+              onConfirm={(snippet, source) =>
+                appendBlob(snippet, "Public footprint", source)
+              }
+            />
           </div>
         )}
 
