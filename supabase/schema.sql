@@ -19,6 +19,8 @@ create table if not exists public.profiles (
 -- Idempotent: adds the column if you already ran the previous schema.
 alter table public.profiles
   add column if not exists is_test_persona boolean not null default false;
+alter table public.profiles
+  add column if not exists avatar_url text;
 
 create index if not exists profiles_test_persona_idx
   on public.profiles (is_test_persona) where is_test_persona = true;

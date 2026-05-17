@@ -32,12 +32,12 @@ export default async function ConversationPage({
   const [{ data: otherProfile }, { data: selfProfile }] = await Promise.all([
     service
       .from("profiles")
-      .select("id, display_name, email, is_test_persona")
+      .select("id, display_name, email, is_test_persona, avatar_url")
       .eq("id", otherId)
       .single(),
     service
       .from("profiles")
-      .select("id, display_name, email")
+      .select("id, display_name, email, avatar_url")
       .eq("id", user.id)
       .single()
   ]);
@@ -68,10 +68,12 @@ export default async function ConversationPage({
       conversationId={params.id}
       selfUserId={user.id}
       selfName={selfProfile!.display_name ?? selfProfile!.email}
+      selfAvatarUrl={(selfProfile as any)?.avatar_url ?? null}
       other={{
         id: otherProfile!.id,
         name: otherProfile!.display_name ?? otherProfile!.email,
-        isTestPersona: otherProfile!.is_test_persona
+        isTestPersona: otherProfile!.is_test_persona,
+        avatarUrl: (otherProfile as any)?.avatar_url ?? null
       }}
       initialMessages={msgs}
       initialDone={done}

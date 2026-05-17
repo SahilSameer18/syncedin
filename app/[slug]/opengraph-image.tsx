@@ -122,20 +122,20 @@ export default async function InviteOgImage({
 
         <div
           style={{
-            fontSize: 64,
+            fontSize: 76,
             fontWeight: 800,
             color: "#0a0c14",
-            lineHeight: 1.05,
+            lineHeight: 1.02,
             letterSpacing: "-0.025em",
             maxWidth: 1000,
             display: "flex"
           }}
         >
-          {inviterName}&apos;s twin started a conversation with {personName}.
+          {personName}, your digital twin awaits.
         </div>
         <div
           style={{
-            marginTop: 24,
+            marginTop: 26,
             fontSize: 30,
             color: "#434a5e",
             lineHeight: 1.35,
@@ -143,8 +143,8 @@ export default async function InviteOgImage({
             display: "flex"
           }}
         >
-          Sign up and your clone replies. Two twins find the win-win,
-          you stay in control.
+          {inviterName}&apos;s clone started a conversation with you. Sign up
+          and your clone replies. Two twins find the win-win.
         </div>
       </div>
     ),

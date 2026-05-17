@@ -13,6 +13,7 @@ import { ThemeToggle } from "../ThemeToggle";
 import { SyncMeter } from "../SyncMeter";
 import { SummaryBackfill } from "./SummaryBackfill";
 import { DiscoverSearch } from "./DiscoverSearch";
+import { Avatar } from "../Avatar";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -80,7 +81,7 @@ export default async function DashboardPage() {
     otherIds.length
       ? service
           .from("profiles")
-          .select("id, display_name, email, is_test_persona")
+          .select("id, display_name, email, is_test_persona, avatar_url")
           .in("id", otherIds)
       : Promise.resolve({ data: [] as any[] }),
     personaIds.length
@@ -102,6 +103,9 @@ export default async function DashboardPage() {
   );
   const isTestById = new Map(
     (others ?? []).map((p) => [p.id, p.is_test_persona] as const)
+  );
+  const avatarById = new Map(
+    (others ?? []).map((p) => [p.id, p.avatar_url ?? null] as const)
   );
   const personaGoal = new Map(
     (personaTwins ?? []).map((t) => [t.user_id, t.goals ?? ""] as const)
@@ -185,6 +189,9 @@ export default async function DashboardPage() {
         <Wordmark />
         <div className="flex items-center gap-3 text-sm">
           <ThemeToggle />
+          <Link href="/messages" className="retro-dim hover:text-white">
+            messages
+          </Link>
           <Link href="/onboarding" className="retro-dim hover:text-white">
             edit twin
           </Link>
@@ -258,7 +265,18 @@ export default async function DashboardPage() {
                   key={c.id}
                   className="retro-panel retro-panel-hover p-3"
                 >
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3">
+                    <Link
+                      href={`/conversations/${c.id}`}
+                      className="shrink-0"
+                    >
+                      <Avatar
+                        id={otherId}
+                        name={nameById.get(otherId) ?? "Unknown"}
+                        avatarUrl={avatarById.get(otherId) ?? null}
+                        size={40}
+                      />
+                    </Link>
                     <Link
                       href={`/conversations/${c.id}`}
                       className="min-w-0 flex-1"

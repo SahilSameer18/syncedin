@@ -52,7 +52,7 @@ export async function generateMetadata({
     "Their twin";
   const personName =
     invite.person_title?.split(/[-|,(·]/)[0]?.trim() || "you";
-  const title = `${inviterName}'s twin wants to talk to ${personName}`;
+  const title = `${personName}, your digital twin awaits`;
   const description = `${inviterName} sent you a SyncedIn invite. Their clone has already started a conversation. Sign up and your clone replies, two twins find the win-win.`;
   return {
     title,
