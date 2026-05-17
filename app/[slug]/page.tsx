@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import { createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
 
@@ -12,6 +13,8 @@ const RESERVED = new Set([
   "onboarding",
   "login",
   "conversations",
+  "privacy",
+  "terms",
   "favicon.ico",
   "icon",
   "apple-icon",
@@ -19,6 +22,54 @@ const RESERVED = new Set([
   "robots.txt",
   "sitemap.xml"
 ]);
+
+export async function generateMetadata({
+  params
+}: {
+  params: { slug: string };
+}): Promise<Metadata> {
+  const slug = (params.slug || "").toLowerCase();
+  if (!slug || RESERVED.has(slug)) {
+    return {};
+  }
+  const service = createServiceClient();
+  const { data: invite } = await service
+    .from("pending_invites")
+    .select("inviter_user_id, person_title")
+    .eq("slug", slug)
+    .maybeSingle();
+  if (!invite) {
+    return {};
+  }
+  const { data: inviter } = await service
+    .from("profiles")
+    .select("display_name, email")
+    .eq("id", invite.inviter_user_id)
+    .maybeSingle();
+  const inviterName =
+    inviter?.display_name ||
+    inviter?.email?.split("@")[0] ||
+    "Their twin";
+  const personName =
+    invite.person_title?.split(/[-|,(·]/)[0]?.trim() || "you";
+  const title = `${inviterName}'s twin wants to talk to ${personName}`;
+  const description = `${inviterName} sent you a SyncedIn invite. Their clone has already started a conversation. Sign up and your clone replies, two twins find the win-win.`;
+  return {
+    title,
+    description,
+    openGraph: {
+      type: "website",
+      title,
+      description,
+      siteName: "SyncedIn"
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description
+    }
+  };
+}
 
 export default async function InviteLandingPage({
   params
@@ -78,26 +129,87 @@ export default async function InviteLandingPage({
         </p>
       </section>
 
-      <section className="mt-8">
-        <div className="retro-label">opening message</div>
-        <div
-          className="mt-3 retro-panel retro-shadow p-5"
-          style={{ borderColor: "var(--amber)" }}
-        >
-          <div
-            className="retro-dim text-xs mb-2"
-            style={{ letterSpacing: "0.16em", textTransform: "uppercase" }}
-          >
-            {inviterName}&apos;s clone
-          </div>
-          <p
-            className="text-base leading-relaxed"
-            style={{ color: "var(--text)", whiteSpace: "pre-wrap" }}
-          >
-            {invite.conversation_starter}
-          </p>
-        </div>
-      </section>
+      {(() => {
+        const full = invite.conversation_starter || "";
+        // Reveal roughly the first two sentences so the visitor gets the
+        // specific hook, then everything else is gated behind sign-up.
+        const sentences = full.split(/(?<=[.!?])\s+/);
+        const teaserSentences = Math.min(2, sentences.length);
+        let teaser = sentences.slice(0, teaserSentences).join(" ");
+        // Hard cap so a single long sentence doesn't dump the whole message.
+        if (teaser.length > 280) teaser = teaser.slice(0, 280).trimEnd();
+        const remainingSentences = sentences.length - teaserSentences;
+        const remainingChars = Math.max(0, full.length - teaser.length);
+        return (
+          <section className="mt-8">
+            <div className="retro-label">opening message</div>
+            <div
+              className="mt-3 retro-panel retro-shadow p-5 relative"
+              style={{ borderColor: "var(--amber)" }}
+            >
+              <div
+                className="retro-dim text-xs mb-2"
+                style={{
+                  letterSpacing: "0.16em",
+                  textTransform: "uppercase"
+                }}
+              >
+                {inviterName}&apos;s clone
+              </div>
+              <p
+                className="text-base leading-relaxed"
+                style={{ color: "var(--text)", whiteSpace: "pre-wrap" }}
+              >
+                {teaser}
+                <span style={{ color: "var(--text-dim)" }}>
+                  {teaser.endsWith(".") ||
+                  teaser.endsWith("!") ||
+                  teaser.endsWith("?")
+                    ? " ..."
+                    : "..."}
+                </span>
+              </p>
+
+              {remainingChars > 0 && (
+                <div
+                  className="mt-5 pt-4"
+                  style={{ borderTop: "1px dashed var(--border-bright)" }}
+                >
+                  <div
+                    className="retro-label"
+                    style={{ color: "var(--amber-bright)" }}
+                  >
+                    locked · sign up to read the rest
+                  </div>
+                  <p
+                    className="mt-2 text-sm"
+                    style={{ color: "var(--text-dim)" }}
+                  >
+                    There are {remainingSentences} more sentences in this
+                    message. Sign up and your twin can read all of it AND
+                    continue the conversation with {inviterName}&apos;s
+                    clone, looking for the highest win-win between you.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link
+                      href={`/login?invite=${slug}`}
+                      className="retro-btn retro-btn-primary"
+                    >
+                      + sign up to unlock
+                    </Link>
+                    <Link
+                      href={`/login?invite=${slug}`}
+                      className="retro-btn"
+                    >
+                      I already have an account
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        );
+      })()}
 
       <section className="mt-8 retro-panel p-5">
         <div className="font-semibold text-base">

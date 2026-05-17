@@ -2,6 +2,7 @@
 // Raw fetch (no SDK dependency). Docs: https://docs.exa.ai
 
 const EXA_SEARCH = "https://api.exa.ai/search";
+const EXA_CONTENTS = "https://api.exa.ai/contents";
 
 export type ExaPerson = {
   title: string; // usually "Name – role/company"
@@ -67,4 +68,38 @@ export async function exaPeopleSearch(
       .map(cleanHighlight)
       .filter(Boolean)
   }));
+}
+
+/**
+ * Fetch the full body text Exa has for a given URL. Used right before we
+ * draft outreach to a specific person, so the LLM gets the whole profile
+ * instead of 4 sentence highlights.
+ */
+export async function exaGetContents(url: string): Promise<string> {
+  const key = process.env.EXA_API_KEY;
+  if (!key) throw new Error("EXA_API_KEY is not set.");
+
+  const res = await fetch(EXA_CONTENTS, {
+    method: "POST",
+    headers: {
+      "x-api-key": key,
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      urls: [url],
+      text: { maxCharacters: 8000, includeHtmlTags: false }
+    })
+  });
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new Error(
+      `Exa contents failed (HTTP ${res.status}): ${detail.slice(0, 240)}`
+    );
+  }
+
+  const json = await res.json();
+  const first = (json.results as any[])?.[0];
+  const raw = (first?.text as string) || "";
+  return cleanHighlight(raw);
 }

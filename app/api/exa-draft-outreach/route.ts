@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
+import { exaGetContents } from "@/lib/exa";
 import type { Profile, TwinProfile } from "@/lib/types";
 
 /**
@@ -64,8 +65,21 @@ export async function POST(req: Request) {
   if (!personTitle) {
     return NextResponse.json({ error: "missing_person" }, { status: 400 });
   }
-  const highlights = (body.highlights ?? []).join("\n");
   const personUrl = (body.person_url ?? "").trim();
+
+  // Fetch FULL Exa contents for this URL so the LLM gets the whole profile,
+  // not just 4-sentence highlights. Falls back to the highlights if the
+  // contents API fails or returns nothing.
+  let fullBody = "";
+  if (personUrl) {
+    try {
+      fullBody = await exaGetContents(personUrl);
+    } catch (e) {
+      console.error("exa-getcontents failed, falling back to highlights", e);
+    }
+  }
+  const rawHighlights = (body.highlights ?? []).join("\n");
+  const highlights = (fullBody || rawHighlights || "").slice(0, 6000);
 
   const service = createServiceClient();
   const [{ data: profile }, { data: twin }] = await Promise.all([
@@ -151,18 +165,28 @@ What's known about them: ${highlights || "(only the name/role above)"}
   let shortNote = "";
   let convStarter = "";
 
-  const convPrompt = `You are the digital twin of ${selfName}. Write the OPENING message of a conversation with ${personTitle}, who is about to land on a SyncedIn invite page from ${selfName}'s clone.
+  const convPrompt = `You are the digital twin of ${selfName}. Write the OPENING message of a real, personal conversation with ${personTitle}, who is about to land on a SyncedIn invite page from ${selfName}'s clone.
 
-Context the recipient will see:
-- ${selfName}'s goals: ${t?.goals || "(not specified)"}
-- What's known about ${personTitle}: ${highlights || "(only the name/role above)"}
+This is NOT the LinkedIn DM. This is the inside-the-platform opening message ${personTitle} sees only after they show up to the invite page. It should be MORE personal, MORE specific, and LONGER than the outreach DM, because the recipient has already clicked. The point is to hook them so deeply that they sign up to read the full message and have their own clone reply.
 
-Rules:
-- 2 to 4 sentences, first person, as ${selfName}'s clone speaking to ${personTitle}.
-- Open with something specific you noticed about them. Never mention follower or connection count.
-- Name the concrete overlap between ${selfName} and them.
-- Close with a real question or proposal that invites a reply.
-- NO em-dashes or en-dashes anywhere. NO markdown. Just prose.`;
+# What ${selfName} cares about
+Goals: ${t?.goals || "(not specified)"}
+Deal preferences: ${t?.deal_preferences || "(not specified)"}
+Deal-breakers: ${t?.deal_breakers || "(not specified)"}
+Communication style: ${t?.communication_style || "(default: warm, concise, direct)"}
+Other context: ${(t?.ai_export_blob || "").slice(0, 3000)}
+
+# Full context on ${personTitle}
+${highlights || "(only the name/role above)"}
+
+# How to write the opening
+- 6 to 9 sentences. Build a real argument, not a greeting.
+- Speak in first person as ${selfName}, plain prose only.
+- Open with the single most SPECIFIC observation about ${personTitle} drawn from the full context above. Quote a project, role, or signal verbatim if it earns the point. NEVER mention follower count, connection count, or audience size.
+- In the middle, lay out the SPECIFIC overlap with ${selfName}'s goals. Be concrete: which initiative, which problem, which opportunity.
+- Surface ONE non-obvious mutual win you see between them, the kind only an AI that read both contexts would catch.
+- Close with a real question that demands a reply, not a soft invite.
+- NO em-dashes or en-dashes anywhere. NO markdown. NO headers, no bullets. Just paragraphs of prose.`;
 
   try {
     // Generate all three in parallel — long DM, 200-char connection note,
@@ -192,12 +216,12 @@ Rules:
       }),
       anthropic.messages.create({
         model: TWIN_MODEL,
-        max_tokens: 400,
+        max_tokens: 900,
         system: convPrompt,
         messages: [
           {
             role: "user",
-            content: `Write the opening conversation message.`
+            content: `Write the opening conversation message. Use the FULL context above. 6 to 9 sentences. Make it the most specific, personal opening you can — the recipient has already shown up, your job is to convince them this is worth signing up for.`
           }
         ]
       })

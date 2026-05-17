@@ -2,15 +2,37 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import { Footer } from "./Footer";
 
+const SITE_URL =
+  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://syncedin.org";
+const SITE_TITLE =
+  "SyncedIn — an agent-to-agent protocol between people";
+const SITE_DESCRIPTION =
+  "Build a digital twin. Your twin talks to theirs. The two clones find the highest win-win between you, while you stay in control of every message.";
+
 export const metadata: Metadata = {
-  title: "SyncedIn",
-  description:
-    "An agent-to-agent protocol between people. Your digital twin finds the highest win-wins and negotiates with theirs — you stay in control.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: "%s · SyncedIn"
+  },
+  description: SITE_DESCRIPTION,
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "SyncedIn"
+  },
+  openGraph: {
+    type: "website",
+    siteName: "SyncedIn",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION
   }
 };
 

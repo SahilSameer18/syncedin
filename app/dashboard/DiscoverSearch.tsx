@@ -113,6 +113,30 @@ export function DiscoverSearch({
   const copy = (text: string) => navigator.clipboard?.writeText(text);
   const searching = q.trim().length > 0;
 
+  // Twin-suggested connections.
+  type Suggestion = {
+    rationale: string;
+    search_query: string;
+    people: ExaPerson[];
+  };
+  const [suggesting, setSuggesting] = useState(false);
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+
+  async function askTwin() {
+    setSuggesting(true);
+    try {
+      const r = await fetch("/api/twin-suggest-connections", {
+        method: "POST"
+      });
+      const j = await r.json();
+      setSuggestions(j.suggestions ?? []);
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setSuggesting(false);
+    }
+  }
+
   return (
     <section>
       <div className="flex items-baseline justify-between">
@@ -151,6 +175,171 @@ export function DiscoverSearch({
           </button>
         )}
       </div>
+
+      {/* Twin-recommended connections */}
+      {!searching && (
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={askTwin}
+            disabled={suggesting}
+            className="retro-btn w-full"
+          >
+            {suggesting
+              ? "Your twin is thinking…"
+              : suggestions
+              ? "Ask your twin again"
+              : "Ask your twin who to connect with →"}
+          </button>
+
+          {suggestions && suggestions.length === 0 && !suggesting && (
+            <p className="retro-dim text-sm mt-3">
+              Your twin didn&apos;t surface any matches. Try adding more
+              context to your twin in onboarding.
+            </p>
+          )}
+
+          {suggestions && suggestions.length > 0 && (
+            <div className="mt-4 space-y-5">
+              {suggestions.map((s, idx) => (
+                <div key={idx}>
+                  <div
+                    className="retro-label"
+                    style={{ color: "var(--amber-bright)" }}
+                  >
+                    your twin says: {s.rationale}
+                  </div>
+                  <div className="retro-dim text-xs mt-1">
+                    searched: {s.search_query}
+                  </div>
+                  {s.people.length === 0 ? (
+                    <p className="retro-dim text-sm mt-2">
+                      No matches for this one.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-2">
+                      {s.people.slice(0, 4).map((p) => {
+                        const preview = p.highlights[0]
+                          ? p.highlights[0].length > 140
+                            ? p.highlights[0].slice(0, 140) + "…"
+                            : p.highlights[0]
+                          : "";
+                        return (
+                          <li
+                            key={p.url}
+                            className="retro-panel retro-panel-hover p-3"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="text-left flex-1 min-w-0">
+                                <div className="font-semibold text-sm">
+                                  {p.title}
+                                </div>
+                                <a
+                                  href={p.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="retro-dim text-xs mt-0.5 underline hover:text-white block"
+                                  style={{ wordBreak: "break-all" }}
+                                >
+                                  {p.url}
+                                </a>
+                                {preview && (
+                                  <div className="retro-dim text-xs mt-1 line-clamp-2">
+                                    {preview}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => draftOutreach(p)}
+                                disabled={drafting === p.url}
+                                className="retro-btn text-sm shrink-0"
+                              >
+                                {drafting === p.url
+                                  ? "Drafting…"
+                                  : "Draft invite"}
+                              </button>
+                            </div>
+                            {draftFor?.url === p.url && draftText && (
+                              <div className="mt-3 space-y-3">
+                                {shortText && (
+                                  <div>
+                                    <div
+                                      className="retro-label"
+                                      style={{
+                                        color: "var(--amber-bright)"
+                                      }}
+                                    >
+                                      connection note · {shortText.length}/200
+                                    </div>
+                                    <textarea
+                                      value={shortText}
+                                      onChange={(e) =>
+                                        setShortText(
+                                          e.target.value.slice(0, 200)
+                                        )
+                                      }
+                                      rows={2}
+                                      className="retro-input mt-1 text-sm"
+                                      maxLength={200}
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => copy(shortText)}
+                                      className="retro-btn text-sm mt-2"
+                                    >
+                                      Copy connection note
+                                    </button>
+                                  </div>
+                                )}
+                                <div>
+                                  <div
+                                    className="retro-label"
+                                    style={{ color: "var(--amber-bright)" }}
+                                  >
+                                    direct message (with invite link)
+                                  </div>
+                                  <textarea
+                                    value={draftText}
+                                    onChange={(e) =>
+                                      setDraftText(e.target.value)
+                                    }
+                                    rows={6}
+                                    className="retro-input mt-1 text-sm"
+                                  />
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => copy(draftText)}
+                                      className="retro-btn retro-btn-primary text-sm"
+                                    >
+                                      Copy DM
+                                    </button>
+                                    {inviteUrl && (
+                                      <a
+                                        href={inviteUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="retro-btn text-sm"
+                                      >
+                                        Preview invite page →
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Empty state — show the existing directory of finished twins */}
       {!searching && (
@@ -274,32 +463,47 @@ export function DiscoverSearch({
                         className="retro-panel retro-panel-hover p-3"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <button
-                            type="button"
-                            onClick={() => toggleExpand(p.url)}
-                            className="text-left flex-1 min-w-0"
-                            style={{
-                              background: "transparent",
-                              border: 0,
-                              padding: 0,
-                              cursor: "pointer"
-                            }}
-                          >
-                            <div className="font-semibold text-sm">
+                          <div className="text-left flex-1 min-w-0">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpand(p.url)}
+                              className="text-left font-semibold text-sm"
+                              style={{
+                                background: "transparent",
+                                border: 0,
+                                padding: 0,
+                                cursor: "pointer",
+                                color: "var(--text)"
+                              }}
+                            >
                               {p.title}
-                            </div>
-                            <div
-                              className="retro-dim text-xs mt-0.5"
+                            </button>
+                            <a
+                              href={p.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="retro-dim text-xs mt-0.5 underline hover:text-white block"
                               style={{ wordBreak: "break-all" }}
                             >
                               {p.url}
-                            </div>
+                            </a>
                             {!isOpen && preview && (
-                              <div className="retro-dim text-xs mt-1 line-clamp-1">
+                              <button
+                                type="button"
+                                onClick={() => toggleExpand(p.url)}
+                                className="retro-dim text-xs mt-1 line-clamp-1 text-left w-full"
+                                style={{
+                                  background: "transparent",
+                                  border: 0,
+                                  padding: 0,
+                                  cursor: "pointer"
+                                }}
+                              >
                                 {preview}
-                              </div>
+                              </button>
                             )}
-                          </button>
+                          </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               type="button"
@@ -324,14 +528,6 @@ export function DiscoverSearch({
                             {p.highlights.map((h, i) => (
                               <p key={i}>{h}</p>
                             ))}
-                            <a
-                              href={p.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-block retro-dim text-xs underline mt-1"
-                            >
-                              Open full profile →
-                            </a>
                           </div>
                         )}
 
@@ -397,14 +593,6 @@ export function DiscoverSearch({
                                     Preview invite page →
                                   </a>
                                 )}
-                                <a
-                                  href={p.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="retro-btn text-sm"
-                                >
-                                  Open profile →
-                                </a>
                               </div>
                             </div>
                           </div>
