@@ -61,8 +61,9 @@ export default async function OnboardingPage({
           <OnboardingWizard initial={initial} userId={user.id} />
         </div>
 
-        {/* Live self-graph */}
-        <div className="hidden lg:block">
+        {/* Live self-graph — visible on every screen so users see their twin
+            fill up as they paste context */}
+        <div>
           <SelfGraph formSelector="#onboarding-form" />
         </div>
       </div>

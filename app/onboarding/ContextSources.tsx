@@ -59,15 +59,49 @@ export function ContextSources({
 
   const current = QUICK_TYPES.find((t) => t.key === active) ?? QUICK_TYPES[0];
 
+  /**
+   * Take whatever the user typed and turn it into a full URL based on the
+   * currently selected source type. Accepts:
+   *   "jackjayio"            → handle
+   *   "@jackjayio"           → handle
+   *   "x.com/jackjayio"      → bare domain
+   *   "https://x.com/..."    → full URL
+   */
+  function normalizeUrl(raw: string, type: string): string {
+    let v = raw.trim().replace(/^@/, "");
+    if (!v) return "";
+    // Already has protocol — leave alone
+    if (/^https?:\/\//i.test(v)) return v;
+    // Has a domain
+    if (/^[a-z0-9-]+\.[a-z]{2,}\//i.test(v)) return `https://${v}`;
+    // Bare domain like "x.com/handle" without https
+    if (v.includes("/") && /^[a-z0-9-]+\.[a-z]{2,}/i.test(v)) {
+      return `https://${v}`;
+    }
+    // Otherwise treat as a handle and build the URL for the active source.
+    switch (type) {
+      case "linkedin":
+        return `https://www.linkedin.com/in/${v}`;
+      case "x":
+        return `https://x.com/${v}`;
+      case "instagram":
+        return `https://www.instagram.com/${v}`;
+      default:
+        // For "Any URL" with just a word, best-effort: prepend https://
+        return /\./.test(v) ? `https://${v}` : v;
+    }
+  }
+
   async function submitUrl() {
     if (!input.trim()) return;
     setLoading(true);
     setError(null);
+    const url = normalizeUrl(input, active);
     try {
       const r = await fetch("/api/extract-context-source", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type: "url", value: input.trim() })
+        body: JSON.stringify({ type: "url", value: url })
       });
       const j = await r.json();
       if (j.error) {

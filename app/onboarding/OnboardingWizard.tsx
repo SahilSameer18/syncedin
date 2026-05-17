@@ -20,7 +20,8 @@ type Initial = {
 
 const STEPS = [
   { key: "you", label: "You" },
-  { key: "context", label: "Context" },
+  { key: "sources", label: "Sources" },
+  { key: "ai_dump", label: "AI dump" },
   { key: "refine", label: "Refine" }
 ] as const;
 
@@ -49,7 +50,7 @@ export function OnboardingWizard({
     switch (STEPS[step].key) {
       case "you":
         return state.display_name.trim().length > 0;
-      case "context":
+      case "sources":
         return state.goals.trim().length > 0;
       default:
         return true;
@@ -192,32 +193,39 @@ export function OnboardingWizard({
             </div>
 
             {/* Intelligent auto-discovery — finds you on the web and pulls
-                a clean dossier into your context if you confirm. */}
+                a clean dossier into your context if you confirm. Auto-jumps
+                to the next step after a successful "this is me" pick. */}
             <SelfDiscovery
               name={state.display_name}
               onConfirm={(snippet, source) =>
                 appendBlob(snippet, "Public footprint", source)
               }
+              onAdvance={() =>
+                setStep((s) => Math.min(STEPS.length - 1, s + 1))
+              }
             />
           </div>
         )}
 
-        {/* STEP 2 — Context: goals + multiple ways to feed context in */}
-        {STEPS[step].key === "context" && (
+        {/* STEP 2 — Sources: goals + URL-based context */}
+        {STEPS[step].key === "sources" && (
           <div>
-            <div className="retro-label">step 2 of 3</div>
+            <div className="retro-label">step 2 of 4</div>
             <h2 className="retro-h1 text-2xl mt-2">
-              Hand your twin everything it needs to be you.
+              Where can your twin learn about you?
             </h2>
             <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
-              The more you give, the sharper it gets. Your goals are required.
-              Everything else is optional but powerful.
+              Your goals are required. Add LinkedIn, X, Instagram, or any
+              URL that describes you — paste a handle or full link, we&apos;ll
+              normalize it.
             </p>
 
             <div className="mt-6 space-y-6">
-              {/* Required: goals */}
               <label className="block">
-                <div className="text-sm font-semibold" style={{ color: "var(--text)" }}>
+                <div
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--text)" }}
+                >
                   Goals — what are you trying to accomplish right now? *
                 </div>
                 <textarea
@@ -230,40 +238,54 @@ export function OnboardingWizard({
                 />
               </label>
 
-              {/* Easy paths to add context */}
               <ContextSources
                 value={state.ai_export_blob}
                 onAppend={appendBlob}
               />
-
-              {/* AI export — original fast path */}
-              <details>
-                <summary
-                  className="text-sm cursor-pointer"
-                  style={{ color: "var(--text-dim)" }}
-                >
-                  or paste the answer from ChatGPT / Claude / Gemini / Grok
-                </summary>
-                <div className="mt-3">
-                  <AiDumpHero />
-                  <textarea
-                    value={state.ai_export_blob}
-                    onChange={(e) => set("ai_export_blob", e.target.value)}
-                    rows={10}
-                    placeholder="Paste the AI's full answer here. Anything you've added from sources above will also show up here."
-                    className="retro-input mt-4 font-mono text-sm"
-                    style={{ minHeight: 200 }}
-                  />
-                </div>
-              </details>
             </div>
           </div>
         )}
 
-        {/* STEP 3 — Refine: optional fields */}
+        {/* STEP 3 — AI dump: paste from ChatGPT/Claude/Gemini/Grok */}
+        {STEPS[step].key === "ai_dump" && (
+          <div>
+            <div className="retro-label">step 3 of 4</div>
+            <h2 className="retro-h1 text-2xl mt-2">
+              Let the AI you already use describe you.
+            </h2>
+            <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
+              The AI you already talk to knows your goals, voice, and how
+              you think. Copy the prompt, open your AI, paste the answer
+              below. Skip if you already added enough from sources.
+            </p>
+
+            <div className="mt-5">
+              <AiDumpHero />
+            </div>
+
+            <label className="block mt-5">
+              <div
+                className="text-sm font-semibold"
+                style={{ color: "var(--text)" }}
+              >
+                Paste the AI&apos;s full answer
+              </div>
+              <textarea
+                value={state.ai_export_blob}
+                onChange={(e) => set("ai_export_blob", e.target.value)}
+                rows={10}
+                placeholder="Paste here. Anything you added on the previous step is also in this blob."
+                className="retro-input mt-1 font-mono text-sm"
+                style={{ minHeight: 240 }}
+              />
+            </label>
+          </div>
+        )}
+
+        {/* STEP 4 — Refine: optional fields */}
         {STEPS[step].key === "refine" && (
           <div>
-            <div className="retro-label">step 3 of 3</div>
+            <div className="retro-label">step 4 of 4</div>
             <h2 className="retro-h1 text-2xl mt-2">Sharpen your twin (optional).</h2>
             <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
               These three fields make your twin a better negotiator on your
