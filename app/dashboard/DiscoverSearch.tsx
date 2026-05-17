@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { startConversationWithUser } from "./actions";
+import { DotsLoader } from "../DotsLoader";
 
 type DirectoryUser = {
   id: string;
@@ -231,13 +232,15 @@ export function DiscoverSearch({
               disabled={suggesting}
               className="retro-btn retro-btn-primary shrink-0"
             >
-              {suggesting
-                ? "thinking…"
-                : intent.trim()
-                ? "search"
-                : suggestions
-                ? "again"
-                : "ask twin"}
+              {suggesting ? (
+                <DotsLoader label="thinking" />
+              ) : intent.trim() ? (
+                "search"
+              ) : suggestions ? (
+                "again"
+              ) : (
+                "ask twin"
+              )}
             </button>
           </div>
           <div
@@ -312,9 +315,11 @@ export function DiscoverSearch({
                                 disabled={drafting === p.url}
                                 className="retro-btn text-sm shrink-0"
                               >
-                                {drafting === p.url
-                                  ? "Drafting…"
-                                  : "Draft invite"}
+                                {drafting === p.url ? (
+                                  <DotsLoader label="Drafting" />
+                                ) : (
+                                  "Draft invite"
+                                )}
                               </button>
                             </div>
                             {draftFor?.url === p.url && draftText && (
@@ -575,7 +580,11 @@ export function DiscoverSearch({
                               disabled={drafting === p.url}
                               className="retro-btn text-sm"
                             >
-                              {drafting === p.url ? "Drafting…" : "Draft invite"}
+                              {drafting === p.url ? (
+                                <DotsLoader label="Drafting" />
+                              ) : (
+                                "Draft invite"
+                              )}
                             </button>
                           </div>
                         </div>

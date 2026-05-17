@@ -54,6 +54,10 @@ export async function generateMetadata({
     invite.person_title?.split(/[-|,(·]/)[0]?.trim() || "you";
   const title = `${personName}, your digital twin awaits`;
   const description = `${inviterName} sent you a SyncedIn invite. Their clone has already started a conversation. Sign up and your clone replies, two twins find the win-win.`;
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    "https://syncedin.org";
+  const imageUrl = `${appUrl}/${slug}/opengraph-image`;
   return {
     title,
     description,
@@ -61,12 +65,22 @@ export async function generateMetadata({
       type: "website",
       title,
       description,
-      siteName: "SyncedIn"
+      siteName: "SyncedIn",
+      url: `${appUrl}/${slug}`,
+      images: [
+        {
+          url: imageUrl,
+          width: 1200,
+          height: 630,
+          alt: title
+        }
+      ]
     },
     twitter: {
       card: "summary_large_image",
       title,
-      description
+      description,
+      images: [imageUrl]
     }
   };
 }
