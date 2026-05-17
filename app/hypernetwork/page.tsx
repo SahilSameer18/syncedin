@@ -377,39 +377,154 @@ export default async function HypernetworkPage() {
         </div>
       </section>
 
-      {/* Roadmap */}
+      {/* Roadmap — each phase frames what it means for YOU as the network
+          grows, so the value compounds with scale. */}
       <section className="mt-16">
         <div className="retro-label">the path</div>
-        <ol className="mt-4 space-y-3">
+        <p
+          className="mt-2 text-sm"
+          style={{ color: "var(--text-dim)" }}
+        >
+          Five phases. The bigger the network gets, the more YOU get out of
+          it. Each phase below ends with what it means for you.
+        </p>
+        <ol className="mt-5 space-y-4">
           {[
             {
               t: "Phase 1 — Pair",
-              d: "One human's twin talks to one other twin. Already live."
+              d: "Your twin talks to one other twin and finds the highest win-win between you. Already live.",
+              you: "You skip the small talk. Your twin already negotiated the part that matters before you spent a single minute on it."
             },
             {
               t: "Phase 2 — Web",
-              d: "Your twin scans the open web for matches, drafts invites in your voice, and reaches out for you."
+              d: "Your twin scans the open web for people you should know, drafts invites in your voice, and reaches out for you.",
+              you: "You stop missing the right people because you never heard of them. The web becomes a candidate pool your clone hunts on your behalf."
             },
             {
               t: "Phase 3 — Calibration",
-              d: "Every score you correct and every message you edit makes the network sharper. Your twin learns your taste."
+              d: "Every score you correct and every message you edit becomes a calibration signal. The Sync learns your taste.",
+              you: "Your twin gets sharper every week without you teaching it. The conversations that surface at the top become almost only the ones you'd say yes to."
             },
             {
               t: "Phase 4 — Hypernetwork",
-              d: "Your clone runs in parallel across thousands of other clones. You only see the rare, high-leverage matches that survive."
+              d: "Your clone runs in parallel across thousands of other clones, continuously. Only the rare high-leverage matches survive to the surface.",
+              you: "You wake up to two or three matches that would have taken you years to discover yourself. Time freed, attention reclaimed, signal-to-noise inverted."
+            },
+            {
+              t: "Phase 5 — Coalitions",
+              d: "Aligned clones converge into group chats: small action coalitions of humans whose twins agreed the same change is obvious. Coordination problems that were stuck because no one could find the other people who saw it the same way, finally move.",
+              you: "You stop being the only person you know who thinks a thing should change. The network finds your aligned tribe and convenes it. The common-sense, obvious things start getting adopted because the right humans are now in the same room."
             }
           ].map((p) => (
-            <li key={p.t} className="retro-panel p-4">
+            <li key={p.t} className="retro-panel p-5">
               <div className="font-semibold text-base">{p.t}</div>
               <div
-                className="text-sm mt-1"
+                className="text-sm mt-1.5"
                 style={{ color: "var(--text-dim)" }}
               >
                 {p.d}
               </div>
+              <div
+                className="mt-3 text-sm"
+                style={{
+                  color: "var(--text)",
+                  borderLeft: "3px solid var(--amber)",
+                  paddingLeft: 12
+                }}
+              >
+                <span
+                  className="retro-label"
+                  style={{ color: "var(--amber-bright)" }}
+                >
+                  what this means for you
+                </span>
+                <div style={{ marginTop: 4 }}>{p.you}</div>
+              </div>
             </li>
           ))}
         </ol>
+      </section>
+
+      {/* Inspirations */}
+      <section className="mt-16">
+        <div className="retro-label">inspirations</div>
+        <p
+          className="mt-2 text-sm"
+          style={{ color: "var(--text-dim)" }}
+        >
+          Reading and watching that shaped how we think about coordination
+          and what SyncedIn is reaching toward.
+        </p>
+        <ul className="mt-5 space-y-3">
+          {[
+            {
+              title: "coordination.to",
+              url: "https://coordination.to",
+              note:
+                "A growing field treating coordination itself as the substrate worth designing for."
+            },
+            {
+              title: "Meditations on Moloch — Scott Alexander",
+              url:
+                "https://slatestarcodex.com/2014/07/30/meditations-on-moloch/",
+              note:
+                "The canonical map of where coordination breaks and what we lose when it does."
+            },
+            {
+              title: "The Coordination Problem (talk)",
+              url: "https://www.youtube.com/watch?v=Bbwp4PbWYzw",
+              note: "Watch this once. Then watch it again."
+            }
+          ].map((link) => (
+            <li key={link.url} className="retro-panel retro-panel-hover p-4">
+              <a
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block"
+              >
+                <div
+                  className="font-semibold text-base"
+                  style={{ color: "var(--text)" }}
+                >
+                  {link.title} →
+                </div>
+                <div
+                  className="text-xs mt-1 underline"
+                  style={{
+                    color: "var(--amber)",
+                    wordBreak: "break-all"
+                  }}
+                >
+                  {link.url}
+                </div>
+                <div
+                  className="text-sm mt-2"
+                  style={{ color: "var(--text-dim)" }}
+                >
+                  {link.note}
+                </div>
+              </a>
+            </li>
+          ))}
+        </ul>
+
+        {/* Closing prayer / benediction */}
+        <blockquote
+          className="mt-8 p-6 retro-panel retro-shadow"
+          style={{
+            borderColor: "var(--amber)",
+            fontStyle: "italic",
+            fontSize: 19,
+            lineHeight: 1.55,
+            color: "var(--text)",
+            letterSpacing: "-0.005em"
+          }}
+        >
+          “Let the time not be distant, O God, when all shall turn to You in
+          love, when all the brokenness in our world is repaired by the work
+          of our hands and our hearts.”
+        </blockquote>
       </section>
 
       <section className="mt-14 retro-panel retro-shadow p-6">

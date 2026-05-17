@@ -46,10 +46,10 @@ export function SyncMeter({
     "C 134 244 132 240 132 232",
     // inner right arm UP toward armpit
     "L 132 94",
-    // right armpit curving into torso
-    "C 132 100 128 106 116 110",
-    // right side of torso DOWN
-    "L 116 200",
+    // right armpit curving outward into a wider chest
+    "C 132 100 128 106 126 112",
+    // chest taper: wide at top (x=126), narrow at the waist (x=116)
+    "C 126 145 122 175 116 200",
     // right hip outward
     "L 120 215",
     // outer right leg DOWN
@@ -70,9 +70,9 @@ export function SyncMeter({
     "L 80 215",
     // left hip inward to waist
     "L 84 200",
-    // left side of torso UP
-    "L 84 110",
-    // left armpit curving from torso to inner arm
+    // chest widening from waist up (mirror of right side)
+    "C 78 175 74 145 74 112",
+    // left armpit curving outward to inner arm
     "C 72 106 68 100 68 94",
     // inner left arm DOWN
     "L 68 232",
@@ -152,7 +152,7 @@ export function SyncMeter({
           top: "39%",
           left: "50%",
           transform: "translateX(-50%)",
-          width: "28%",
+          width: "24%",
           textAlign: "center",
           pointerEvents: "none"
         }}
