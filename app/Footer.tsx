@@ -15,6 +15,9 @@ export function Footer() {
         <span style={{ color: "var(--amber-bright)" }}>{BUILD_SHA}</span>
       </div>
       <nav className="flex items-center gap-4">
+        <Link href="/hypernetwork" className="hover:text-white">
+          Hypernetwork
+        </Link>
         <Link href="/privacy" className="hover:text-white">
           Privacy
         </Link>

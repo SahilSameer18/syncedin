@@ -1,11 +1,11 @@
 /**
- * SyncedIn wordmark — real logo PNG from /public, big and unmissable.
+ * SyncedIn wordmark — real logo PNG from /public.
  *
- * Sizes (matched to header rhythm):
- *   sm: 32px   — inline body text, badges
- *   md: 60px   — sidebar / sub-page headers
- *   lg: 96px   — main dashboard / landing
- *   xl: 144px  — hero
+ * Sizes (raw heights so the wordmark really pops in headers):
+ *   sm: 40px
+ *   md: 80px
+ *   lg: 140px
+ *   xl: 200px
  */
 export function Wordmark({
   size = "lg"
@@ -13,7 +13,7 @@ export function Wordmark({
   size?: "sm" | "md" | "lg" | "xl";
 }) {
   const h =
-    size === "xl" ? 144 : size === "lg" ? 96 : size === "sm" ? 32 : 60;
+    size === "xl" ? 200 : size === "lg" ? 140 : size === "sm" ? 40 : 80;
   return (
     <span
       className="inline-flex items-center select-none"

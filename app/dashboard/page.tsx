@@ -189,6 +189,9 @@ export default async function DashboardPage() {
         <Wordmark />
         <div className="flex items-center gap-3 text-sm">
           <ThemeToggle />
+          <Link href="/hypernetwork" className="retro-dim hover:text-white">
+            hypernetwork
+          </Link>
           <Link href="/messages" className="retro-dim hover:text-white">
             messages
           </Link>
