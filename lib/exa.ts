@@ -13,9 +13,22 @@ export type ExaPerson = {
  * People search. `category: "people"` returns person results; highlights are
  * short excerpts Exa pulls that match the query.
  */
+/**
+ * Strip markdown artifacts Exa pulls out of LinkedIn ("[...]", "###", "**", etc.)
+ * so the rendered card looks like prose, not a raw scrape.
+ */
+function cleanHighlight(s: string): string {
+  return s
+    .replace(/\[\.\.\.\]/g, " ")
+    .replace(/#{1,6}\s*/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export async function exaPeopleSearch(
   query: string,
-  numResults = 8
+  numResults = 15
 ): Promise<ExaPerson[]> {
   const key = process.env.EXA_API_KEY;
   if (!key) {
@@ -33,7 +46,9 @@ export async function exaPeopleSearch(
       category: "people",
       type: "auto",
       numResults,
-      contents: { highlights: true }
+      // Pull more (and longer) highlights per person so the expanded card is
+      // actually useful when the user clicks to read it.
+      contents: { highlights: { numSentences: 4, highlightsPerUrl: 3 } }
     })
   });
 
@@ -48,6 +63,8 @@ export async function exaPeopleSearch(
   return ((json.results as any[]) ?? []).map((r) => ({
     title: (r.title as string) || (r.author as string) || (r.url as string),
     url: r.url as string,
-    highlights: (r.highlights as string[]) ?? []
+    highlights: ((r.highlights as string[]) ?? [])
+      .map(cleanHighlight)
+      .filter(Boolean)
   }));
 }

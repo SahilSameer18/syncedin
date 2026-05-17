@@ -5,9 +5,42 @@ import type { Profile, TwinProfile } from "@/lib/types";
 
 /**
  * The current user's twin drafts a short, personalized reach-out to a person
- * Exa surfaced — an invitation to connect on SyncedIn. The user can copy it,
- * edit it, and send it through their own channel.
+ * Exa surfaced. ALSO:
+ *  - Generates a unique slug (e.g. "lucas-chu")
+ *  - Generates an opening conversation message from the user's twin
+ *  - Stores both in pending_invites so the invitee can land at
+ *    syncedin.org/<slug>, see the auto-started conversation, and sign up to
+ *    reply with their own twin
+ *  - Appends the personal invite URL to the outreach message
+ *
+ * Hard rules in the outreach prose:
+ *  - No em-dashes (—) anywhere
+ *  - Be specific about WHY they're a fit, drawn from the highlights
+ *  - Mention the platform suggested the match and an auto-generated convo
+ *    waits at the link
  */
+
+// Slugify a person's name: take first 2-3 words before any separator,
+// lowercase, alphanumeric + hyphens only.
+function slugify(name: string): string {
+  const firstChunk = name.split(/[-|,(·]/)[0] || name;
+  const base = firstChunk
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return base || "twin";
+}
+
+// Strip em-dashes and en-dashes from generated text (defense in depth on top
+// of the prompt instruction).
+function stripDashes(s: string): string {
+  return s
+    .replace(/\s*[—–]\s*/g, ", ")
+    .replace(/,\s*,/g, ",")
+    .trim();
+}
+
 export async function POST(req: Request) {
   const supabase = createClient();
   const {
@@ -32,6 +65,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "missing_person" }, { status: 400 });
   }
   const highlights = (body.highlights ?? []).join("\n");
+  const personUrl = (body.person_url ?? "").trim();
 
   const service = createServiceClient();
   const [{ data: profile }, { data: twin }] = await Promise.all([
@@ -47,7 +81,25 @@ export async function POST(req: Request) {
   const t = twin as TwinProfile | null;
   const selfName = p?.display_name || p?.email || "the sender";
 
-  const systemPrompt = `You are the digital twin of ${selfName}, writing a first outreach message to invite someone to connect on SyncedIn — an agent-to-agent protocol where two people's digital twins negotiate the highest-leverage win-win between them.
+  // Unique slug for the landing page. If taken, append a short hash.
+  const baseSlug = slugify(personTitle);
+  let slug = baseSlug;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data: existing } = await service
+      .from("pending_invites")
+      .select("slug")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (!existing) break;
+    slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
+  }
+
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    "https://syncedin.org";
+  const inviteUrl = `${appUrl}/${slug}`;
+
+  const systemPrompt = `You are the digital twin of ${selfName}, writing a first outreach message to invite someone to connect on SyncedIn (an agent-to-agent protocol where two people's digital twins explore the highest-leverage win-win between them).
 
 # Who you are representing
 Name: ${selfName}
@@ -57,40 +109,107 @@ Communication style: ${t?.communication_style || "(default: warm, concise, direc
 
 # Who you're reaching out to
 ${personTitle}
-${body.person_url ? `Profile: ${body.person_url}` : ""}
+${personUrl ? `Profile: ${personUrl}` : ""}
 What's known about them:
 ${highlights || "(only the name/role above)"}
 
-# How to write it
-- Short — 2 to 4 sentences. A real first message, not a pitch deck.
-- Open with something specific and genuine about THEM, drawn from what's known above. No generic flattery.
-- Name the concrete win-win you see between ${selfName} and them — why connecting is worth their time.
-- Close with a light, low-pressure invite to connect on SyncedIn.
-- Match ${selfName}'s communication style. First person. No markdown, no subject line, no signature — just the message body.`;
+# Personal invite link for this exact person
+${inviteUrl}
+(A conversation has already been auto-generated there from ${selfName}'s twin; they just need to sign up to reply with their own.)
+
+# Hard rules — do not break these
+- 3 to 5 short sentences. No long monologue.
+- DO NOT use em-dashes or en-dashes anywhere. Use commas, periods, or colons instead.
+- Be CONCRETE about why ${selfName} and this person are a fit. Reference something specific from what's known about them above. Generic flattery is forbidden ("you seem amazing", "your work is impressive" — banned).
+- Mention that the platform suggested the match, and that a conversation has already been auto-generated from your clone at the link. Phrase it like: the recipient can sign up and their clone can pair with yours to streamline the back-and-forth.
+- Include the personal invite link above (raw URL, no markdown) somewhere natural in the message.
+- First person, plain text. No subject line, no signature.
+- Match ${selfName}'s communication style.`;
+
+  let outreach = "";
+  let convStarter = "";
 
   try {
-    const response = await anthropic.messages.create({
+    // 1. Generate the outreach message they'll receive on LinkedIn / email.
+    const r1 = await anthropic.messages.create({
       model: TWIN_MODEL,
-      max_tokens: 512,
+      max_tokens: 600,
       system: systemPrompt,
       messages: [
         {
           role: "user",
-          content: `Write the outreach message to ${personTitle}.`
+          content: `Write the outreach message to ${personTitle}. Remember: no em-dashes, be specific about why they're a fit, include the invite link, mention the auto-generated conversation.`
         }
       ]
     });
-    const text = response.content
+    outreach = r1.content
       .filter((b) => b.type === "text")
       .map((b) => (b as { text: string }).text)
       .join("\n")
       .trim();
-    return NextResponse.json({ message: text });
+    outreach = stripDashes(outreach);
+    // Belt and suspenders: if Claude forgot the link, append it.
+    if (!outreach.includes(inviteUrl)) {
+      outreach = `${outreach}\n\n${inviteUrl}`;
+    }
+
+    // 2. Generate the opening conversation message from the user's twin that
+    //    the invitee will see when they land at /<slug>.
+    const convPrompt = `You are the digital twin of ${selfName}. Write the OPENING message of a conversation with ${personTitle}, who is about to land on a SyncedIn invite page from ${selfName}'s clone.
+
+Context the recipient will see:
+- ${selfName}'s goals: ${t?.goals || "(not specified)"}
+- What's known about ${personTitle}: ${highlights || "(only the name/role above)"}
+
+Rules:
+- 2 to 4 sentences, first person, as ${selfName}'s clone speaking to ${personTitle}.
+- Open with something specific you noticed about them.
+- Name the concrete overlap between ${selfName} and them.
+- Close with a real question or proposal that invites a reply.
+- NO em-dashes or en-dashes anywhere. NO markdown. Just prose.`;
+    const r2 = await anthropic.messages.create({
+      model: TWIN_MODEL,
+      max_tokens: 400,
+      system: convPrompt,
+      messages: [
+        {
+          role: "user",
+          content: `Write the opening conversation message.`
+        }
+      ]
+    });
+    convStarter = r2.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { text: string }).text)
+      .join("\n")
+      .trim();
+    convStarter = stripDashes(convStarter);
   } catch (e: any) {
-    console.error("exa-draft-outreach error", e);
+    console.error("exa-draft-outreach generation error", e);
     return NextResponse.json(
       { error: "draft_failed", detail: e?.message ?? String(e) },
       { status: 500 }
     );
   }
+
+  // Save the pending invite so the landing page can render it.
+  const { error: insertErr } = await service.from("pending_invites").insert({
+    slug,
+    inviter_user_id: user.id,
+    person_title: personTitle,
+    person_url: personUrl || null,
+    person_highlights: body.highlights ?? [],
+    conversation_starter: convStarter
+  });
+  if (insertErr) {
+    console.error("pending_invites insert failed", insertErr);
+    // Non-fatal — still return the outreach so the user can copy it.
+  }
+
+  return NextResponse.json({
+    message: outreach,
+    slug,
+    invite_url: inviteUrl,
+    conversation_starter: convStarter
+  });
 }

@@ -39,7 +39,17 @@ export function DiscoverSearch({
   const [drafting, setDrafting] = useState<string | null>(null);
   const [draftFor, setDraftFor] = useState<ExaPerson | null>(null);
   const [draftText, setDraftText] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function toggleExpand(url: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(url)) next.delete(url);
+      else next.add(url);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
@@ -215,72 +225,110 @@ export function DiscoverSearch({
                 </p>
               ) : (
                 <ul className="mt-2 space-y-2">
-                  {results.exa_people.map((p) => (
-                    <li
-                      key={p.url}
-                      className="retro-panel retro-panel-hover p-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div className="font-semibold text-sm">{p.title}</div>
-                          <a
-                            href={p.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="retro-dim text-xs underline mt-1 inline-block"
-                            style={{ wordBreak: "break-all" }}
+                  {results.exa_people.map((p) => {
+                    const isOpen = expanded.has(p.url);
+                    const preview = p.highlights[0]
+                      ? p.highlights[0].length > 140
+                        ? p.highlights[0].slice(0, 140) + "…"
+                        : p.highlights[0]
+                      : "";
+                    return (
+                      <li
+                        key={p.url}
+                        className="retro-panel retro-panel-hover p-3"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpand(p.url)}
+                            className="text-left flex-1 min-w-0"
+                            style={{
+                              background: "transparent",
+                              border: 0,
+                              padding: 0,
+                              cursor: "pointer"
+                            }}
                           >
-                            {p.url}
-                          </a>
-                          {p.highlights.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              {p.highlights.map((h, i) => (
-                                <p key={i} className="text-sm">
-                                  {h}
-                                </p>
-                              ))}
+                            <div className="font-semibold text-sm">
+                              {p.title}
                             </div>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => draftOutreach(p)}
-                          disabled={drafting === p.url}
-                          className="retro-btn text-sm shrink-0"
-                        >
-                          {drafting === p.url ? "Drafting…" : "Draft invite"}
-                        </button>
-                      </div>
-
-                      {draftFor?.url === p.url && draftText && (
-                        <div className="mt-3">
-                          <textarea
-                            value={draftText}
-                            onChange={(e) => setDraftText(e.target.value)}
-                            rows={5}
-                            className="retro-input"
-                          />
-                          <div className="flex gap-2 mt-2">
+                            <div
+                              className="retro-dim text-xs mt-0.5"
+                              style={{ wordBreak: "break-all" }}
+                            >
+                              {p.url}
+                            </div>
+                            {!isOpen && preview && (
+                              <div className="retro-dim text-xs mt-1 line-clamp-1">
+                                {preview}
+                              </div>
+                            )}
+                          </button>
+                          <div className="flex items-center gap-2 shrink-0">
                             <button
                               type="button"
-                              onClick={() => copy(draftText)}
-                              className="retro-btn retro-btn-primary text-sm"
+                              onClick={() => toggleExpand(p.url)}
+                              className="retro-dim text-xs hover:text-white"
                             >
-                              Copy
+                              {isOpen ? "− collapse" : "+ expand"}
                             </button>
+                            <button
+                              type="button"
+                              onClick={() => draftOutreach(p)}
+                              disabled={drafting === p.url}
+                              className="retro-btn text-sm"
+                            >
+                              {drafting === p.url ? "Drafting…" : "Draft invite"}
+                            </button>
+                          </div>
+                        </div>
+
+                        {isOpen && p.highlights.length > 0 && (
+                          <div className="mt-3 space-y-2 text-sm">
+                            {p.highlights.map((h, i) => (
+                              <p key={i}>{h}</p>
+                            ))}
                             <a
                               href={p.url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="retro-btn text-sm"
+                              className="inline-block retro-dim text-xs underline mt-1"
                             >
-                              Open profile →
+                              Open full profile →
                             </a>
                           </div>
-                        </div>
-                      )}
-                    </li>
-                  ))}
+                        )}
+
+                        {draftFor?.url === p.url && draftText && (
+                          <div className="mt-3">
+                            <textarea
+                              value={draftText}
+                              onChange={(e) => setDraftText(e.target.value)}
+                              rows={5}
+                              className="retro-input"
+                            />
+                            <div className="flex gap-2 mt-2">
+                              <button
+                                type="button"
+                                onClick={() => copy(draftText)}
+                                className="retro-btn retro-btn-primary text-sm"
+                              >
+                                Copy
+                              </button>
+                              <a
+                                href={p.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="retro-btn text-sm"
+                              >
+                                Open profile →
+                              </a>
+                            </div>
+                          </div>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

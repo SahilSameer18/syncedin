@@ -65,7 +65,7 @@ export async function POST(req: Request) {
   let exa_people: ExaPerson[] = [];
   if (!isEmail) {
     try {
-      exa_people = await exaPeopleSearch(query, 6);
+      exa_people = await exaPeopleSearch(query, 15);
     } catch (e) {
       // Non-fatal — Exa is a "nice to have" here.
       console.error("exa lookup in find-counterpart failed", e);
