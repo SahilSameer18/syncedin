@@ -10,6 +10,12 @@ export const contentType = "image/png";
  * Site-wide OG preview. Logo-forward so iMessage / LinkedIn / Twitter always
  * render a big, recognizable card.
  */
+// Force static so the response is built once and served with long-lived
+// cache headers — Apple's LP service rejects images served with
+// no-store / private cache headers (which Vercel applies to dynamic
+// routes by default).
+export const dynamic = "force-static";
+
 export default function OpengraphImage() {
   return new ImageResponse(
     (
@@ -88,6 +94,16 @@ export default function OpengraphImage() {
         </div>
       </div>
     ),
-    { ...size }
+    {
+      ...size,
+      headers: {
+        // Apple's LP service + Twitter card validator + LinkedIn scraper
+        // all require a publicly cacheable image. Without this, Vercel
+        // serves dynamic routes with `private, no-store` and the scrapers
+        // reject the image, falling back to the favicon.
+        "cache-control":
+          "public, immutable, no-transform, max-age=31536000"
+      }
+    }
   );
 }
