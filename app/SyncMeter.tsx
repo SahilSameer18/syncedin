@@ -1,15 +1,13 @@
 import { computeSyncScore, type SyncInputs } from "@/lib/sync-score";
 
 /**
- * SyncMeter v4 — gamified clone visual.
+ * SyncMeter v5 — gamified clone visual.
  *
- * Strictly symmetric silhouette: head circle on top, body trapezoid in the
- * middle, two arms as SEPARATE tubes hanging beside the body (visible gap,
- * no overlapping outlines), two legs with feet.
- *
- * Fill rises from the feet upward. Mapped exactly to body height so a 79%
- * fill stops at 79% of the body, not 79% of the viewBox. White readout in
- * the chest. Caps at 99 by design.
+ * Single continuous silhouette (head + body + arms + legs as one outline,
+ * arms are part of the body outline so there are no overlapping internal
+ * lines). Strictly symmetric around the center axis. White % readout in
+ * the chest area. Rainbow fill rises from the feet upward, mapped to the
+ * actual body height so 79% really looks like 79%.
  */
 export function SyncMeter({
   inputs,
@@ -19,73 +17,75 @@ export function SyncMeter({
   size?: number;
 }) {
   const { total } = computeSyncScore(inputs);
-  // Fill is computed against the actual rendered silhouette range so 79%
-  // visually looks like 79% of the body, not 79% of the viewBox.
-  const FILL_TOP = 14; // head top
+  const FILL_TOP = 16; // very top of head
   const FILL_BOTTOM = 313; // foot bottom
   const fillY =
     FILL_BOTTOM - (FILL_BOTTOM - FILL_TOP) * (total / 100);
 
-  // ── Geometry (all symmetric around x = 100) ───────────────────────────
-  // Head
+  // ── Head: a separate circle ────────────────────────────────────────────
   const HEAD_CX = 100;
   const HEAD_CY = 38;
   const HEAD_R = 22;
   const headPath = `M ${HEAD_CX} ${HEAD_CY - HEAD_R} a ${HEAD_R} ${HEAD_R} 0 1 0 0.001 0 Z`;
 
-  // Body trapezoid + legs. Symmetric around x=100. No overlap with arms.
-  const bodyPath =
-    // top edge of body (just under the head)
-    "M 88 64 " +
-    "L 112 64 " +
-    // right shoulder corner (narrow shoulders, arms are separate)
-    "L 118 80 " +
-    // right side of torso going down toward waist
-    "L 116 200 " +
-    // right outer thigh
-    "L 124 270 " +
-    "L 122 305 " +
+  // ── Body + arms + legs as ONE continuous outline ──────────────────────
+  // Traced clockwise from the neck-left bottom. Arms are integrated into
+  // the outline (down outer, around hand, up inner, into armpit, down
+  // torso), so there are no double lines anywhere.
+  const bodyPath = [
+    // neck top
+    "M 88 64",
+    "L 112 64",
+    // right shoulder slope outward to outer arm top
+    "C 128 66 138 72 142 80",
+    // outer right arm DOWN
+    "L 142 188",
+    // right hand (rounded bottom)
+    "C 144 202 142 212 132 212",
+    "C 122 212 120 202 122 188",
+    // inner right arm UP toward armpit
+    "L 122 88",
+    // armpit: curve inward into the torso side
+    "C 122 84 118 86 114 92",
+    // right side of torso DOWN
+    "L 112 200",
+    // right outer thigh outward + down
+    "L 122 270",
+    "L 124 305",
     // right foot
-    "C 122 311 118 313 114 313 " +
-    "C 110 313 108 311 108 305 " +
-    // right inner thigh up to crotch
-    "L 106 270 " +
-    "L 102 200 " +
-    // crotch flat
-    "L 98 200 " +
-    // left inner thigh down
-    "L 94 270 " +
-    "L 92 305 " +
+    "C 124 311 120 313 116 313",
+    "C 112 313 110 311 110 305",
+    // right inner thigh UP to crotch
+    "L 108 270",
+    "L 102 200",
+    // crotch (flat)
+    "L 98 200",
+    // left inner thigh DOWN
+    "L 92 270",
+    "L 90 305",
     // left foot
-    "C 92 311 88 313 84 313 " +
-    "C 80 313 78 311 78 305 " +
-    "L 76 270 " +
-    // left outer thigh up to waist
-    "L 84 200 " +
-    // left side of torso up
-    "L 82 80 " +
-    // back to neck-left
-    "L 88 64 " +
-    "Z";
+    "C 90 311 86 313 82 313",
+    "C 78 313 76 311 76 305",
+    // left outer thigh UP
+    "L 78 270",
+    "L 88 200",
+    // left side of torso UP to armpit
+    "L 86 92",
+    // left armpit: curve outward into inner arm
+    "C 82 86 78 84 78 88",
+    // inner left arm DOWN
+    "L 78 188",
+    // left hand (rounded)
+    "C 80 202 78 212 68 212",
+    "C 58 212 56 202 58 188",
+    // outer left arm UP
+    "L 58 80",
+    // left shoulder slope back to neck
+    "C 62 72 72 66 88 64",
+    "Z"
+  ].join(" ");
 
-  // Arms — separate tubes hanging beside the body with a visible gap.
-  const leftArm =
-    "M 60 80 " +
-    "L 60 192 " +
-    "C 58 202 60 212 68 212 " +
-    "C 76 212 78 202 78 192 " +
-    "L 78 80 " +
-    "Z";
-  const rightArm =
-    "M 140 80 " +
-    "L 140 192 " +
-    "C 142 202 140 212 132 212 " +
-    "C 124 212 122 202 122 192 " +
-    "L 122 80 " +
-    "Z";
-
-  // Combined silhouette for the clip + outline (multiple subpaths in one d).
-  const silhouette = `${headPath} ${bodyPath} ${leftArm} ${rightArm}`;
+  const silhouette = `${headPath} ${bodyPath}`;
 
   return (
     <div
@@ -120,10 +120,9 @@ export function SyncMeter({
           </clipPath>
         </defs>
 
-        {/* Inside-body desaturated base (the "unfilled" portion). */}
+        {/* Unfilled base */}
         <g clipPath="url(#syncBodyClip)">
           <rect x="0" y="0" width="200" height="320" fill="#eceef5" />
-          {/* Rainbow rising from the feet, strictly inside the silhouette. */}
           <rect
             x="0"
             y={fillY}
@@ -133,7 +132,7 @@ export function SyncMeter({
           />
         </g>
 
-        {/* Crisp black outline (each subpath gets its own stroke). */}
+        {/* Crisp outline */}
         <path
           d={silhouette}
           fill="none"
@@ -145,11 +144,11 @@ export function SyncMeter({
         />
       </svg>
 
-      {/* % readout — white text for legibility on the rainbow */}
+      {/* % readout — chest height, white text */}
       <div
         style={{
           position: "absolute",
-          top: "44%",
+          top: "35%",
           left: 0,
           right: 0,
           textAlign: "center",
