@@ -275,6 +275,7 @@ export function DiscoverSearch({
                   ) : (
                     <ul className="mt-2 space-y-2">
                       {s.people.slice(0, 4).map((p) => {
+                        const isOpen = expanded.has(p.url);
                         const preview = p.highlights[0]
                           ? p.highlights[0].length > 140
                             ? p.highlights[0].slice(0, 140) + "…"
@@ -299,25 +300,51 @@ export function DiscoverSearch({
                                 >
                                   {p.url}
                                 </a>
-                                {preview && (
-                                  <div className="retro-dim text-xs mt-1 line-clamp-2">
+                                {!isOpen && preview && (
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleExpand(p.url)}
+                                    className="retro-dim text-xs mt-1 line-clamp-2 text-left w-full"
+                                    style={{
+                                      background: "transparent",
+                                      border: 0,
+                                      padding: 0,
+                                      cursor: "pointer"
+                                    }}
+                                  >
                                     {preview}
-                                  </div>
+                                  </button>
                                 )}
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => draftOutreach(p)}
-                                disabled={drafting === p.url}
-                                className="retro-btn text-sm shrink-0"
-                              >
-                                {drafting === p.url ? (
-                                  <DotsLoader label="Drafting" />
-                                ) : (
-                                  "Draft invite"
-                                )}
-                              </button>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleExpand(p.url)}
+                                  className="retro-dim text-xs hover:text-white"
+                                >
+                                  {isOpen ? "− collapse" : "+ expand"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => draftOutreach(p)}
+                                  disabled={drafting === p.url}
+                                  className="retro-btn text-sm"
+                                >
+                                  {drafting === p.url ? (
+                                    <DotsLoader label="Drafting" />
+                                  ) : (
+                                    "Draft invite"
+                                  )}
+                                </button>
+                              </div>
                             </div>
+                            {isOpen && p.highlights.length > 0 && (
+                              <div className="mt-3 space-y-2 text-sm">
+                                {p.highlights.map((h, i) => (
+                                  <p key={i}>{h}</p>
+                                ))}
+                              </div>
+                            )}
                             {draftFor?.url === p.url && draftText && (
                               <div className="mt-3 space-y-3">
                                 {shortText && (
