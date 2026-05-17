@@ -39,6 +39,7 @@ export function ChatUI({
   conversationId,
   selfUserId,
   selfName,
+  selfAvatarUrl,
   other,
   initialMessages,
   initialDone,
@@ -48,7 +49,13 @@ export function ChatUI({
   conversationId: string;
   selfUserId: string;
   selfName: string;
-  other: { id: string; name: string; isTestPersona: boolean };
+  selfAvatarUrl?: string | null;
+  other: {
+    id: string;
+    name: string;
+    isTestPersona: boolean;
+    avatarUrl?: string | null;
+  };
   initialMessages: Message[];
   initialDone: boolean;
   initialMyResponse: ResponseState | null;
