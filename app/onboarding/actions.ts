@@ -18,6 +18,7 @@ export async function saveTwin(formData: FormData) {
   if (!user) redirect("/login");
 
   const display_name = s(formData.get("display_name"));
+  const avatar_url = s(formData.get("avatar_url"));
   const fields = {
     user_id: user.id,
     goals: s(formData.get("goals")),
@@ -28,10 +29,16 @@ export async function saveTwin(formData: FormData) {
     updated_at: new Date().toISOString()
   };
 
-  await supabase
-    .from("profiles")
-    .update({ display_name })
-    .eq("id", user.id);
+  // Build a single profile update — only set the columns the user touched.
+  const profileUpdate: Record<string, string | null> = {};
+  if (display_name !== null) profileUpdate.display_name = display_name;
+  if (avatar_url !== null) profileUpdate.avatar_url = avatar_url;
+  if (Object.keys(profileUpdate).length > 0) {
+    await supabase
+      .from("profiles")
+      .update(profileUpdate)
+      .eq("id", user.id);
+  }
 
   await supabase
     .from("twin_profiles")

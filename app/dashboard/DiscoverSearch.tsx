@@ -209,6 +209,18 @@ export function DiscoverSearch({
       {!searching && (
         <div className="mt-4">
           <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => askTwin(intent.trim())}
+              disabled={suggesting}
+              className="retro-btn retro-btn-primary shrink-0"
+            >
+              {suggesting ? (
+                <DotsLoader label="searching" />
+              ) : (
+                "Find people"
+              )}
+            </button>
             <input
               value={intent}
               onChange={(e) => setIntent(e.target.value.slice(0, 280))}
@@ -221,27 +233,11 @@ export function DiscoverSearch({
               placeholder={
                 intent
                   ? ""
-                  : `Ask your twin: e.g. "${SAMPLE_INTENTS[placeholderIdx]}"`
+                  : `e.g. "${SAMPLE_INTENTS[placeholderIdx]}"`
               }
               className="retro-input flex-1"
               maxLength={280}
             />
-            <button
-              type="button"
-              onClick={() => askTwin(intent.trim())}
-              disabled={suggesting}
-              className="retro-btn retro-btn-primary shrink-0"
-            >
-              {suggesting ? (
-                <DotsLoader label="thinking" />
-              ) : intent.trim() ? (
-                "search"
-              ) : suggestions ? (
-                "again"
-              ) : (
-                "ask twin"
-              )}
-            </button>
           </div>
           <div
             className="retro-dim text-xs mt-2"

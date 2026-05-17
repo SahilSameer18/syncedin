@@ -1,11 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { saveTwin } from "./actions";
-import { ExtractionGuides } from "./ExtractionGuides";
-import { DumpTextarea } from "./DumpTextarea";
-import { AiDumpHero } from "./AiDumpHero";
 import { Wordmark } from "../Wordmark";
+import { OnboardingWizard } from "./OnboardingWizard";
 import { SelfGraph } from "./SelfGraph";
 
 export default async function OnboardingPage({
@@ -31,6 +28,16 @@ export default async function OnboardingPage({
     .eq("id", user.id)
     .maybeSingle();
 
+  const initial = {
+    display_name: profile?.display_name ?? "",
+    goals: twin?.goals ?? "",
+    deal_preferences: twin?.deal_preferences ?? "",
+    communication_style: twin?.communication_style ?? "",
+    deal_breakers: twin?.deal_breakers ?? "",
+    ai_export_blob: twin?.ai_export_blob ?? "",
+    avatar_url: profile?.avatar_url ?? ""
+  };
+
   return (
     <main className="max-w-6xl mx-auto px-6 py-8">
       <div className="flex items-center justify-between">
@@ -42,133 +49,23 @@ export default async function OnboardingPage({
 
       <h1 className="retro-h1 text-2xl mt-6">Build your twin</h1>
       <p className="mt-1 retro-dim text-sm">
-        Two required fields and one paste. Everything else is optional. As you
-        add context, your self graph on the right builds itself in real time.
+        Five quick steps. Each one sharpens how your clone shows up for you.
       </p>
 
       {searchParams.saved === "1" && (
         <p className="mt-3 text-sm retro-green">✓ Saved.</p>
       )}
 
-      <div className="mt-6 grid lg:grid-cols-[1fr_460px] gap-8 items-start">
-        <form
-          action={saveTwin}
-          id="onboarding-form"
-          className="space-y-5 min-w-0"
-        >
-        {/* HERO — the fast path */}
-        <AiDumpHero />
+      <div className="mt-6 grid lg:grid-cols-[1fr_440px] gap-8 items-start">
+        <div className="min-w-0">
+          <OnboardingWizard initial={initial} userId={user.id} />
+        </div>
 
-        <label className="block">
-          <div className="retro-label">paste your twin&apos;s context</div>
-          <div className="text-xs retro-dim mt-1">
-            Paste the AI&apos;s full answer here. Add chat exports or sent
-            emails too if you have them — no length limit, more is better.
-          </div>
-          <DumpTextarea defaultValue={twin?.ai_export_blob ?? ""} />
-        </label>
-
-        {/* Required basics */}
-        <Field
-          label="Your name — how others see you"
-          name="display_name"
-          defaultValue={profile?.display_name ?? ""}
-        />
-        <Field
-          label="Your goals — what are you trying to accomplish right now?"
-          name="goals"
-          defaultValue={twin?.goals ?? ""}
-          textarea
-          rows={3}
-        />
-
-        {/* Optional detail — collapsed by default to keep onboarding simple */}
-        <details className="retro-panel">
-          <summary className="px-4 py-3 cursor-pointer text-sm">
-            <span className="retro-label">add more detail (optional)</span>
-            <span className="retro-dim text-xs ml-2">
-              sharpens the twin — skip it and the paste above carries you
-            </span>
-          </summary>
-          <div className="px-4 pb-4 space-y-5">
-            <Field
-              label="Deal preferences — what partnerships, deals, or intros do you want?"
-              name="deal_preferences"
-              defaultValue={twin?.deal_preferences ?? ""}
-              textarea
-              rows={2}
-            />
-            <Field
-              label="Communication style — how do you write? (concise / warm / direct / formal)"
-              name="communication_style"
-              defaultValue={twin?.communication_style ?? ""}
-              textarea
-              rows={2}
-            />
-            <Field
-              label="Deal breakers — what won't you do?"
-              name="deal_breakers"
-              defaultValue={twin?.deal_breakers ?? ""}
-              textarea
-              rows={2}
-            />
-            <div>
-              <div className="retro-label">other context sources</div>
-              <div className="mt-2">
-                <ExtractionGuides />
-              </div>
-            </div>
-          </div>
-        </details>
-
-        <button className="retro-btn retro-btn-primary w-full">
-          Save twin &amp; go to dashboard
-        </button>
-      </form>
-
-        {/* Live self-graph — regenerates from form context as you type */}
+        {/* Live self-graph */}
         <div className="hidden lg:block">
           <SelfGraph formSelector="#onboarding-form" />
         </div>
       </div>
     </main>
-  );
-}
-
-function Field({
-  label,
-  name,
-  defaultValue = "",
-  textarea = false,
-  rows = 3,
-  placeholder = ""
-}: {
-  label: string;
-  name: string;
-  defaultValue?: string;
-  textarea?: boolean;
-  rows?: number;
-  placeholder?: string;
-}) {
-  return (
-    <label className="block">
-      <div className="text-sm text-[var(--text)]">{label}</div>
-      {textarea ? (
-        <textarea
-          name={name}
-          defaultValue={defaultValue}
-          rows={rows}
-          placeholder={placeholder}
-          className="retro-input mt-1.5 text-sm"
-        />
-      ) : (
-        <input
-          name={name}
-          defaultValue={defaultValue}
-          placeholder={placeholder}
-          className="retro-input mt-1.5 text-sm"
-        />
-      )}
-    </label>
   );
 }
