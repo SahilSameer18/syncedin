@@ -1,13 +1,15 @@
 import { computeSyncScore, type SyncInputs } from "@/lib/sync-score";
 
 /**
- * SyncMeter v3 — gamified clone visual.
+ * SyncMeter v4 — gamified clone visual.
  *
- * Clean human silhouette. Rainbow fills the body INSIDE the outline only,
- * rising from the feet up as your Sync % climbs. A soft outer glow brightens
- * with progress.
+ * Strictly symmetric silhouette: head circle on top, body trapezoid in the
+ * middle, two arms as SEPARATE tubes hanging beside the body (visible gap,
+ * no overlapping outlines), two legs with feet.
  *
- * Caps at 99 — the last 1% is on purpose.
+ * Fill rises from the feet upward. Mapped exactly to body height so a 79%
+ * fill stops at 79% of the body, not 79% of the viewBox. White readout in
+ * the chest. Caps at 99 by design.
  */
 export function SyncMeter({
   inputs,
@@ -17,70 +19,73 @@ export function SyncMeter({
   size?: number;
 }) {
   const { total } = computeSyncScore(inputs);
-  const fillPct = Math.round((total / 99) * 100);
+  // Fill is computed against the actual rendered silhouette range so 79%
+  // visually looks like 79% of the body, not 79% of the viewBox.
+  const FILL_TOP = 14; // head top
+  const FILL_BOTTOM = 313; // foot bottom
+  const fillY =
+    FILL_BOTTOM - (FILL_BOTTOM - FILL_TOP) * (total / 100);
 
-  // Silhouette: head circle + body path, viewBox 200x320.
+  // ── Geometry (all symmetric around x = 100) ───────────────────────────
+  // Head
   const HEAD_CX = 100;
-  const HEAD_CY = 36;
+  const HEAD_CY = 38;
   const HEAD_R = 22;
-  // Body silhouette: arms hang DOWN by the sides with rounded hands,
-  // torso tapers from shoulders to waist, two legs with feet.
-  const BODY =
-    // ── Neck + right shoulder slope
-    "M 92 64 " +
-    "L 108 64 " +
-    "C 120 68 132 74 138 84 " +
-    "C 142 90 144 98 142 108 " +
-    // ── Outer right arm down
-    "L 142 184 " +
-    // ── Right hand (rounded)
-    "C 142 194 140 200 132 200 " +
-    "C 124 200 122 194 122 184 " +
-    // ── Inner right arm back up to armpit
-    "L 124 108 " +
-    "C 124 98 122 92 118 88 " +
-    // ── Right side of torso down to hip
-    "L 122 140 " +
-    "L 126 200 " +
-    // ── Outer right leg down
-    "L 124 268 " +
-    "L 122 304 " +
-    // ── Right foot
-    "C 122 310 118 312 114 312 " +
-    "C 110 312 108 310 108 304 " +
-    // ── Inner right leg up
-    "L 106 268 " +
-    "L 102 200 " +
-    // ── Crotch
-    "L 98 200 " +
-    // ── Inner left leg down
-    "L 94 268 " +
-    "L 92 304 " +
-    // ── Left foot
-    "C 92 310 88 312 84 312 " +
-    "C 80 312 76 310 76 304 " +
-    // ── Outer left leg up
-    "L 74 268 " +
-    "L 78 200 " +
-    // ── Left side of torso up
-    "L 78 140 " +
-    "L 82 88 " +
-    "C 78 92 76 98 76 108 " +
-    // ── Inner left arm down
-    "L 78 184 " +
-    // ── Left hand (rounded)
-    "C 78 194 76 200 68 200 " +
-    "C 60 200 58 194 58 184 " +
-    // ── Outer left arm back up to shoulder
-    "L 58 108 " +
-    "C 56 98 58 90 62 84 " +
-    "C 68 74 80 68 92 64 " +
-    "Z";
-  const HEAD = `M ${HEAD_CX} ${HEAD_CY - HEAD_R} a ${HEAD_R} ${HEAD_R} 0 1 0 0.001 0 Z`;
-  const silhouette = `${HEAD} ${BODY}`;
+  const headPath = `M ${HEAD_CX} ${HEAD_CY - HEAD_R} a ${HEAD_R} ${HEAD_R} 0 1 0 0.001 0 Z`;
 
-  // Rainbow fill rises from the feet (y=320) upward to fillY.
-  const fillY = 320 - (320 * fillPct) / 100;
+  // Body trapezoid + legs. Symmetric around x=100. No overlap with arms.
+  const bodyPath =
+    // top edge of body (just under the head)
+    "M 88 64 " +
+    "L 112 64 " +
+    // right shoulder corner (narrow shoulders, arms are separate)
+    "L 118 80 " +
+    // right side of torso going down toward waist
+    "L 116 200 " +
+    // right outer thigh
+    "L 124 270 " +
+    "L 122 305 " +
+    // right foot
+    "C 122 311 118 313 114 313 " +
+    "C 110 313 108 311 108 305 " +
+    // right inner thigh up to crotch
+    "L 106 270 " +
+    "L 102 200 " +
+    // crotch flat
+    "L 98 200 " +
+    // left inner thigh down
+    "L 94 270 " +
+    "L 92 305 " +
+    // left foot
+    "C 92 311 88 313 84 313 " +
+    "C 80 313 78 311 78 305 " +
+    "L 76 270 " +
+    // left outer thigh up to waist
+    "L 84 200 " +
+    // left side of torso up
+    "L 82 80 " +
+    // back to neck-left
+    "L 88 64 " +
+    "Z";
+
+  // Arms — separate tubes hanging beside the body with a visible gap.
+  const leftArm =
+    "M 60 80 " +
+    "L 60 192 " +
+    "C 58 202 60 212 68 212 " +
+    "C 76 212 78 202 78 192 " +
+    "L 78 80 " +
+    "Z";
+  const rightArm =
+    "M 140 80 " +
+    "L 140 192 " +
+    "C 142 202 140 212 132 212 " +
+    "C 124 212 122 202 122 192 " +
+    "L 122 80 " +
+    "Z";
+
+  // Combined silhouette for the clip + outline (multiple subpaths in one d).
+  const silhouette = `${headPath} ${bodyPath} ${leftArm} ${rightArm}`;
 
   return (
     <div
@@ -107,15 +112,18 @@ export function SyncMeter({
             <stop offset="90%" stopColor="#ff4d6d" />
             <stop offset="100%" stopColor="#ff77ee" />
           </linearGradient>
-          <clipPath id="syncBodyClip" clipPathUnits="userSpaceOnUse">
+          <clipPath
+            id="syncBodyClip"
+            clipPathUnits="userSpaceOnUse"
+          >
             <path d={silhouette} fillRule="evenodd" />
           </clipPath>
         </defs>
 
-        {/* Inside-body desaturated base — the "empty" part of the meter. */}
+        {/* Inside-body desaturated base (the "unfilled" portion). */}
         <g clipPath="url(#syncBodyClip)">
           <rect x="0" y="0" width="200" height="320" fill="#eceef5" />
-          {/* Rainbow rising from feet up. Strictly inside the silhouette. */}
+          {/* Rainbow rising from the feet, strictly inside the silhouette. */}
           <rect
             x="0"
             y={fillY}
@@ -125,7 +133,7 @@ export function SyncMeter({
           />
         </g>
 
-        {/* Crisp body outline */}
+        {/* Crisp black outline (each subpath gets its own stroke). */}
         <path
           d={silhouette}
           fill="none"
@@ -137,11 +145,11 @@ export function SyncMeter({
         />
       </svg>
 
-      {/* % readout floats centered on chest — kept compact so it fits inside the torso */}
+      {/* % readout — white text for legibility on the rainbow */}
       <div
         style={{
           position: "absolute",
-          top: "38%",
+          top: "44%",
           left: 0,
           right: 0,
           textAlign: "center",
@@ -153,10 +161,11 @@ export function SyncMeter({
             fontFamily:
               '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace',
             fontWeight: 800,
-            fontSize: size * 0.11,
+            fontSize: size * 0.13,
             lineHeight: 1,
-            color: "#0a0d18",
-            textShadow: "0 0 10px rgba(255,255,255,0.9)"
+            color: "#ffffff",
+            textShadow:
+              "0 1px 2px rgba(0,0,0,0.45), 0 0 14px rgba(0,0,0,0.35)"
           }}
         >
           {total}%
@@ -164,11 +173,12 @@ export function SyncMeter({
         <div
           style={{
             marginTop: 2,
-            fontSize: Math.max(8, size * 0.038),
-            letterSpacing: "0.18em",
+            fontSize: Math.max(9, size * 0.042),
+            letterSpacing: "0.22em",
             fontWeight: 700,
-            color: "#0a0d18",
-            textShadow: "0 0 6px rgba(255,255,255,0.9)",
+            color: "#ffffff",
+            textShadow:
+              "0 1px 2px rgba(0,0,0,0.5), 0 0 10px rgba(0,0,0,0.35)",
             fontFamily:
               '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace'
           }}
