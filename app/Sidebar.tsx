@@ -33,7 +33,7 @@ export function Sidebar({
     { href: "/dashboard", label: "Dashboard", icon: "◆" },
     { href: "/messages", label: "Messages", icon: "✉" },
     { href: "/hypernetwork", label: "Hypernetwork", icon: "◇" },
-    { href: "/conferences/new", label: "Host a conference", icon: "◈" },
+    { href: "/conferences/new", label: "Sync a conference", icon: "◈" },
     { href: "/onboarding", label: "Edit twin", icon: "◐" },
     { href: "/settings/notifications", label: "Notifications", icon: "◉" },
     { href: "/feedback", label: "Feedback", icon: "✦" }

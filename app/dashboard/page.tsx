@@ -435,6 +435,7 @@ export default async function DashboardPage() {
             <BulkReachToolkit appUrl={appUrl} variant="card" />
           </section>
         </div>
+        </div>
       </>
     </AppShell>
   );
