@@ -61,7 +61,7 @@ export async function AppShell({
 
   return (
     <main
-      className={`${maxWidth} mx-auto px-5 py-6 grid lg:grid-cols-[220px_1fr] gap-6 items-start`}
+      className={`${maxWidth} mx-auto px-5 pt-3 pb-6 grid lg:grid-cols-[220px_1fr] gap-6 items-start`}
     >
       <Sidebar
         userId={user.id}

@@ -155,7 +155,7 @@ export default async function ConferencePage({
   })();
 
   return (
-    <main className="max-w-5xl mx-auto px-6 py-8">
+    <main className="max-w-5xl mx-auto px-6 pt-3 pb-8">
       <div className="flex items-center justify-between">
         <Wordmark />
         <div className="flex items-center gap-4 text-sm">
@@ -290,7 +290,7 @@ export default async function ConferencePage({
 
       {/* OWNER toolkit */}
       {isOwner && (
-        <section className="mt-10">
+        <section className="mt-3">
           <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
             host toolkit
           </div>
@@ -307,7 +307,7 @@ export default async function ConferencePage({
 
       {/* ATTENDEE DIRECTORY (members only) */}
       {isMember && members && (
-        <section className="mt-12">
+        <section className="mt-4">
           <div className="retro-label">attendees · {members.length}</div>
           <p className="mt-1 retro-dim text-xs">
             Only members of {conf.name} can see and connect with each other

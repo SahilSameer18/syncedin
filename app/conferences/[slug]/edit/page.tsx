@@ -30,7 +30,7 @@ export default async function EditConferencePage({
   }
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-10">
+    <main className="max-w-2xl mx-auto px-6 pt-4 pb-8">
       <div className="flex items-center justify-between">
         <Wordmark />
         <Link

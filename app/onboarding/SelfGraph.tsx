@@ -268,7 +268,7 @@ export function SelfGraph({ formSelector = "form" }: { formSelector?: string }) 
  * the user scroll-wheel to zoom in OR drag to pan.
  */
 function ZoomPanBox({ children }: { children: React.ReactNode }) {
-  const [scale, setScale] = useState(0.7);
+  const [scale, setScale] = useState(0.55);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const dragRef = useRef<{ x: number; y: number } | null>(null);
 
@@ -367,7 +367,7 @@ function ZoomPanBox({ children }: { children: React.ReactNode }) {
         <button
           type="button"
           onClick={() => {
-            setScale(0.7);
+            setScale(0.55);
             setPan({ x: 0, y: 0 });
           }}
           style={{ ...ctrlBtn, width: 44, fontSize: 10, letterSpacing: 1 }}

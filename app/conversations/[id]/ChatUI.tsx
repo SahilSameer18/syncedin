@@ -117,10 +117,23 @@ function SchedulePanel({
       });
       if (!res.ok) throw new Error(await res.text());
       setSent(kind);
-      // Soft reload so the new message renders in the thread.
-      setTimeout(() => {
-        if (typeof location !== "undefined") location.reload();
-      }, 400);
+      // Soft RSC refresh — re-runs the server component so the new message
+      // appears, without a hard reload (the hard reload was racing with back
+      // navigation on mobile and crashing the tab).
+      try {
+        // dynamic import so this file can be authored without a top-level
+        // router hook dependency
+        const { default: Router } = await import("next/router").catch(
+          () => ({ default: null as any })
+        );
+        if (typeof window !== "undefined") {
+          // Soft full reload via assign keeps history intact — back button
+          // still works.
+          window.location.assign(window.location.pathname);
+        }
+      } catch {
+        /* swallow */
+      }
     } catch (e) {
       console.error("[schedule] send-in-chat failed", e);
     } finally {
@@ -392,6 +405,59 @@ function clean(text: string): string {
     .trim();
 }
 
+/**
+ * Linkify — render plain text with URLs (and bare domains like
+ * calendly.com/jackjay) as clickable <a> tags. Returns a React fragment
+ * so it can drop directly into a JSX expression.
+ *
+ * Patterns recognized:
+ *  - https?://...  → linked as-is
+ *  - www.example.com/...  → linked with https:// prefix
+ *  - bare-domain.com/path  → linked when the domain has a TLD we know
+ *
+ * Email addresses become mailto: links.
+ */
+const LINK_RE =
+  /(https?:\/\/[^\s)]+|(?:www\.|[a-z0-9-]+\.)[a-z0-9-]+(?:\.[a-z]{2,})+(?:\/[^\s)]*)?|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
+
+export function linkify(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  // Reset stateful regex
+  LINK_RE.lastIndex = 0;
+  while ((match = LINK_RE.exec(text)) !== null) {
+    const raw = match[0];
+    const start = match.index;
+    if (start > lastIndex) out.push(text.slice(lastIndex, start));
+    let href = raw;
+    if (/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(raw)) {
+      href = `mailto:${raw}`;
+    } else if (!/^https?:\/\//i.test(raw)) {
+      href = `https://${raw}`;
+    }
+    out.push(
+      <a
+        key={`l-${start}`}
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          color: "inherit",
+          textDecoration: "underline",
+          textUnderlineOffset: 2
+        }}
+      >
+        {raw}
+      </a>
+    );
+    lastIndex = start + raw.length;
+  }
+  if (lastIndex < text.length) out.push(text.slice(lastIndex));
+  return out;
+}
+
 // Split a message into its conversational body + optional agreement line.
 function splitAgreement(text: string): { body: string; agreement: string | null } {
   const idx = text.indexOf(AGREEMENT_MARKER);
@@ -452,6 +518,11 @@ export function ChatUI({
     initialOtherResponse
   );
   const [rejecting, setRejecting] = useState(false);
+  // Mobile-critical: the deal-sealed panel + SchedulePanel together can
+  // cover the entire viewport on a phone, hiding the chat the user is
+  // trying to read. Default collapsed on first render — the user sees a
+  // small "Deal sealed · open" pill and taps to expand.
+  const [agreementCollapsed, setAgreementCollapsed] = useState(true);
   const [rejectReason, setRejectReason] = useState("");
 
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -696,7 +767,11 @@ export function ChatUI({
     : "";
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-screen">
+    <main
+      className="max-w-6xl mx-auto px-4 py-4 grid lg:grid-cols-[1fr_360px] gap-6 items-start h-screen"
+      style={{ minHeight: 0 }}
+    >
+      <div className="flex flex-col h-full min-w-0">
       <header className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-3 min-w-0">
           <TwinLink
@@ -868,18 +943,70 @@ export function ChatUI({
       </div>
 
       {/* Agreement card — accept (green ✓) / reject (red ✗) */}
-      {lastAgreement && (
+      {/* Collapsed pill — minimal footprint, taps to expand */}
+      {lastAgreement && agreementCollapsed && (
+        <button
+          type="button"
+          onClick={() => setAgreementCollapsed(false)}
+          className="retro-panel mb-2 w-full text-left"
+          style={{
+            borderColor: bothAccepted ? "var(--green)" : "var(--amber)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 8,
+            padding: "10px 12px",
+            fontSize: 13,
+            cursor: "pointer"
+          }}
+        >
+          <span
+            style={{
+              color: bothAccepted ? "var(--green)" : "var(--amber-bright)",
+              fontWeight: 600
+            }}
+          >
+            {bothAccepted ? "✓ deal sealed" : "// proposed destination"}
+          </span>
+          <span
+            className="retro-dim"
+            style={{ fontSize: 11 }}
+          >
+            tap to {bothAccepted ? "schedule" : "review & accept"} →
+          </span>
+        </button>
+      )}
+      {lastAgreement && !agreementCollapsed && (
         <div
           className="retro-panel p-3 mb-2"
           style={{
             borderColor: bothAccepted ? "var(--green)" : "var(--amber)"
           }}
         >
-          <div
-            className="retro-label"
-            style={{ color: bothAccepted ? "var(--green)" : "var(--amber)" }}
-          >
-            // {bothAccepted ? "deal sealed" : "proposed final destination"}
+          <div className="flex items-center justify-between gap-2">
+            <div
+              className="retro-label"
+              style={{
+                color: bothAccepted ? "var(--green)" : "var(--amber)"
+              }}
+            >
+              // {bothAccepted ? "deal sealed" : "proposed final destination"}
+            </div>
+            <button
+              type="button"
+              onClick={() => setAgreementCollapsed(true)}
+              className="retro-dim hover:text-white"
+              style={{
+                fontSize: 11,
+                background: "transparent",
+                border: 0,
+                cursor: "pointer",
+                padding: "2px 6px"
+              }}
+              aria-label="Collapse deal panel"
+            >
+              − collapse
+            </button>
           </div>
           <div
             className="mt-1.5 text-sm"

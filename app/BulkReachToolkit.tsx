@@ -19,14 +19,28 @@ export function BulkReachToolkit({
   const [copied, setCopied] = useState<string | null>(null);
   const [contactPickerSupported, setContactPickerSupported] = useState(false);
   const [emails, setEmails] = useState<string[]>([]);
-  // New richer contact entries: (name, email) so Exa can find the person and
-  // the slug + opener can be properly personalized. Coexists with `emails`
-  // for backward compat with the channel buttons that bulk-bcc.
+  // Richer contact entries: (name, email OR phone) so Exa can find the
+  // person and the slug + opener can be properly personalized. The contact
+  // field accepts either an email or a phone number — whichever the user
+  // happens to have. Channels adapt automatically per row.
   const [entries, setEntries] = useState<
-    Array<{ name: string; email?: string }>
+    Array<{ name: string; email?: string; phone?: string }>
   >([]);
   const [entryName, setEntryName] = useState("");
-  const [entryEmail, setEntryEmail] = useState("");
+  const [entryContact, setEntryContact] = useState("");
+
+  function classifyContact(s: string): {
+    email?: string;
+    phone?: string;
+  } {
+    const t = s.trim();
+    if (!t) return {};
+    if (/@/.test(t)) return { email: t.toLowerCase() };
+    // Phone: keep digits + leading + only.
+    const digits = t.replace(/[^\d+]/g, "");
+    if (digits.replace(/\D/g, "").length >= 7) return { phone: digits };
+    return {};
+  }
   const [csvError, setCsvError] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const [importHelp, setImportHelp] = useState<null | "linkedin" | "google">(
@@ -34,7 +48,7 @@ export function BulkReachToolkit({
   );
   const [personalized, setPersonalized] = useState<
     Array<{
-      contact: { name: string; email?: string };
+      contact: { name: string; email?: string; phone?: string };
       slug: string;
       url: string;
       starter: string;
@@ -98,11 +112,11 @@ export function BulkReachToolkit({
 
   function addEntry() {
     const name = entryName.trim();
-    const email = entryEmail.trim().toLowerCase();
-    if (!name && !email) return;
-    setEntries((prev) => [...prev, { name, email: email || undefined }]);
+    const { email, phone } = classifyContact(entryContact);
+    if (!name && !email && !phone) return;
+    setEntries((prev) => [...prev, { name, email, phone }]);
     setEntryName("");
-    setEntryEmail("");
+    setEntryContact("");
   }
 
   async function generatePersonalized() {
@@ -287,8 +301,8 @@ export function BulkReachToolkit({
           className="text-xs mt-1"
           style={{ color: "var(--text-dim)" }}
         >
-          Full name + email so we can pick the right person on the web and
-          generate a custom landing page for each.
+          Full name + email or phone — whichever you have for them. We pick
+          the right person on the web and generate a custom landing page.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -301,18 +315,18 @@ export function BulkReachToolkit({
             style={{ flex: "2 1 160px", minWidth: 0 }}
           />
           <input
-            type="email"
-            placeholder="email@domain.com"
-            value={entryEmail}
-            onChange={(e) => setEntryEmail(e.target.value)}
+            type="text"
+            placeholder="email@domain.com or +1 555-…"
+            value={entryContact}
+            onChange={(e) => setEntryContact(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addEntry()}
             className="retro-input text-sm"
-            style={{ flex: "3 1 200px", minWidth: 0 }}
+            style={{ flex: "3 1 220px", minWidth: 0 }}
           />
           <button
             type="button"
             onClick={addEntry}
-            disabled={!entryName.trim() && !entryEmail.trim()}
+            disabled={!entryName.trim() && !entryContact.trim()}
             className="retro-btn retro-btn-primary text-sm"
           >
             + add
@@ -347,6 +361,9 @@ export function BulkReachToolkit({
                 </span>
                 {c.email && (
                   <span style={{ color: "var(--text-dim)" }}>{c.email}</span>
+                )}
+                {c.phone && !c.email && (
+                  <span style={{ color: "var(--text-dim)" }}>{c.phone}</span>
                 )}
                 <button
                   type="button"
@@ -391,6 +408,44 @@ export function BulkReachToolkit({
             style={{ color: "var(--red)" }}
           >
             {csvError}
+          </p>
+        )}
+
+        {/* Inline generate CTA — sits directly under the entries list so
+            the user's eye doesn't have to jump past the channel grid to
+            the bottom of the page. Disabled until at least one entry. */}
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={generatePersonalized}
+            disabled={
+              generating || (entries.length === 0 && emails.length === 0)
+            }
+            className="retro-btn retro-btn-primary text-sm"
+          >
+            {generating
+              ? "generating…"
+              : `+ generate ${
+                  entries.length || emails.length || ""
+                } personalized invite${
+                  (entries.length || emails.length) === 1 ? "" : "s"
+                }`}
+          </button>
+          {entries.length === 0 && emails.length === 0 && (
+            <span
+              className="text-xs"
+              style={{ color: "var(--text-dim)" }}
+            >
+              add a name + email/phone above
+            </span>
+          )}
+        </div>
+        {genError && (
+          <p
+            className="mt-2 text-xs"
+            style={{ color: "var(--red)" }}
+          >
+            {genError}
           </p>
         )}
       </div>

@@ -293,8 +293,10 @@ export function OnboardingWizard({
       <input type="hidden" name="hometown" value={state.hometown} />
       <input type="hidden" name="current_city" value={state.current_city} />
 
-      {/* Progress strip */}
-      <div className="flex items-center gap-2 mb-6">
+      {/* Progress strip — step pills LEFT, continue/back nav RIGHT, all in
+          a single row so the user never has to look around for "what next". */}
+      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
         {STEPS.map((s, i) => {
           const done = i < step;
           const current = i === step;
@@ -361,11 +363,11 @@ export function OnboardingWizard({
             </div>
           );
         })}
+        </div>
+        <div className="flex items-center gap-2">
+          <NavRow compact />
+        </div>
       </div>
-
-      {/* Top nav row — same controls as the bottom, so users don't have to
-          scroll past long context blobs to advance/back up. */}
-      <NavRow compact />
 
       <div className="retro-panel retro-shadow p-6">
         {/* STEP 1 — You: name + photo together */}

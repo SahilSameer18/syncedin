@@ -41,7 +41,7 @@ export default async function OnboardingPage({
   };
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-8">
+    <main className="max-w-6xl mx-auto px-6 pt-3 pb-8">
       <div className="flex items-center justify-between">
         <Wordmark />
         <Link href="/dashboard" className="retro-dim text-xs">

@@ -12,7 +12,7 @@ export default async function NewConferencePage() {
   if (!user) redirect("/login?next=/conferences/new");
 
   return (
-    <main className="max-w-3xl mx-auto px-6 py-10">
+    <main className="max-w-3xl mx-auto px-6 pt-4 pb-8">
       <div className="flex items-center justify-between">
         <Wordmark />
         <Link href="/dashboard" className="retro-dim text-xs">
@@ -21,7 +21,7 @@ export default async function NewConferencePage() {
       </div>
 
       {/* MANIFESTO HERO */}
-      <section className="mt-12">
+      <section className="mt-4">
         <div className="retro-label">sync a conference</div>
         <h1 className="retro-h1 text-4xl sm:text-5xl mt-3 leading-tight">
           Build the strongest inner-network of your life.

@@ -71,7 +71,7 @@ export default async function FeedbackPage() {
     .sort((a, b) => b.score - a.score || b.created_at.localeCompare(a.created_at));
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-10">
+    <main className="max-w-3xl mx-auto px-5 pt-4 pb-8">
       <div className="flex items-center justify-between">
         <Wordmark />
         <div className="flex items-center gap-4 text-sm">
@@ -84,7 +84,7 @@ export default async function FeedbackPage() {
         </div>
       </div>
 
-      <section className="mt-10">
+      <section className="mt-3">
         <div className="retro-label">feedback &amp; requests</div>
         <h1 className="retro-h1 text-4xl mt-3 leading-tight">
           What should SyncedIn build next?

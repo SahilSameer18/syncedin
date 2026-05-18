@@ -30,15 +30,17 @@ export function Sidebar({
 }) {
   const pathname = usePathname() ?? "";
 
+  // Semantic emoji icons — each conveys the destination at a glance, much
+  // better than the abstract geometric glyphs they replace.
   const items: Array<{ href: string; label: string; icon: string }> = [
-    { href: "/dashboard", label: "Dashboard", icon: "◆" },
-    { href: "/messages", label: "Messages", icon: "✉" },
-    { href: "/hypernetwork", label: "Hypernetwork", icon: "◇" },
-    { href: "/conferences/new", label: "Sync a conference", icon: "◈" },
-    { href: "/communities/new", label: "Sync a community", icon: "◇" },
-    { href: "/onboarding", label: "Edit twin", icon: "◐" },
-    { href: "/settings/notifications", label: "Notifications", icon: "◉" },
-    { href: "/feedback", label: "Feedback", icon: "✦" }
+    { href: "/dashboard", label: "Dashboard", icon: "🏠" },
+    { href: "/messages", label: "Messages", icon: "💬" },
+    { href: "/hypernetwork", label: "Hypernetwork", icon: "🌐" },
+    { href: "/conferences/new", label: "Sync a conference", icon: "🎤" },
+    { href: "/communities/new", label: "Sync a community", icon: "👥" },
+    { href: "/onboarding", label: "Edit twin", icon: "🧬" },
+    { href: "/settings/notifications", label: "Notifications", icon: "🔔" },
+    { href: "/feedback", label: "Feedback", icon: "💡" }
   ];
 
   const isActive = (href: string) =>
@@ -61,8 +63,8 @@ export function Sidebar({
         minHeight: 480
       }}
     >
-      {/* Wordmark at the very top — clickable home. lg size so the brand
-          reads at sidebar scale, not as a tiny chip. */}
+      {/* Wordmark — sized for the sidebar (not the dashboard hero). md is the
+          right read at this width; lg made the white container balloon. */}
       <Link
         href="/"
         aria-label="SyncedIn — home"
@@ -70,11 +72,11 @@ export function Sidebar({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "8px 6px 12px",
+          padding: "2px 6px 2px",
           textDecoration: "none"
         }}
       >
-        <Wordmark size="lg" href={null} />
+        <Wordmark size="sm" href={null} />
       </Link>
 
       {/* Profile block */}

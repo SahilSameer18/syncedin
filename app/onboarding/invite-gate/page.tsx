@@ -33,7 +33,7 @@ export default async function InviteGatePage() {
   const remaining = Math.max(0, 2 - drafted);
 
   return (
-    <main className="max-w-3xl mx-auto px-6 py-10">
+    <main className="max-w-3xl mx-auto px-6 pt-4 pb-8">
       <div className="flex items-center justify-between">
         <Wordmark />
         <Link href="/onboarding" className="retro-dim text-xs">

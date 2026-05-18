@@ -208,7 +208,7 @@ export default async function HypernetworkPage() {
   ];
 
   return (
-    <main className="max-w-5xl mx-auto px-5 py-10">
+    <main className="max-w-5xl mx-auto px-5 pt-4 pb-8">
       <div className="flex items-center justify-between">
         <Wordmark />
         <div className="flex items-center gap-4 text-sm">
@@ -222,7 +222,7 @@ export default async function HypernetworkPage() {
       </div>
 
       {/* Hero */}
-      <section className="mt-12">
+      <section className="mt-4">
         <div className="retro-label">the hypernetwork</div>
         <h1 className="retro-h1 text-5xl mt-3 leading-tight">
           A network of clones, finding the highest win-wins between every
@@ -244,12 +244,12 @@ export default async function HypernetworkPage() {
       </section>
 
       {/* Cumulative signups chart */}
-      <section className="mt-12">
+      <section className="mt-4">
         <SignupsChart points={signups} />
       </section>
 
       {/* Stat tiles */}
-      <section className="mt-12">
+      <section className="mt-4">
         <div className="retro-label">live network stats</div>
         <p className="mt-2 text-sm" style={{ color: "var(--text-dim)" }}>
           Refreshed every minute. No vanity metrics, every number is real.
@@ -571,7 +571,7 @@ export default async function HypernetworkPage() {
       </section>
 
       {/* "Help humanity sync" — closing CTA with the bulk reach toolkit */}
-      <section className="mt-12">
+      <section className="mt-4">
         <BulkReachToolkit
           appUrl={
             process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
