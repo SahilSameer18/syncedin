@@ -127,18 +127,78 @@ export function InviteContacts({ appUrl }: { appUrl: string }) {
         </button>
       </div>
 
-      {/* Contact picker (mobile) */}
-      {contactPickerSupported && (
-        <button
-          onClick={pickFromContacts}
-          className="retro-btn w-full mt-3 text-sm"
+      {/* Mass-reach toolkit — every channel that exists for moving lots
+          of invites at once. */}
+      <div className="mt-4">
+        <div
+          className="retro-label"
+          style={{ color: "var(--amber-bright)" }}
         >
-          + Pick from phone contacts
-        </button>
-      )}
-      {pickerError && (
-        <p className="mt-2 text-xs retro-red">{pickerError}</p>
-      )}
+          mass reach toolkit
+        </div>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {contactPickerSupported && (
+            <button
+              onClick={pickFromContacts}
+              className="retro-btn text-sm"
+            >
+              📱 Phone contacts
+            </button>
+          )}
+          <a
+            href="https://contacts.google.com/?hl=en"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="retro-btn text-sm text-center"
+          >
+            👥 Open Google Contacts
+          </a>
+          <label className="retro-btn text-sm text-center cursor-pointer">
+            📄 Import .csv
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const text = String(reader.result || "");
+                  // Pull anything that looks like an email
+                  const found = Array.from(
+                    text.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)
+                  ).map((m) => m[0].toLowerCase());
+                  setEmails((prev) =>
+                    Array.from(new Set([...prev, ...found]))
+                  );
+                };
+                reader.readAsText(f);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <a
+            href={`https://www.linkedin.com/mynetwork/invite-connect/connections/`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="retro-btn text-sm text-center"
+          >
+            💼 LinkedIn connections
+          </a>
+        </div>
+        {pickerError && (
+          <p className="mt-2 text-xs retro-red">{pickerError}</p>
+        )}
+        <p
+          className="mt-2 text-xs"
+          style={{ color: "var(--text-dim)" }}
+        >
+          Drop a CSV from Gmail / Google Contacts / your CRM. We extract every
+          email automatically. The other buttons open the source so you can
+          copy contacts back into the field below.
+        </p>
+      </div>
 
       {/* Manual entry */}
       <div className="mt-3 flex items-center gap-2">

@@ -9,25 +9,49 @@ type Graph = {
   clusters: Cluster[];
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  goals: "#3a4dff",
-  projects: "#1f8bff",
-  people: "#ff6b6b",
-  deal_preferences: "#3cd870",
-  deal_breakers: "#ff8a3d",
-  style: "#a060ff",
-  skills: "#ffd54d"
+const CATEGORY_META: Record<
+  string,
+  { color: string; gradient: string; icon: string }
+> = {
+  goals: {
+    color: "#3a4dff",
+    gradient: "linear-gradient(135deg, #3a4dff, #6f7bff)",
+    icon: "🎯"
+  },
+  projects: {
+    color: "#1f8bff",
+    gradient: "linear-gradient(135deg, #1f8bff, #5ec5ff)",
+    icon: "🚀"
+  },
+  people: {
+    color: "#ff6b6b",
+    gradient: "linear-gradient(135deg, #ff6b6b, #ff8a3d)",
+    icon: "👥"
+  },
+  deal_preferences: {
+    color: "#3cd870",
+    gradient: "linear-gradient(135deg, #3cd870, #5ee5b2)",
+    icon: "🤝"
+  },
+  deal_breakers: {
+    color: "#ff8a3d",
+    gradient: "linear-gradient(135deg, #ff8a3d, #ff4d6d)",
+    icon: "🚫"
+  },
+  style: {
+    color: "#a060ff",
+    gradient: "linear-gradient(135deg, #a060ff, #ff77ee)",
+    icon: "🎨"
+  },
+  skills: {
+    color: "#ffd54d",
+    gradient: "linear-gradient(135deg, #ffd54d, #ff8a3d)",
+    icon: "⚡"
+  }
 };
-const colorFor = (cat: string) => CATEGORY_COLORS[cat] || "#3a4dff";
-const trunc = (s: string, n: number) =>
-  s && s.length > n ? s.slice(0, n - 1).trimEnd() + "…" : s;
+const metaFor = (cat: string) =>
+  CATEGORY_META[cat] || CATEGORY_META.goals;
 
-/**
- * Live self-graph. Re-renders as the onboarding form changes. Layout:
- * central "you" node with each cluster radiating out to its own column,
- * items stacked vertically inside each cluster column. No overlap because
- * each cluster owns a dedicated vertical strip.
- */
 export function SelfGraph({ formSelector = "form" }: { formSelector?: string }) {
   const [graph, setGraph] = useState<Graph | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,7 +107,7 @@ export function SelfGraph({ formSelector = "form" }: { formSelector?: string }) 
       const j = (await r.json()) as Graph;
       if (j?.clusters) setGraph(j);
     } catch {
-      /* keep last graph */
+      /* keep previous */
     } finally {
       setLoading(false);
     }
@@ -107,221 +131,433 @@ export function SelfGraph({ formSelector = "form" }: { formSelector?: string }) 
 
   return (
     <div
-      className="retro-panel retro-shadow"
-      style={{ position: "sticky", top: 24, padding: 20 }}
+      className="retro-shadow"
+      style={{
+        position: "sticky",
+        top: 24,
+        padding: 20,
+        borderRadius: 16,
+        background:
+          "radial-gradient(900px 600px at 30% 0%, rgba(58, 77, 255, 0.08), transparent 60%), radial-gradient(800px 500px at 80% 100%, rgba(160, 96, 255, 0.08), transparent 60%), linear-gradient(180deg, #0a0d1e 0%, #11132a 100%)",
+        border: "1px solid rgba(120, 130, 220, 0.35)",
+        overflow: "hidden"
+      }}
     >
-      <div className="flex items-center justify-between">
-        <div className="retro-label">self graph</div>
-        {loading && <div className="retro-dim text-xs">regenerating…</div>}
-      </div>
-      <p className="mt-1 text-xs" style={{ color: "var(--text-dim)" }}>
-        Live map of what makes you, you. Every time you add context, this
-        regenerates.
-      </p>
+      {/* Subtle animated grid behind everything */}
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage:
+            "linear-gradient(rgba(120, 130, 220, 0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(120, 130, 220, 0.06) 1px, transparent 1px)",
+          backgroundSize: "32px 32px",
+          maskImage:
+            "radial-gradient(closest-side at 50% 50%, black, transparent 85%)",
+          WebkitMaskImage:
+            "radial-gradient(closest-side at 50% 50%, black, transparent 85%)",
+          pointerEvents: "none"
+        }}
+      />
 
-      <div className="mt-4">
-        {empty ? (
-          <p
-            className="text-sm"
-            style={{ color: "var(--text-dim)", padding: "40px 8px" }}
+      <div
+        className="flex items-center justify-between"
+        style={{ position: "relative" }}
+      >
+        <div
+          className="retro-label"
+          style={{ color: "#9aa6ff" }}
+        >
+          self graph
+        </div>
+        {loading && (
+          <div
+            className="text-xs flex items-center gap-1.5"
+            style={{ color: "#9aa6ff" }}
           >
-            Add goals or paste context. Your self graph will form here.
-          </p>
-        ) : graph ? (
-          <GraphSvg graph={graph} />
-        ) : (
-          <p
-            className="text-sm"
-            style={{ color: "var(--text-dim)", padding: "40px 8px" }}
-          >
-            Forming…
-          </p>
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#5ee5b2",
+                boxShadow: "0 0 8px #5ee5b2",
+                animation: "sg-pulse 1.2s ease-in-out infinite"
+              }}
+            />
+            regenerating
+          </div>
         )}
       </div>
+      <p
+        className="mt-1 text-xs"
+        style={{ color: "rgba(255,255,255,0.55)" }}
+      >
+        Live constellation of what makes you, you. Each cluster blooms as
+        you add more context.
+      </p>
+
+      <div className="mt-4" style={{ position: "relative" }}>
+        {empty ? (
+          <div
+            style={{
+              padding: "60px 16px",
+              textAlign: "center",
+              color: "rgba(255,255,255,0.45)",
+              fontSize: 14
+            }}
+          >
+            Your constellation forms here.
+            <br />
+            <span style={{ fontSize: 12, opacity: 0.7 }}>
+              Add goals or paste context to start.
+            </span>
+          </div>
+        ) : graph ? (
+          <ConstellationView graph={graph} />
+        ) : (
+          <div
+            style={{
+              padding: 40,
+              textAlign: "center",
+              color: "rgba(255,255,255,0.45)",
+              fontSize: 14
+            }}
+          >
+            Forming…
+          </div>
+        )}
+      </div>
+
+      <style>{`
+        @keyframes sg-pulse {
+          0%, 100% { opacity: 0.4; transform: scale(0.9); }
+          50% { opacity: 1; transform: scale(1.15); }
+        }
+        @keyframes sg-orbit {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes sg-orbit-rev {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(-360deg); }
+        }
+        @keyframes sg-flow {
+          0% { stroke-dashoffset: 60; }
+          100% { stroke-dashoffset: 0; }
+        }
+        @keyframes sg-float {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        @keyframes sg-fade-in {
+          from { opacity: 0; transform: scale(0.92); }
+          to { opacity: 1; transform: scale(1); }
+        }
+      `}</style>
     </div>
   );
 }
 
-/**
- * Column-based mind-map layout:
- *   ┌─────────────────────────────────────┐
- *   │   ┌─ Goals ───┐    ┌─ Projects ─┐   │
- *   │   │ • item    │    │ • item     │   │
- *   │   │ • item    │    │ • item     │   │
- *   │   └───────────┘    └────────────┘   │
- *   │              [ YOU ]                 │
- *   │   ┌─ People ──┐    ┌─ Skills ───┐   │
- *   │   │ • item    │    │ • item     │   │
- *   │   └───────────┘    └────────────┘   │
- *   └─────────────────────────────────────┘
- *
- * Clusters wrap to 2 columns × N rows depending on count. The center "you"
- * node sits in the middle. Lines connect center to each cluster header.
- */
-function GraphSvg({ graph }: { graph: Graph }) {
-  const clusters = graph.clusters.slice(0, 6); // cap at 6 to keep it readable
-  // Grid: 2 columns × up to 3 rows, with center node in the middle.
-  const COLS = 2;
-  const rows = Math.ceil(clusters.length / COLS);
-
-  const COL_W = 200;
-  const COL_GAP = 24;
-  const ROW_H = 180;
-  const ROW_GAP = 18;
-  const CENTER_W = 100;
-  const W = COLS * COL_W + (COLS - 1) * COL_GAP + CENTER_W * 2;
-  const H = Math.max(360, rows * ROW_H + (rows - 1) * ROW_GAP + 40);
-
+function ConstellationView({ graph }: { graph: Graph }) {
+  const clusters = graph.clusters.slice(0, 6);
+  const rows = Math.max(2, Math.ceil(clusters.length / 2));
+  const COL_W = 230;
+  const COL_GAP = 28;
+  const ROW_H = 150;
+  const ROW_GAP = 22;
+  const CENTER_W = 140;
+  const W = 2 * COL_W + 2 * COL_GAP + CENTER_W;
+  const H = rows * ROW_H + (rows - 1) * ROW_GAP + 60;
   const CX = W / 2;
   const CY = H / 2;
 
-  // Place each cluster in a grid slot. The grid sits BEHIND the center
-  // node; the center node visually overlaps the middle column.
+  // Position each cluster card in the 2-column grid AROUND the center.
   const slotFor = (i: number) => {
-    const col = i % COLS;
-    const row = Math.floor(i / COLS);
-    // x: left half clusters go left of center, right half right of center
+    const col = i % 2; // 0 = left, 1 = right
+    const row = Math.floor(i / 2);
     const x = col === 0
-      ? CX - CENTER_W - COL_GAP - COL_W / 2
-      : CX + CENTER_W + COL_GAP + COL_W / 2;
-    const y = 20 + row * (ROW_H + ROW_GAP) + ROW_H / 2;
+      ? COL_W / 2
+      : W - COL_W / 2;
+    const y = 30 + row * (ROW_H + ROW_GAP) + ROW_H / 2;
     return { x, y, side: col === 0 ? "left" : "right" } as const;
   };
 
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      width="100%"
-      style={{ display: "block", maxHeight: 540 }}
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        aspectRatio: `${W} / ${H}`,
+        maxHeight: 620
+      }}
     >
-      <defs>
-        <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#3a4dff" stopOpacity="0.9" />
-          <stop offset="100%" stopColor="#3a4dff" stopOpacity="0" />
-        </radialGradient>
-      </defs>
-
-      {/* Connectors from center to each cluster */}
-      {clusters.map((c, i) => {
-        const s = slotFor(i);
-        const color = colorFor(c.category);
-        const cx = s.side === "left" ? s.x + COL_W / 2 : s.x - COL_W / 2;
-        return (
-          <line
-            key={`conn-${i}`}
-            x1={CX}
-            y1={CY}
-            x2={cx}
-            y2={s.y}
-            stroke={color}
-            strokeOpacity={0.5}
-            strokeWidth={1.5}
-          />
-        );
-      })}
-
-      {/* Center "you" */}
-      <circle cx={CX} cy={CY} r={62} fill="url(#centerGlow)" />
-      <circle
-        cx={CX}
-        cy={CY}
-        r={36}
-        fill="#0a0d18"
-        stroke="#3a4dff"
-        strokeWidth={2}
-      />
-      <text
-        x={CX}
-        y={CY + 5}
-        textAnchor="middle"
-        fontSize={14}
-        fontWeight={700}
-        fill="#ffffff"
-        fontFamily="'IBM Plex Mono', monospace"
+      {/* SVG layer: connectors with flowing gradient pulse */}
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        width="100%"
+        height="100%"
+        style={{
+          position: "absolute",
+          inset: 0,
+          pointerEvents: "none"
+        }}
       >
-        {trunc(graph.center?.label || "you", 10)}
-      </text>
+        <defs>
+          {clusters.map((c, i) => {
+            const m = metaFor(c.category);
+            return (
+              <linearGradient
+                key={`grad-${i}`}
+                id={`sg-grad-${i}`}
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="0%"
+              >
+                <stop offset="0%" stopColor="#3a4dff" stopOpacity="0.85" />
+                <stop offset="100%" stopColor={m.color} stopOpacity="0.85" />
+              </linearGradient>
+            );
+          })}
+          <radialGradient id="sg-center-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#3a4dff" stopOpacity="0.55" />
+            <stop offset="60%" stopColor="#8b3dff" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#8b3dff" stopOpacity="0" />
+          </radialGradient>
+        </defs>
 
-      {/* Cluster cards */}
+        {/* Outer glow halo behind center */}
+        <circle cx={CX} cy={CY} r={100} fill="url(#sg-center-glow)" />
+
+        {/* Curved bezier connectors with animated flow */}
+        {clusters.map((c, i) => {
+          const s = slotFor(i);
+          const tx = s.side === "left" ? s.x + COL_W / 2 - 10 : s.x - COL_W / 2 + 10;
+          const ty = s.y;
+          // Smooth curve from center to card edge
+          const cx1 = (CX + tx) / 2;
+          const cy1 = CY;
+          const cx2 = (CX + tx) / 2;
+          const cy2 = ty;
+          return (
+            <g key={`line-${i}`}>
+              {/* Outline (faint) */}
+              <path
+                d={`M ${CX} ${CY} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${tx} ${ty}`}
+                fill="none"
+                stroke={`url(#sg-grad-${i})`}
+                strokeWidth={1.5}
+                strokeOpacity={0.55}
+              />
+              {/* Flowing pulse */}
+              <path
+                d={`M ${CX} ${CY} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${tx} ${ty}`}
+                fill="none"
+                stroke={metaFor(c.category).color}
+                strokeWidth={2.2}
+                strokeOpacity={0.95}
+                strokeDasharray="6 54"
+                style={{
+                  animation: `sg-flow ${3 + i * 0.4}s linear infinite`
+                }}
+              />
+            </g>
+          );
+        })}
+
+        {/* Orbiting accent rings */}
+        <g style={{ transformOrigin: `${CX}px ${CY}px`, animation: "sg-orbit 22s linear infinite" }}>
+          <circle
+            cx={CX}
+            cy={CY}
+            r={76}
+            fill="none"
+            stroke="rgba(160, 96, 255, 0.25)"
+            strokeWidth={1}
+            strokeDasharray="4 8"
+          />
+        </g>
+        <g style={{ transformOrigin: `${CX}px ${CY}px`, animation: "sg-orbit-rev 30s linear infinite" }}>
+          <circle
+            cx={CX}
+            cy={CY}
+            r={56}
+            fill="none"
+            stroke="rgba(58, 77, 255, 0.35)"
+            strokeWidth={1}
+            strokeDasharray="2 10"
+          />
+        </g>
+
+        {/* Center solid */}
+        <circle
+          cx={CX}
+          cy={CY}
+          r={40}
+          fill="#0a0d1e"
+          stroke="#5e6eff"
+          strokeWidth={1.5}
+        />
+      </svg>
+
+      {/* Center label */}
+      <div
+        style={{
+          position: "absolute",
+          left: `${(CX / W) * 100}%`,
+          top: `${(CY / H) * 100}%`,
+          transform: "translate(-50%, -50%)",
+          color: "#ffffff",
+          fontFamily: '"IBM Plex Mono", monospace',
+          fontSize: 13,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          pointerEvents: "none",
+          textShadow: "0 0 12px rgba(94,110,255,0.7)"
+        }}
+      >
+        {(graph.center?.label || "you").slice(0, 12)}
+      </div>
+
+      {/* Cluster cards (HTML for richer styling) */}
       {clusters.map((c, i) => {
         const s = slotFor(i);
-        const color = colorFor(c.category);
-        const cardX = s.x - COL_W / 2;
-        const cardY = s.y - ROW_H / 2;
-        const itemRows = Math.min(c.items.length, 5);
-        const headerH = 30;
-        const itemH = 18;
-        const cardH = headerH + itemRows * itemH + 14;
+        const m = metaFor(c.category);
+        const leftPct = ((s.x - COL_W / 2) / W) * 100;
+        const topPct = ((s.y - ROW_H / 2) / H) * 100;
+        const widthPct = (COL_W / W) * 100;
+        const maxH = ROW_H;
+        const visibleItems = c.items.slice(0, 5);
         return (
-          <g key={`card-${i}`}>
-            {/* card background */}
-            <rect
-              x={cardX}
-              y={cardY}
-              width={COL_W}
-              height={cardH}
-              rx={10}
-              fill="#ffffff"
-              stroke={color}
-              strokeWidth={1.5}
-              opacity={0.98}
+          <div
+            key={`card-${i}`}
+            style={{
+              position: "absolute",
+              left: `${leftPct}%`,
+              top: `${topPct}%`,
+              width: `${widthPct}%`,
+              maxHeight: maxH,
+              padding: 12,
+              borderRadius: 12,
+              background:
+                "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))",
+              border: `1px solid ${m.color}55`,
+              backdropFilter: "blur(8px)",
+              WebkitBackdropFilter: "blur(8px)",
+              boxShadow: `0 8px 32px -10px ${m.color}55, inset 0 1px 0 rgba(255,255,255,0.05)`,
+              animation: `sg-fade-in 0.4s ease ${i * 80}ms both, sg-float ${4 + i * 0.3}s ease-in-out infinite ${i * 0.2}s`,
+              overflow: "hidden"
+            }}
+          >
+            {/* gradient header strip */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 3,
+                background: m.gradient
+              }}
             />
-            {/* category label */}
-            <text
-              x={cardX + 12}
-              y={cardY + 20}
-              fontSize={11}
-              fontWeight={700}
-              fill={color}
-              fontFamily="'IBM Plex Mono', monospace"
-              style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}
+
+            {/* category title */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                fontFamily: '"IBM Plex Mono", monospace',
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: m.color,
+                textShadow: `0 0 12px ${m.color}66`
+              }}
             >
-              {trunc(c.label || c.category, 26)}
-            </text>
-            {/* divider */}
-            <line
-              x1={cardX + 10}
-              y1={cardY + headerH}
-              x2={cardX + COL_W - 10}
-              y2={cardY + headerH}
-              stroke={color}
-              strokeOpacity={0.25}
-              strokeWidth={1}
-            />
-            {/* items */}
-            {c.items.slice(0, itemRows).map((it, j) => {
-              const ix = cardX + 14;
-              const iy = cardY + headerH + 8 + (j + 1) * itemH - 4;
-              return (
-                <g key={`item-${i}-${j}`}>
-                  <circle cx={ix} cy={iy - 4} r={3} fill={color} />
-                  <text
-                    x={ix + 10}
-                    y={iy}
-                    fontSize={11}
-                    fill="#0a0d18"
-                    fontFamily="Inter, system-ui, sans-serif"
-                  >
-                    {trunc(it.label || "", 28)}
-                  </text>
-                </g>
-              );
-            })}
-            {c.items.length > itemRows && (
-              <text
-                x={cardX + 14}
-                y={cardY + cardH - 8}
-                fontSize={10}
-                fill={color}
-                fontFamily="Inter, system-ui, sans-serif"
-                opacity={0.75}
+              <span style={{ fontSize: 14 }}>{m.icon}</span>
+              <span
+                style={{
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }}
               >
-                + {c.items.length - itemRows} more
-              </text>
-            )}
-          </g>
+                {c.label || c.category}
+              </span>
+            </div>
+
+            {/* divider */}
+            <div
+              style={{
+                margin: "8px 0 6px",
+                height: 1,
+                background: `linear-gradient(90deg, ${m.color}88, transparent)`
+              }}
+            />
+
+            {/* items */}
+            <ul
+              style={{
+                listStyle: "none",
+                padding: 0,
+                margin: 0,
+                fontFamily: "Inter, system-ui, sans-serif"
+              }}
+            >
+              {visibleItems.map((it, j) => (
+                <li
+                  key={j}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "3px 0",
+                    fontSize: 12,
+                    color: "rgba(255,255,255,0.92)",
+                    animation: `sg-fade-in 0.4s ease ${i * 80 + j * 70 + 120}ms both`
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      background: m.color,
+                      boxShadow: `0 0 8px ${m.color}`,
+                      flexShrink: 0
+                    }}
+                  />
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    {it.label}
+                  </span>
+                </li>
+              ))}
+              {c.items.length > visibleItems.length && (
+                <li
+                  style={{
+                    paddingTop: 4,
+                    fontSize: 10,
+                    fontFamily: '"IBM Plex Mono", monospace',
+                    color: m.color,
+                    opacity: 0.75
+                  }}
+                >
+                  + {c.items.length - visibleItems.length} more
+                </li>
+              )}
+            </ul>
+          </div>
         );
       })}
-    </svg>
+    </div>
   );
 }

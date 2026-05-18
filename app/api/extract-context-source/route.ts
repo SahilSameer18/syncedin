@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { type?: string; value?: string };
+  let body: { type?: string; value?: string; note?: string };
   try {
     body = await req.json();
   } catch {
@@ -35,7 +35,8 @@ export async function POST(req: Request) {
 
   const type = (body.type ?? "url").toLowerCase();
   const value = (body.value ?? "").trim();
-  if (!value) {
+  const userNote = (body.note ?? "").trim().slice(0, 1500);
+  if (!value && !userNote) {
     return NextResponse.json({ error: "missing_value" }, { status: 400 });
   }
 

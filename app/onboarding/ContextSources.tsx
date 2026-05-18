@@ -3,29 +3,31 @@
 import { useState } from "react";
 import { DotsLoader } from "../DotsLoader";
 
-type Extracted = {
+export type Snippet = {
+  id: string;
   label: string;
   source: string;
-  extracted_text: string;
+  text: string;
+  note?: string;
 };
 
 const QUICK_TYPES = [
   {
     key: "linkedin",
     label: "LinkedIn",
-    placeholder: "https://linkedin.com/in/your-handle",
+    placeholder: "https://linkedin.com/in/your-handle, or just the handle",
     icon: "💼"
   },
   {
     key: "x",
     label: "X / Twitter",
-    placeholder: "https://x.com/your-handle",
+    placeholder: "https://x.com/yourhandle, or just the handle",
     icon: "𝕏"
   },
   {
     key: "instagram",
     label: "Instagram",
-    placeholder: "https://instagram.com/your-handle",
+    placeholder: "https://instagram.com/yourhandle, or just the handle",
     icon: "📸"
   },
   {
@@ -36,61 +38,57 @@ const QUICK_TYPES = [
   }
 ];
 
+function newId(): string {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function normalizeUrl(raw: string, type: string): string {
+  let v = raw.trim().replace(/^@/, "");
+  if (!v) return "";
+  if (/^https?:\/\//i.test(v)) return v;
+  if (/^[a-z0-9-]+\.[a-z]{2,}\//i.test(v)) return `https://${v}`;
+  if (v.includes("/") && /^[a-z0-9-]+\.[a-z]{2,}/i.test(v)) {
+    return `https://${v}`;
+  }
+  switch (type) {
+    case "linkedin":
+      return `https://www.linkedin.com/in/${v}`;
+    case "x":
+      return `https://x.com/${v}`;
+    case "instagram":
+      return `https://www.instagram.com/${v}`;
+    default:
+      return /\./.test(v) ? `https://${v}` : v;
+  }
+}
+
 /**
- * Onboarding context-source picker.
+ * Universal context-source ingestion. The user can:
+ *   - Paste a URL → we fetch + clean via Exa+Claude
+ *   - Paste a raw blob → Claude cleans it
+ *   - Add a "purpose / extra context" note alongside the URL to help Claude
+ *     when the scrape is thin (Twitter and Instagram often return little)
  *
- * For each source the user can paste a URL, we fetch it via Exa, hand to
- * Claude for a clean first-person snippet, and append it to the value
- * controlled by the wizard. The wizard re-renders the SelfGraph automatically.
+ * Every snippet that lands in "Added so far" is fully visible and editable
+ * in place. Edits flow back to the parent through `onChange(snippets)`.
  */
 export function ContextSources({
-  value,
-  onAppend
+  snippets,
+  onChange
 }: {
-  value: string;
-  onAppend: (snippet: string, label: string, source: string) => void;
+  snippets: Snippet[];
+  onChange: (next: Snippet[]) => void;
 }) {
   const [active, setActive] = useState<string>("linkedin");
   const [input, setInput] = useState("");
+  const [purpose, setPurpose] = useState("");
   const [pasted, setPasted] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<Extracted[]>([]);
+  const [editing, setEditing] = useState<string | null>(null);
 
   const current = QUICK_TYPES.find((t) => t.key === active) ?? QUICK_TYPES[0];
-
-  /**
-   * Take whatever the user typed and turn it into a full URL based on the
-   * currently selected source type. Accepts:
-   *   "jackjayio"            → handle
-   *   "@jackjayio"           → handle
-   *   "x.com/jackjayio"      → bare domain
-   *   "https://x.com/..."    → full URL
-   */
-  function normalizeUrl(raw: string, type: string): string {
-    let v = raw.trim().replace(/^@/, "");
-    if (!v) return "";
-    // Already has protocol — leave alone
-    if (/^https?:\/\//i.test(v)) return v;
-    // Has a domain
-    if (/^[a-z0-9-]+\.[a-z]{2,}\//i.test(v)) return `https://${v}`;
-    // Bare domain like "x.com/handle" without https
-    if (v.includes("/") && /^[a-z0-9-]+\.[a-z]{2,}/i.test(v)) {
-      return `https://${v}`;
-    }
-    // Otherwise treat as a handle and build the URL for the active source.
-    switch (type) {
-      case "linkedin":
-        return `https://www.linkedin.com/in/${v}`;
-      case "x":
-        return `https://x.com/${v}`;
-      case "instagram":
-        return `https://www.instagram.com/${v}`;
-      default:
-        // For "Any URL" with just a word, best-effort: prepend https://
-        return /\./.test(v) ? `https://${v}` : v;
-    }
-  }
+  const hintsAddingNote = active === "x" || active === "instagram";
 
   async function submitUrl() {
     if (!input.trim()) return;
@@ -101,17 +99,29 @@ export function ContextSources({
       const r = await fetch("/api/extract-context-source", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ type: "url", value: url })
+        body: JSON.stringify({
+          type: "url",
+          value: url,
+          note: purpose || undefined
+        })
       });
       const j = await r.json();
       if (j.error) {
         setError(j.detail || j.error);
         return;
       }
-      const ex = j as Extracted;
-      setHistory((h) => [...h, ex]);
-      onAppend(ex.extracted_text, ex.label, ex.source);
+      onChange([
+        ...snippets,
+        {
+          id: newId(),
+          label: j.label || current.label,
+          source: j.source || url,
+          text: j.extracted_text || "",
+          note: purpose || undefined
+        }
+      ]);
       setInput("");
+      setPurpose("");
     } catch {
       setError("Couldn't reach the server. Try again.");
     } finally {
@@ -134,9 +144,15 @@ export function ContextSources({
         setError(j.detail || j.error);
         return;
       }
-      const ex = j as Extracted;
-      setHistory((h) => [...h, ex]);
-      onAppend(ex.extracted_text, ex.label, ex.source);
+      onChange([
+        ...snippets,
+        {
+          id: newId(),
+          label: j.label || "Pasted text",
+          source: j.source || "manual",
+          text: j.extracted_text || ""
+        }
+      ]);
       setPasted("");
     } catch {
       setError("Couldn't reach the server. Try again.");
@@ -145,18 +161,23 @@ export function ContextSources({
     }
   }
 
+  function updateText(id: string, text: string) {
+    onChange(snippets.map((s) => (s.id === id ? { ...s, text } : s)));
+  }
+  function remove(id: string) {
+    onChange(snippets.filter((s) => s.id !== id));
+    if (editing === id) setEditing(null);
+  }
+
   return (
     <div>
       <div className="retro-label">add context from anywhere</div>
-      <p
-        className="text-xs mt-1"
-        style={{ color: "var(--text-dim)" }}
-      >
-        Paste a URL from a profile or page that describes you. We&apos;ll
-        fetch it, clean it, and feed it to your twin.
+      <p className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>
+        Paste a URL, a handle, or a raw text blob. We&apos;ll fetch it,
+        clean it, and feed it to your twin. Everything you add stays
+        editable below.
       </p>
 
-      {/* Source type tabs */}
       <div className="mt-3 flex flex-wrap gap-2">
         {QUICK_TYPES.map((t) => (
           <button
@@ -186,7 +207,6 @@ export function ContextSources({
         ))}
       </div>
 
-      {/* URL input row */}
       <div className="mt-3 flex gap-2">
         <input
           value={input}
@@ -210,7 +230,21 @@ export function ContextSources({
         </button>
       </div>
 
-      {/* Or paste raw text */}
+      {/* Optional purpose / extra context note for this URL */}
+      <div className="mt-2">
+        <textarea
+          value={purpose}
+          onChange={(e) => setPurpose(e.target.value.slice(0, 1500))}
+          rows={2}
+          placeholder={
+            hintsAddingNote
+              ? "X & Instagram often block our scraper. Add a few sentences about what's on this profile and why it matters to you."
+              : "Optional: a few words on what this link is and why your twin should care about it."
+          }
+          className="retro-input text-sm"
+        />
+      </div>
+
       <details className="mt-3">
         <summary
           className="text-xs cursor-pointer"
@@ -246,42 +280,84 @@ export function ContextSources({
         </div>
       )}
 
-      {/* History of what was extracted */}
-      {history.length > 0 && (
-        <div className="mt-4">
+      {snippets.length > 0 && (
+        <div className="mt-5">
           <div
             className="retro-label"
             style={{ color: "var(--amber-bright)" }}
           >
-            added so far ({history.length})
+            added so far ({snippets.length}) · click to edit
           </div>
           <ul className="mt-2 space-y-2">
-            {history.map((h, i) => (
-              <li
-                key={i}
-                className="retro-panel p-3 text-xs"
-              >
-                <div
-                  className="font-semibold"
-                  style={{ color: "var(--text)" }}
-                >
-                  {h.label}
-                </div>
-                <div
-                  className="retro-dim mt-0.5"
-                  style={{ wordBreak: "break-all" }}
-                >
-                  {h.source}
-                </div>
-                <div
-                  className="mt-1"
-                  style={{ color: "var(--text-dim)" }}
-                >
-                  {h.extracted_text.slice(0, 140)}
-                  {h.extracted_text.length > 140 ? "…" : ""}
-                </div>
-              </li>
-            ))}
+            {snippets.map((s) => {
+              const isEditing = editing === s.id;
+              return (
+                <li key={s.id} className="retro-panel p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        className="font-semibold text-sm"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {s.label}
+                      </div>
+                      <a
+                        href={
+                          s.source.startsWith("http") ? s.source : undefined
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="retro-dim text-xs underline mt-0.5 inline-block"
+                        style={{ wordBreak: "break-all" }}
+                      >
+                        {s.source}
+                      </a>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditing(isEditing ? null : s.id)
+                        }
+                        className="retro-dim text-xs hover:text-white"
+                      >
+                        {isEditing ? "done" : "edit"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => remove(s.id)}
+                        className="retro-dim text-xs hover:text-white"
+                        style={{ color: "var(--red)" }}
+                      >
+                        remove
+                      </button>
+                    </div>
+                  </div>
+
+                  {isEditing ? (
+                    <textarea
+                      value={s.text}
+                      onChange={(e) => updateText(s.id, e.target.value)}
+                      rows={Math.min(20, Math.max(6, s.text.split(/\n/).length + 2))}
+                      className="retro-input text-sm mt-3 font-mono"
+                      style={{ minHeight: 180 }}
+                      autoFocus
+                    />
+                  ) : (
+                    <div
+                      className="mt-3 text-sm"
+                      style={{
+                        color: "var(--text)",
+                        whiteSpace: "pre-wrap",
+                        lineHeight: 1.55
+                      }}
+                    >
+                      {s.text}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

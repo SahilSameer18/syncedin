@@ -640,13 +640,26 @@ export function DiscoverSearch({
                                   className="retro-input mt-1 text-sm"
                                   maxLength={200}
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => copy(shortText)}
-                                  className="retro-btn text-sm mt-2"
-                                >
-                                  Copy connection note
-                                </button>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => copy(shortText)}
+                                    className="retro-btn text-sm"
+                                  >
+                                    Copy note
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      copy(shortText);
+                                      const profile = draftFor?.url || "";
+                                      if (profile) window.open(profile, "_blank", "noopener");
+                                    }}
+                                    className="retro-btn retro-btn-primary text-sm"
+                                  >
+                                    Copy &amp; open LinkedIn →
+                                  </button>
+                                </div>
                               </div>
                             )}
 

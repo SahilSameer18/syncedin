@@ -148,6 +148,16 @@ export default async function InviteOgImage({
         </div>
       </div>
     ),
-    { ...size }
+    {
+      ...size,
+      headers: {
+        // Apple's link preview service refuses to cache images served
+        // with no-store / private headers. Without this header Vercel
+        // applies a private-no-store default to dynamic routes and
+        // iMessage falls back to the favicon.
+        "cache-control":
+          "public, immutable, no-transform, max-age=86400"
+      }
+    }
   );
 }
