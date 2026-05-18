@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
-import { exaGetContents } from "@/lib/exa";
+import { scrapePublicProfile } from "@/lib/scrape";
 
 /**
  * Universal context-source ingestion for onboarding.
@@ -51,9 +51,10 @@ export async function POST(req: Request) {
       label = "Pasted text";
       source = "manual";
     } else {
-      // Anything else is treated as a URL. exaGetContents handles linkedin,
-      // twitter/x, facebook posts, instagram, any web page.
-      rawText = await exaGetContents(value);
+      // Anything else is treated as a URL. scrapePublicProfile tries Exa
+      // first and falls back to Apify for X / Instagram which Exa can't
+      // reach. If neither works the user can still paste the text below.
+      rawText = await scrapePublicProfile(value);
       label = guessLabel(value);
       source = value;
     }

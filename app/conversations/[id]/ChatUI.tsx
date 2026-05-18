@@ -22,17 +22,24 @@ import { Avatar } from "../../Avatar";
  */
 function SchedulePanel({
   selfName,
+  selfEmail,
   otherName,
-  agreement
+  otherEmail,
+  agreement,
+  conversationId
 }: {
   selfName: string;
+  selfEmail: string | null;
   otherName: string;
+  otherEmail: string | null;
   agreement: string;
+  conversationId: string;
 }) {
   const [calendlyUrl, setCalendlyUrl] = useState("");
   const [proposal, setProposal] = useState("");
+  const [sending, setSending] = useState<null | "calendly" | "proposal">(null);
+  const [sent, setSent] = useState<null | "calendly" | "proposal">(null);
 
-  // Build a Google Calendar event template with the agreement in the description.
   // Default to a slot 2 days out at 10am local — better than now/+1hr.
   const start = (() => {
     const d = new Date();
@@ -46,19 +53,35 @@ function SchedulePanel({
       .toISOString()
       .replace(/[-:]|\.\d{3}/g, "")
       .slice(0, 15) + "Z";
-  const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
-    `SyncedIn: ${selfName} × ${otherName}`
-  )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(
-    `Agreed via SyncedIn:\n\n${agreement}\n\nReply to confirm or propose a different time.`
-  )}`;
+
+  // Build a Google Calendar event template with the agreement in the description.
+  // CRITICAL: prefill the guest list with both emails so the event creates
+  // a real calendar invite that Google will send to the counterpart.
+  const guests = [selfEmail, otherEmail].filter(Boolean).join(",");
+  const gcalUrl =
+    `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+    `&text=${encodeURIComponent(`SyncedIn: ${selfName} × ${otherName}`)}` +
+    `&dates=${fmt(start)}/${fmt(end)}` +
+    `&details=${encodeURIComponent(`Agreed via SyncedIn:\n\n${agreement}\n\nReply to confirm or propose a different time.`)}` +
+    (guests ? `&add=${encodeURIComponent(guests)}` : "");
 
   function downloadIcs() {
     const dtstart = fmt(start);
     const dtend = fmt(end);
+    const attendeeLines: string[] = [];
+    if (otherEmail) {
+      attendeeLines.push(
+        `ATTENDEE;CN=${otherName};RSVP=TRUE:mailto:${otherEmail}`
+      );
+    }
+    if (selfEmail) {
+      attendeeLines.push(`ORGANIZER;CN=${selfName}:mailto:${selfEmail}`);
+    }
     const ics = [
       "BEGIN:VCALENDAR",
       "VERSION:2.0",
       "PRODID:-//SyncedIn//EN",
+      "METHOD:REQUEST",
       "BEGIN:VEVENT",
       `UID:${dtstart}-syncedin@${typeof location !== "undefined" ? location.hostname : "syncedin.org"}`,
       `DTSTAMP:${dtstart}`,
@@ -66,6 +89,7 @@ function SchedulePanel({
       `DTEND:${dtend}`,
       `SUMMARY:SyncedIn: ${selfName} × ${otherName}`,
       `DESCRIPTION:Agreed via SyncedIn:\\n\\n${agreement.replace(/\n/g, "\\n")}`,
+      ...attendeeLines,
       "END:VEVENT",
       "END:VCALENDAR"
     ].join("\r\n");
@@ -78,7 +102,36 @@ function SchedulePanel({
     URL.revokeObjectURL(url);
   }
 
-  const proposalSnippet = proposal.trim()
+  async function postInThread(kind: "calendly" | "proposal", body: string) {
+    if (!body.trim()) return;
+    setSending(kind);
+    try {
+      const res = await fetch("/api/send-message", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          original_draft: body,
+          final_text: body
+        })
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setSent(kind);
+      // Soft reload so the new message renders in the thread.
+      setTimeout(() => {
+        if (typeof location !== "undefined") location.reload();
+      }, 400);
+    } catch (e) {
+      console.error("[schedule] send-in-chat failed", e);
+    } finally {
+      setSending(null);
+    }
+  }
+
+  const calendlyMsg = calendlyUrl.trim()
+    ? `Locked in. Here's my calendar to grab a time that works: ${calendlyUrl.trim()}`
+    : "";
+  const proposalMsg = proposal.trim()
     ? `How about ${proposal.trim()}? If that doesn't work, propose 2-3 alternatives.`
     : "";
 
@@ -101,8 +154,13 @@ function SchedulePanel({
           rel="noopener noreferrer"
           className="retro-btn retro-btn-primary text-xs text-center"
           style={{ padding: "8px 10px" }}
+          title={
+            otherEmail
+              ? `Pre-invites ${otherEmail}`
+              : "No email on file for counterpart — invite will be empty"
+          }
         >
-          📅 Google Calendar
+          📅 Google Calendar{otherEmail ? " · invites them" : ""}
         </a>
         <button
           type="button"
@@ -115,7 +173,9 @@ function SchedulePanel({
       </div>
 
       <div>
-        <div className="retro-label text-[10px]">Or paste your Calendly link</div>
+        <div className="retro-label text-[10px]">
+          Or share your Calendly in the thread
+        </div>
         <div className="flex gap-2 mt-1">
           <input
             type="url"
@@ -124,21 +184,20 @@ function SchedulePanel({
             placeholder="https://calendly.com/you/30min"
             className="retro-input text-xs flex-1"
           />
-          {calendlyUrl && (
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard?.writeText(
-                  `Here's my calendar to grab a time that works: ${calendlyUrl}`
-                );
-              }}
-              className="retro-btn text-xs"
-              style={{ padding: "4px 10px" }}
-              title="Copy the share message"
-            >
-              copy msg
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => postInThread("calendly", calendlyMsg)}
+            disabled={!calendlyUrl.trim() || sending === "calendly"}
+            className="retro-btn retro-btn-primary text-xs"
+            style={{ padding: "4px 10px" }}
+            title="Send the Calendly link as a real message in this thread"
+          >
+            {sending === "calendly"
+              ? "sending…"
+              : sent === "calendly"
+              ? "✓ sent"
+              : "send in chat"}
+          </button>
         </div>
       </div>
 
@@ -154,24 +213,26 @@ function SchedulePanel({
             placeholder="Tuesday 2pm PT"
             className="retro-input text-xs flex-1"
           />
-          {proposalSnippet && (
-            <button
-              type="button"
-              onClick={() => {
-                navigator.clipboard?.writeText(proposalSnippet);
-              }}
-              className="retro-btn text-xs"
-              style={{ padding: "4px 10px" }}
-            >
-              copy
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => postInThread("proposal", proposalMsg)}
+            disabled={!proposal.trim() || sending === "proposal"}
+            className="retro-btn retro-btn-primary text-xs"
+            style={{ padding: "4px 10px" }}
+          >
+            {sending === "proposal"
+              ? "sending…"
+              : sent === "proposal"
+              ? "✓ sent"
+              : "send in chat"}
+          </button>
         </div>
       </div>
 
       <div className="retro-dim text-[10px]">
-        Heads up: linked-calendar free/busy lookup is coming. For now, pick a
-        path above — Google Calendar template is fastest.
+        {otherEmail
+          ? `Counterpart on file: ${otherEmail}. Google Calendar pre-invites them; .ics carries them as an attendee.`
+          : `Counterpart has no email on file yet — Calendly / chat options work either way.`}
       </div>
     </div>
   );
@@ -350,6 +411,7 @@ export function ChatUI({
   conversationId,
   selfUserId,
   selfName,
+  selfEmail,
   selfAvatarUrl,
   other,
   initialMessages,
@@ -360,10 +422,12 @@ export function ChatUI({
   conversationId: string;
   selfUserId: string;
   selfName: string;
+  selfEmail?: string | null;
   selfAvatarUrl?: string | null;
   other: {
     id: string;
     name: string;
+    email?: string | null;
     isTestPersona: boolean;
     avatarUrl?: string | null;
   };
@@ -876,8 +940,11 @@ export function ChatUI({
               {bothAccepted && (
                 <SchedulePanel
                   selfName={selfName}
+                  selfEmail={selfEmail ?? null}
                   otherName={other.name}
+                  otherEmail={other.email ?? null}
                   agreement={lastAgreement ?? ""}
+                  conversationId={conversationId}
                 />
               )}
             </div>

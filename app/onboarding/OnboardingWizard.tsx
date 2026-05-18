@@ -64,7 +64,7 @@ type Initial = {
 const STEPS = [
   { key: "you", label: "You" },
   { key: "sources", label: "Sources" },
-  { key: "ai_dump", label: "AI dump" },
+  { key: "ai_dump", label: "AI memory" },
   { key: "refine", label: "Refine" }
 ] as const;
 
@@ -151,8 +151,76 @@ export function OnboardingWizard({
     }
   })();
 
+  // Reusable nav row — small + sticky-friendly version goes at the top,
+  // full version at the bottom. Kept in a function so they stay in lockstep.
+  const NavRow = ({ compact = false }: { compact?: boolean }) => (
+    <div
+      className={`flex items-center justify-between ${
+        compact ? "mb-3" : "mt-5"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setStep((s) => Math.max(0, s - 1))}
+        disabled={step === 0}
+        className={compact ? "retro-btn text-xs" : "retro-btn"}
+        style={{ visibility: step === 0 ? "hidden" : "visible" }}
+      >
+        ← back
+      </button>
+      <div
+        className={compact ? "retro-dim text-[10px]" : "retro-dim text-xs"}
+        style={{ color: "var(--text-dim)" }}
+      >
+        {step + 1} / {STEPS.length}
+      </div>
+      {step < STEPS.length - 1 ? (
+        <button
+          type="button"
+          onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
+          disabled={!canAdvance}
+          className={
+            compact
+              ? "retro-btn retro-btn-primary text-xs"
+              : "retro-btn retro-btn-primary"
+          }
+        >
+          continue →
+        </button>
+      ) : (
+        <button
+          type="submit"
+          disabled={!state.display_name.trim() || !state.goals.trim()}
+          className={
+            compact
+              ? "retro-btn retro-btn-primary text-xs"
+              : "retro-btn retro-btn-primary"
+          }
+        >
+          {compact ? "save twin →" : "Save twin & go to dashboard"}
+        </button>
+      )}
+    </div>
+  );
+
   return (
-    <form action={saveTwin} id="onboarding-form">
+    <form
+      action={saveTwin}
+      id="onboarding-form"
+      // Hard guard: Enter inside a single-line input must NOT submit the form
+      // and bounce the user to /dashboard mid-refine. Textareas keep Enter
+      // (it's a newline), explicit submit click still works.
+      onKeyDown={(e) => {
+        const t = e.target as HTMLElement;
+        if (
+          e.key === "Enter" &&
+          t.tagName !== "TEXTAREA" &&
+          !(t.tagName === "BUTTON" && (t as HTMLButtonElement).type === "submit")
+        ) {
+          e.preventDefault();
+        }
+      }}
+    >
       <input type="hidden" name="display_name" value={state.display_name} />
       <input type="hidden" name="goals" value={state.goals} />
       <input
@@ -244,6 +312,10 @@ export function OnboardingWizard({
           );
         })}
       </div>
+
+      {/* Top nav row — same controls as the bottom, so users don't have to
+          scroll past long context blobs to advance/back up. */}
+      <NavRow compact />
 
       <div className="retro-panel retro-shadow p-6">
         {/* STEP 1 — You: name + photo together */}
@@ -381,7 +453,7 @@ export function OnboardingWizard({
           </div>
         )}
 
-        {/* STEP 3 — AI dump: paste from ChatGPT/Claude/Gemini/Grok */}
+        {/* STEP 3 — AI memory: paste from ChatGPT/Claude/Gemini/Grok */}
         {STEPS[step].key === "ai_dump" && (
           <div>
             <div className="retro-label">step 3 of 4</div>
@@ -460,39 +532,8 @@ export function OnboardingWizard({
         )}
       </div>
 
-      {/* Nav row */}
-      <div className="mt-5 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setStep((s) => Math.max(0, s - 1))}
-          disabled={step === 0}
-          className="retro-btn"
-          style={{ visibility: step === 0 ? "hidden" : "visible" }}
-        >
-          ← back
-        </button>
-        <div className="retro-dim text-xs" style={{ color: "var(--text-dim)" }}>
-          {step + 1} / {STEPS.length}
-        </div>
-        {step < STEPS.length - 1 ? (
-          <button
-            type="button"
-            onClick={() => setStep((s) => Math.min(STEPS.length - 1, s + 1))}
-            disabled={!canAdvance}
-            className="retro-btn retro-btn-primary"
-          >
-            continue →
-          </button>
-        ) : (
-          <button
-            type="submit"
-            disabled={!state.display_name.trim() || !state.goals.trim()}
-            className="retro-btn retro-btn-primary"
-          >
-            Save twin &amp; go to dashboard
-          </button>
-        )}
-      </div>
+      {/* Bottom nav row */}
+      <NavRow />
     </form>
   );
 }

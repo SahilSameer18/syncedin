@@ -68,10 +68,12 @@ export default async function ConversationPage({
       conversationId={params.id}
       selfUserId={user.id}
       selfName={selfProfile!.display_name ?? selfProfile!.email}
+      selfEmail={selfProfile!.email ?? null}
       selfAvatarUrl={(selfProfile as any)?.avatar_url ?? null}
       other={{
         id: otherProfile!.id,
         name: otherProfile!.display_name ?? otherProfile!.email,
+        email: otherProfile!.email ?? null,
         isTestPersona: otherProfile!.is_test_persona,
         avatarUrl: (otherProfile as any)?.avatar_url ?? null
       }}
