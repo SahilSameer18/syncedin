@@ -52,7 +52,7 @@ export default async function NewCommunityPage() {
           <NetworkDensity />
         </div>
 
-        <div className="mt-10 grid sm:grid-cols-3 gap-3">
+        <div className="mt-16 grid sm:grid-cols-3 gap-3">
           <Pillar
             k="01"
             t="One private community link"

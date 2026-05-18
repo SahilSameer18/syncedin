@@ -46,7 +46,7 @@ export default async function DashboardPage() {
     supabase
       .from("twin_profiles")
       .select(
-        "user_id, goals, deal_preferences, communication_style, deal_breakers, ai_export_blob"
+        "user_id, goals, deal_preferences, communication_style, deal_breakers, ai_export_blob, hometown, current_city"
       )
       .eq("user_id", user.id)
       .maybeSingle(),
@@ -163,6 +163,13 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .eq("response", "accepted");
 
+  // Edits captured — every time the user corrected a draft. Drives the
+  // "edits captured" bucket in the Sync %.
+  const { count: editCount } = await service
+    .from("edit_deltas")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
+
   // Status pills per conversation: sealed / your-turn / waiting / negotiating.
   // Pull all agreement_responses for the user's conversations once.
   const convIds = (conversations ?? []).map((c) => c.id);
@@ -244,8 +251,11 @@ export default async function DashboardPage() {
     deal_preferences: twin?.deal_preferences ?? null,
     comm_style: twin?.communication_style ?? null,
     deal_breakers: twin?.deal_breakers ?? null,
+    hometown: (twin as any)?.hometown ?? null,
+    current_city: (twin as any)?.current_city ?? null,
     completed_conversations: completedConvIds.length,
-    accepted_agreements: acceptedAgreementsCount ?? 0
+    accepted_agreements: acceptedAgreementsCount ?? 0,
+    edit_count: editCount ?? 0
   };
 
   return (

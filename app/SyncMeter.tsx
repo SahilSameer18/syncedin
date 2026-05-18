@@ -1,6 +1,133 @@
 import { computeSyncScore, type SyncInputs } from "@/lib/sync-score";
 
 /**
+ * Small (i) badge that shows the full Sync-score breakdown on hover.
+ * CSS-only — no JS state, so it's safe to render inside a server component.
+ */
+function SyncInfoBadge({
+  breakdown,
+  nextStep
+}: {
+  breakdown: { label: string; points: number; max: number; done: boolean }[];
+  nextStep: string | null;
+}) {
+  return (
+    <span
+      className="group"
+      style={{ position: "relative", display: "inline-flex", marginLeft: 6 }}
+    >
+      <span
+        aria-label="How Sync % works"
+        style={{
+          width: 16,
+          height: 16,
+          borderRadius: "50%",
+          border: "1px solid var(--border-bright)",
+          color: "var(--text-dim)",
+          fontSize: 10,
+          fontWeight: 700,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "help",
+          background: "var(--panel)",
+          fontFamily: "system-ui, sans-serif"
+        }}
+      >
+        i
+      </span>
+      <span
+        className="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+        style={{
+          position: "absolute",
+          top: "calc(100% + 8px)",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: 280,
+          padding: "12px 14px",
+          background: "var(--panel-solid)",
+          border: "1px solid var(--border)",
+          borderRadius: 10,
+          fontSize: 11,
+          lineHeight: 1.45,
+          color: "var(--text)",
+          zIndex: 30,
+          boxShadow: "0 16px 36px -12px rgba(0,0,0,0.45)",
+          textAlign: "left"
+        }}
+      >
+        <strong style={{ display: "block", marginBottom: 6, fontSize: 12 }}>
+          How Sync % works
+        </strong>
+        <div
+          style={{
+            color: "var(--text-dim)",
+            marginBottom: 8,
+            fontSize: 10.5,
+            lineHeight: 1.5
+          }}
+        >
+          The meter grows every time you give your twin more signal — new
+          context, a finished conversation, a captured edit, a sealed deal.
+          It caps at 99% on purpose (the last 1% is the north star).
+        </div>
+        <table
+          style={{
+            width: "100%",
+            fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+            fontSize: 10,
+            borderCollapse: "collapse"
+          }}
+        >
+          <tbody>
+            {breakdown.map((p) => (
+              <tr key={p.label}>
+                <td
+                  style={{
+                    padding: "2px 0",
+                    color: p.points > 0 ? "var(--text)" : "var(--text-dim)"
+                  }}
+                >
+                  {p.label}
+                </td>
+                <td
+                  style={{
+                    padding: "2px 0",
+                    textAlign: "right",
+                    color:
+                      p.points >= p.max
+                        ? "var(--green)"
+                        : p.points > 0
+                        ? "var(--amber-bright)"
+                        : "var(--text-dim)"
+                  }}
+                >
+                  {p.points}/{p.max}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {nextStep && (
+          <div
+            style={{
+              marginTop: 8,
+              paddingTop: 8,
+              borderTop: "1px solid var(--border)",
+              fontSize: 10.5,
+              color: "var(--text-dim)"
+            }}
+          >
+            <strong style={{ color: "var(--amber-bright)" }}>Next:</strong>{" "}
+            {nextStep}
+          </div>
+        )}
+      </span>
+    </span>
+  );
+}
+
+/**
  * SyncMeter v8 — variant X "clean caption".
  *
  * Uniform everyman silhouette: outlined head + outlined body + rainbow
@@ -26,7 +153,7 @@ export function SyncMeter({
   avatarUrl?: string | null;
   userId?: string | null;
 }) {
-  const { total } = computeSyncScore(inputs);
+  const { total, parts, nextStep } = computeSyncScore(inputs);
 
   // Body spans y=50 (top of torso) to y=295 (feet bottom). Fill rises from
   // y=FILL_BOTTOM up to y=fillY where fillY = bottom - range * (pct/100).
@@ -145,6 +272,20 @@ export function SyncMeter({
           </tspan>
         </text>
       </svg>
+
+      {/* (i) hover badge — pinned to bottom-right of the meter box, next
+          to the "% SYNC" caption. CSS-only tooltip with the full breakdown. */}
+      <div
+        style={{
+          position: "absolute",
+          right: "8%",
+          bottom: 4,
+          display: "flex",
+          alignItems: "center"
+        }}
+      >
+        <SyncInfoBadge breakdown={parts} nextStep={nextStep} />
+      </div>
     </div>
   );
 }

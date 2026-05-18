@@ -214,7 +214,9 @@ export function SelfGraph({ formSelector = "form" }: { formSelector?: string }) 
             </span>
           </div>
         ) : graph ? (
-          <ConstellationView graph={graph} />
+          <ZoomPanBox>
+            <ConstellationView graph={graph} />
+          </ZoomPanBox>
         ) : (
           <div
             style={{
@@ -255,6 +257,149 @@ export function SelfGraph({ formSelector = "form" }: { formSelector?: string }) 
           to { opacity: 1; transform: scale(1); }
         }
       `}</style>
+    </div>
+  );
+}
+
+/**
+ * ZoomPanBox — gives the constellation its own zoom + pan surface so the
+ * graph never has to overflow into the rest of the page. Starts at 0.7×
+ * (zoomed out) so every cluster card is visible without overlap, and lets
+ * the user scroll-wheel to zoom in OR drag to pan.
+ */
+function ZoomPanBox({ children }: { children: React.ReactNode }) {
+  const [scale, setScale] = useState(0.7);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
+
+  function onWheel(e: React.WheelEvent) {
+    e.preventDefault();
+    setScale((s) => {
+      const next = s * (e.deltaY > 0 ? 0.92 : 1.08);
+      return Math.max(0.3, Math.min(1.6, next));
+    });
+  }
+  function onMouseDown(e: React.MouseEvent) {
+    dragRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+  }
+  function onMouseMove(e: React.MouseEvent) {
+    if (!dragRef.current) return;
+    setPan({
+      x: e.clientX - dragRef.current.x,
+      y: e.clientY - dragRef.current.y
+    });
+  }
+  function onMouseUp() {
+    dragRef.current = null;
+  }
+
+  const ctrlBtn: React.CSSProperties = {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    border: "1px solid rgba(120, 130, 220, 0.4)",
+    background: "rgba(20, 24, 50, 0.85)",
+    color: "#cfd5ff",
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontFamily: '"IBM Plex Mono", ui-monospace, monospace'
+  };
+
+  return (
+    <div
+      onWheel={onWheel}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+      style={{
+        position: "relative",
+        width: "100%",
+        height: 520,
+        overflow: "hidden",
+        borderRadius: 10,
+        cursor: dragRef.current ? "grabbing" : "grab"
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+          transformOrigin: "center center",
+          transition: dragRef.current
+            ? "none"
+            : "transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1)"
+        }}
+      >
+        <div style={{ width: 760, pointerEvents: "auto" }}>{children}</div>
+      </div>
+
+      {/* Zoom controls — sit in the bottom-right of the panel */}
+      <div
+        style={{
+          position: "absolute",
+          right: 10,
+          bottom: 10,
+          display: "flex",
+          gap: 4,
+          background: "rgba(10, 13, 30, 0.55)",
+          padding: 4,
+          borderRadius: 8,
+          backdropFilter: "blur(6px)"
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setScale((s) => Math.max(0.3, s * 0.85))}
+          style={ctrlBtn}
+          aria-label="Zoom out"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setScale(0.7);
+            setPan({ x: 0, y: 0 });
+          }}
+          style={{ ...ctrlBtn, width: 44, fontSize: 10, letterSpacing: 1 }}
+          aria-label="Reset view"
+        >
+          {Math.round(scale * 100)}%
+        </button>
+        <button
+          type="button"
+          onClick={() => setScale((s) => Math.min(1.6, s * 1.15))}
+          style={ctrlBtn}
+          aria-label="Zoom in"
+        >
+          +
+        </button>
+      </div>
+
+      {/* Drag hint, fades after first interaction */}
+      <div
+        style={{
+          position: "absolute",
+          left: 10,
+          bottom: 10,
+          fontSize: 10,
+          letterSpacing: "0.06em",
+          textTransform: "uppercase",
+          color: "rgba(255,255,255,0.4)",
+          pointerEvents: "none"
+        }}
+      >
+        scroll to zoom · drag to pan
+      </div>
     </div>
   );
 }

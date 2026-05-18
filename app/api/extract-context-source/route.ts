@@ -68,73 +68,67 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!rawText.trim()) {
-    return NextResponse.json(
-      {
-        error: "empty_source",
-        detail:
-          "Nothing usable came back from that source. Try a different URL, or paste the text directly."
-      },
-      { status: 422 }
-    );
-  }
-
-  // 2. Ask Claude to rewrite it as a tight first-person snippet.
+  // ANY TEXT IS THE VOICE.
   //
-  // Two modes:
-  //  - SOCIAL profile (X / Twitter / Instagram / LinkedIn): treat the scrape
-  //    as VOICE / writing-flavor signal. Preserve actual phrasing, cadence,
-  //    favorite words, sentence rhythm. The output reads like the person's
-  //    own voice — because the twin will be writing in that voice later.
-  //  - ANY OTHER URL: extract dossier facts in clean first-person prose.
+  // We used to gate this on a Claude rewrite step that would sometimes
+  // decline ("no usable content") and surface a hard error. That was
+  // over-engineering — even a sparse scrape (bio + handle + a few posts)
+  // is real signal. Just save whatever the scraper returned.
+  //
+  // For social URLs (X / LinkedIn / Instagram), the raw scrape IS the voice
+  // sample — preserved verbatim so the twin learns actual phrasing.
+  //
+  // For "Any URL" we still pass through Claude to convert third-person
+  // about-me copy into first-person ("I work on…"), since that's the only
+  // case where a rewrite is genuinely useful. If the LLM call fails for
+  // any reason, we fall back to the raw scrape rather than 500ing.
   const sourceLower = source.toLowerCase();
   const isSocial =
+    type === "raw" ||
     /linkedin\.com|twitter\.com|x\.com|instagram\.com/.test(sourceLower);
 
-  const system = isSocial
-    ? `You're extracting a person's WRITING VOICE from their own social posts. This is style training data — NOT a summary.
+  let cleaned = rawText.slice(0, 20000);
 
-Rules:
-- First person ("I", "my", "I think..."). Present tense.
-- Preserve the user's actual phrasing, cadence, favorite words, sentence rhythm. If they're terse, be terse. If they riff, riff. If they use lowercase or no punctuation, preserve that.
-- Up to 300 words. Multiple short paragraphs are fine.
-- Lead with the voice example, then a single short paragraph at the end summarizing what they care about.
-- Skip filler: ads, navigation, follower counts, "Liked by", repeated brand mentions, retweet boilerplate.
-- Never invent details. If the scrape is thin, return only what's supported.
-- No em-dashes, no markdown, no bullets, no headers.`
-    : `You convert a raw web/social scrape ABOUT a person into a short, first-person snippet they can use as twin context.
+  if (!isSocial && rawText.trim().length > 0) {
+    try {
+      const r = await anthropic.messages.create({
+        model: TWIN_MODEL,
+        max_tokens: 600,
+        system: `You convert a raw web scrape ABOUT a person into a short, first-person snippet they can use as twin context.
 
 Rules:
 - First person ("I", "my", "I work on..."), present tense.
 - Plain prose, no markdown, no bullets, no headers, no em-dashes.
 - 80 to 180 words. Cover what's known: role, focus, what they build or care about, signals about voice and values.
 - Skip filler: ads, navigation text, follower counts, audience sizes, button labels, repeated brand mentions.
-- If the scrape is sparse, return only what's supported by the text. Never invent details.`;
-
-  let cleaned = "";
-  try {
-    const r = await anthropic.messages.create({
-      model: TWIN_MODEL,
-      max_tokens: 600,
-      system,
-      messages: [
-        {
-          role: "user",
-          content: `Source: ${source}\n\nRaw scrape:\n${rawText.slice(0, 12000)}\n\nReturn just the cleaned first-person snippet.`
-        }
-      ]
-    });
-    cleaned = r.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { text: string }).text)
-      .join("\n")
-      .replace(/\s*[—–]\s*/g, ", ")
-      .trim();
-  } catch (e: any) {
-    return NextResponse.json(
-      { error: "synth_failed", detail: e?.message ?? String(e) },
-      { status: 500 }
-    );
+- If the scrape is sparse, return only what's supported by the text. Never invent details.
+- If the scrape is unusable, return the cleaned raw text anyway — do NOT respond with "no usable content" or similar.`,
+        messages: [
+          {
+            role: "user",
+            content: `Source: ${source}\n\nRaw scrape:\n${rawText.slice(0, 12000)}\n\nReturn just the cleaned first-person snippet.`
+          }
+        ]
+      });
+      const candidate = r.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as { text: string }).text)
+        .join("\n")
+        .replace(/\s*[—–]\s*/g, ", ")
+        .trim();
+      // Guard against the LLM dropping a refusal — if it refused, keep the raw.
+      if (
+        candidate &&
+        !/no usable|nothing to extract|cannot extract|i can(?:'|')t/i.test(
+          candidate
+        )
+      ) {
+        cleaned = candidate;
+      }
+    } catch (e) {
+      console.warn("[extract] LLM rewrite failed, using raw scrape", e);
+      // cleaned stays as rawText
+    }
   }
 
   return NextResponse.json({

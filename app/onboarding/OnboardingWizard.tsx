@@ -98,34 +98,84 @@ export function OnboardingWizard({
     }));
   }, [snippets, aiDump]);
 
-  // Auto-save the draft every ~1.5s after the user stops changing anything.
-  // Means refreshing the page or coming back later won't lose work.
+  // Persistent draft save.
+  //
+  // Two layers so paste-and-navigate never drops the AI memory blob:
+  //  1. Debounced fetch on every state change (700ms). Catches the common
+  //     "user types, pauses, keeps typing" case.
+  //  2. navigator.sendBeacon on pagehide + visibilitychange + beforeunload.
+  //     sendBeacon is fire-and-forget and the browser GUARANTEES delivery
+  //     even when the page is unloading — which is exactly when fetch()
+  //     gets cancelled.
+  //
+  // The ref always holds the latest serialized payload so the beacon
+  // handlers can read it synchronously without stale-closure issues.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestPayload = useRef<string>("");
   useEffect(() => {
+    const payload = JSON.stringify({
+      display_name: state.display_name,
+      avatar_url: state.avatar_url,
+      goals: state.goals,
+      deal_preferences: state.deal_preferences,
+      communication_style: state.communication_style,
+      deal_breakers: state.deal_breakers,
+      ai_export_blob: state.ai_export_blob,
+      hometown: state.hometown,
+      current_city: state.current_city
+    });
+    latestPayload.current = payload;
+
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
       fetch("/api/save-twin-draft", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          display_name: state.display_name,
-          avatar_url: state.avatar_url,
-          goals: state.goals,
-          deal_preferences: state.deal_preferences,
-          communication_style: state.communication_style,
-          deal_breakers: state.deal_breakers,
-          ai_export_blob: state.ai_export_blob,
-          hometown: state.hometown,
-          current_city: state.current_city
-        })
+        keepalive: true,
+        body: payload
       }).catch(() => {
-        /* fire-and-forget; the final submit handles persistence too */
+        /* fire-and-forget; the beacon below also covers us */
       });
-    }, 1500);
+    }, 700);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
   }, [state]);
+
+  // Beacon-on-unload — guarantees the latest draft hits the server even when
+  // fetch() would be cancelled mid-flight by navigation.
+  useEffect(() => {
+    function flush() {
+      const payload = latestPayload.current;
+      if (!payload) return;
+      try {
+        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+          const blob = new Blob([payload], { type: "application/json" });
+          navigator.sendBeacon("/api/save-twin-draft", blob);
+        } else {
+          fetch("/api/save-twin-draft", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: payload,
+            keepalive: true
+          }).catch(() => {});
+        }
+      } catch {
+        /* never throw during unload */
+      }
+    }
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    window.addEventListener("beforeunload", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      window.removeEventListener("beforeunload", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   // Append a snippet (used by SelfDiscovery after "this is me" confirm)
   function appendBlob(text: string, label: string, source: string) {
@@ -480,6 +530,26 @@ export function OnboardingWizard({
               <textarea
                 value={aiDump}
                 onChange={(e) => setAiDump(e.target.value)}
+                onBlur={() => {
+                  // Force-flush the latest draft immediately when the
+                  // textarea loses focus — guards against losing a fresh
+                  // paste if the user navigates within the 700ms debounce.
+                  try {
+                    const payload = latestPayload.current;
+                    if (!payload) return;
+                    if (
+                      typeof navigator !== "undefined" &&
+                      navigator.sendBeacon
+                    ) {
+                      navigator.sendBeacon(
+                        "/api/save-twin-draft",
+                        new Blob([payload], { type: "application/json" })
+                      );
+                    }
+                  } catch {
+                    /* never throw */
+                  }
+                }}
                 rows={10}
                 placeholder="Paste here. Snippets you added on the Sources step are kept separately and remain editable there."
                 className="retro-input mt-1 font-mono text-sm"

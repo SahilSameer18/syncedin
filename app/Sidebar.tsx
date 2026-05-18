@@ -61,8 +61,8 @@ export function Sidebar({
         minHeight: 480
       }}
     >
-      {/* Wordmark at the very top — clickable home button. md size so it
-          actually reads as a logo rather than a tiny chip. */}
+      {/* Wordmark at the very top — clickable home. lg size so the brand
+          reads at sidebar scale, not as a tiny chip. */}
       <Link
         href="/"
         aria-label="SyncedIn — home"
@@ -70,28 +70,11 @@ export function Sidebar({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "4px 6px 10px",
+          padding: "8px 6px 12px",
           textDecoration: "none"
         }}
       >
-        <Wordmark size="md" href={null} />
-      </Link>
-
-      {/* Primary action — moved out of the top bar so the right column gets
-          to start with page content, not utility chrome. */}
-      <Link
-        href="/conversations/new"
-        className="retro-btn retro-btn-primary"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: 6,
-          padding: "9px 12px",
-          fontSize: 14
-        }}
-      >
-        + new conversation
+        <Wordmark size="lg" href={null} />
       </Link>
 
       {/* Profile block */}
@@ -253,11 +236,27 @@ export function Sidebar({
         </div>
       )}
 
-      {/* Bottom row: theme toggle + sign out */}
-      <div
+      {/* + new conversation — primary CTA, lives above the sign out row */}
+      <Link
+        href="/conversations/new"
+        className="retro-btn retro-btn-primary"
         style={{
           marginTop: "auto",
-          paddingTop: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          padding: "10px 12px",
+          fontSize: 14
+        }}
+      >
+        + new conversation
+      </Link>
+
+      {/* Bottom row: sign out + compact theme toggle */}
+      <div
+        style={{
+          paddingTop: 8,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -272,25 +271,24 @@ export function Sidebar({
               display: "flex",
               alignItems: "center",
               gap: 10,
-              padding: "9px 10px",
+              padding: "8px 10px",
               borderRadius: 8,
-              fontSize: 14,
+              fontSize: 13,
               color: "var(--text-dim)",
               background: "transparent",
               border: 0,
               cursor: "pointer",
               width: "100%",
               textAlign: "left",
-              fontFamily: "inherit",
-              marginTop: 6
+              fontFamily: "inherit"
             }}
           >
             <span
               style={{
-                width: 18,
+                width: 16,
                 display: "inline-flex",
                 justifyContent: "center",
-                fontSize: 12,
+                fontSize: 11,
                 fontFamily: '"IBM Plex Mono", ui-monospace, monospace'
               }}
             >
@@ -299,7 +297,15 @@ export function Sidebar({
             <span>Sign out</span>
           </button>
         </form>
-        <div style={{ marginTop: 6 }}>
+        {/* Compact theme toggle — wrapper shrinks the inline button styling
+            without touching the shared ThemeToggle component used elsewhere. */}
+        <div
+          style={{
+            fontSize: 11,
+            transform: "scale(0.85)",
+            transformOrigin: "right center"
+          }}
+        >
           <ThemeToggle />
         </div>
       </div>
