@@ -329,8 +329,8 @@ export function OnboardingWizard({
               </label>
 
               <ContextSources
-                value={state.ai_export_blob}
-                onAppend={appendBlob}
+                snippets={snippets}
+                onChange={setSnippets}
               />
             </div>
           </div>
@@ -361,10 +361,10 @@ export function OnboardingWizard({
                 Paste the AI&apos;s full answer
               </div>
               <textarea
-                value={state.ai_export_blob}
-                onChange={(e) => set("ai_export_blob", e.target.value)}
+                value={aiDump}
+                onChange={(e) => setAiDump(e.target.value)}
                 rows={10}
-                placeholder="Paste here. Anything you added on the previous step is also in this blob."
+                placeholder="Paste here. Snippets you added on the Sources step are kept separately and remain editable there."
                 className="retro-input mt-1 font-mono text-sm"
                 style={{ minHeight: 240 }}
               />
