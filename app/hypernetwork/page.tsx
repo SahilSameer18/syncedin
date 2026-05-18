@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
-import { createServiceClient } from "@/lib/supabase/server";
 import { SignupsChart } from "./SignupsChart";
 import { BulkReachToolkit } from "../BulkReachToolkit";
+import { AppShell } from "../AppShell";
 
 export const metadata = {
   title: "Hypernetwork · SyncedIn",
@@ -139,6 +140,14 @@ export default async function HypernetworkPage() {
     loadSignupsTimeline()
   ]);
 
+  // Show the sidebar for signed-in viewers; keep this page public for
+  // signed-out marketing viewers (the manifesto + chart are the pitch).
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  const isAuthed = !!user;
+
   const tiles: Array<{
     label: string;
     value: string;
@@ -207,19 +216,19 @@ export default async function HypernetworkPage() {
     }
   ];
 
-  return (
-    <main className="max-w-5xl mx-auto px-5 pt-4 pb-8">
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/dashboard" className="retro-dim hover:text-white">
-            dashboard
-          </Link>
-          <Link href="/messages" className="retro-dim hover:text-white">
-            messages
+  const body = (
+    <>
+      {!isAuthed && (
+        <div className="flex items-center justify-between mb-4">
+          <Wordmark />
+          <Link
+            href="/login"
+            className="retro-btn retro-btn-primary text-sm"
+          >
+            Sign in
           </Link>
         </div>
-      </div>
+      )}
 
       {/* Hero */}
       <section className="mt-4">
@@ -598,6 +607,16 @@ export default async function HypernetworkPage() {
           </Link>
         </div>
       </section>
-    </main>
+    </>
+  );
+
+  // Signed-in viewers get the same sidebar shell as every other authed page
+  // so the menu stays locked in place during nav. Signed-out viewers see the
+  // manifesto in its public marketing form.
+  if (isAuthed) {
+    return <AppShell>{body}</AppShell>;
+  }
+  return (
+    <main className="max-w-5xl mx-auto px-5 pt-4 pb-8">{body}</main>
   );
 }

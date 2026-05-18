@@ -14,7 +14,11 @@ import { signOut } from "./login/actions";
  */
 export async function AppShell({
   children,
-  maxWidth = "max-w-6xl"
+  // All AppShell pages share the SAME outer width so the sidebar's left
+  // edge is identical from page to page. Without this, navigating between
+  // a max-w-6xl page and a max-w-7xl page made the whole sidebar jump
+  // horizontally — the user's eye lost its anchor on every nav.
+  maxWidth = "max-w-7xl"
 }: {
   children: React.ReactNode;
   maxWidth?: string;

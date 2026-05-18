@@ -259,7 +259,7 @@ export default async function DashboardPage() {
   };
 
   return (
-    <AppShell maxWidth="max-w-7xl">
+    <AppShell>
       {/* Fire-and-forget backfill for missing summaries/scores */}
       <SummaryBackfill conversationIds={needsBackfillIds} />
 

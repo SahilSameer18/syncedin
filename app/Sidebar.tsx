@@ -63,8 +63,10 @@ export function Sidebar({
         minHeight: 480
       }}
     >
-      {/* Wordmark — sized for the sidebar (not the dashboard hero). md is the
-          right read at this width; lg made the white container balloon. */}
+      {/* Wordmark — sized to actually read at sidebar width. Inline style
+          on the img inside Wordmark caps height at 60px and width at 100%
+          of the sidebar (192px after padding) so it scales DOWN if needed
+          but never renders as a tiny chip. */}
       <Link
         href="/"
         aria-label="SyncedIn — home"
@@ -72,11 +74,22 @@ export function Sidebar({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "2px 6px 2px",
-          textDecoration: "none"
+          padding: "4px 4px 8px",
+          textDecoration: "none",
+          width: "100%"
         }}
       >
-        <Wordmark size="sm" href={null} />
+        <img
+          src="/syncedin-wordmark.png"
+          alt="SyncedIn"
+          style={{
+            height: 56,
+            width: "auto",
+            maxWidth: "100%",
+            display: "block",
+            objectFit: "contain"
+          }}
+        />
       </Link>
 
       {/* Profile block */}
