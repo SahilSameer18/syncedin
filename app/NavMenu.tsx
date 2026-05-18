@@ -48,6 +48,7 @@ export function NavMenu({
   > = [
     { kind: "link", href: "/hypernetwork", label: "Hypernetwork", icon: "◇" },
     { kind: "link", href: "/messages", label: "Messages", icon: "✉" },
+    { kind: "link", href: "/conferences/new", label: "Host a conference", icon: "◈" },
     { kind: "link", href: "/feedback", label: "Feedback", icon: "✦" },
     { kind: "link", href: "/onboarding", label: "Edit twin", icon: "◐" },
     {

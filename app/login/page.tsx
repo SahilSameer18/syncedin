@@ -61,7 +61,13 @@ function AppleLogo() {
 export default function LoginPage({
   searchParams
 }: {
-  searchParams: { sent?: string; error?: string; detail?: string; invite?: string };
+  searchParams: {
+    sent?: string;
+    error?: string;
+    detail?: string;
+    invite?: string;
+    conference?: string;
+  };
 }) {
   const sent = searchParams.sent === "1";
   const detail = searchParams.detail
@@ -95,6 +101,12 @@ export default function LoginPage({
 
         {/* Magic link FIRST */}
         <form className="mt-7 space-y-3">
+          <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
+          <input
+            type="hidden"
+            name="conference"
+            value={searchParams.conference ?? ""}
+          />
           <input
             name="email"
             type="email"
@@ -147,6 +159,12 @@ export default function LoginPage({
 
         {/* Email + password as the third option */}
         <form className="space-y-3">
+          <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
+          <input
+            type="hidden"
+            name="conference"
+            value={searchParams.conference ?? ""}
+          />
           <input
             name="email"
             type="email"

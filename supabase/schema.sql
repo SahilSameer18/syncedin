@@ -87,6 +87,81 @@ alter table public.twin_profiles
   add column if not exists current_city text;
 
 -- =========================================================================
+-- Conferences — a conference head signs up, gets a shareable join URL,
+-- and discovery within that conference is limited to fellow members.
+-- =========================================================================
+
+create table if not exists public.conferences (
+  slug text primary key,
+  name text not null,
+  description text,
+  owner_user_id uuid not null references public.profiles(id) on delete cascade,
+  cover_url text,
+  starts_at date,
+  ends_at date,
+  city text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists conferences_owner_idx
+  on public.conferences (owner_user_id);
+
+alter table public.conferences enable row level security;
+
+drop policy if exists "conferences_public_read" on public.conferences;
+create policy "conferences_public_read" on public.conferences
+  for select using (true);
+
+drop policy if exists "conferences_insert_own" on public.conferences;
+create policy "conferences_insert_own" on public.conferences
+  for insert with check (auth.uid() = owner_user_id);
+
+drop policy if exists "conferences_update_own" on public.conferences;
+create policy "conferences_update_own" on public.conferences
+  for update using (auth.uid() = owner_user_id);
+
+drop policy if exists "conferences_delete_own" on public.conferences;
+create policy "conferences_delete_own" on public.conferences
+  for delete using (auth.uid() = owner_user_id);
+
+create table if not exists public.conference_members (
+  conference_slug text not null references public.conferences(slug) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  joined_at timestamptz not null default now(),
+  primary key (conference_slug, user_id)
+);
+
+create index if not exists conference_members_user_idx
+  on public.conference_members (user_id);
+
+alter table public.conference_members enable row level security;
+
+-- Members can read the member list of conferences they're in (for discovery).
+drop policy if exists "conf_members_read_if_member" on public.conference_members;
+create policy "conf_members_read_if_member" on public.conference_members
+  for select using (
+    exists (
+      select 1 from public.conference_members me
+      where me.conference_slug = conference_members.conference_slug
+        and me.user_id = auth.uid()
+    )
+    or exists (
+      select 1 from public.conferences c
+      where c.slug = conference_members.conference_slug
+        and c.owner_user_id = auth.uid()
+    )
+  );
+
+-- Anyone signed in can join (the join endpoint validates the slug exists).
+drop policy if exists "conf_members_insert_self" on public.conference_members;
+create policy "conf_members_insert_self" on public.conference_members
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "conf_members_delete_self" on public.conference_members;
+create policy "conf_members_delete_self" on public.conference_members
+  for delete using (auth.uid() = user_id);
+
+-- =========================================================================
 -- Row Level Security
 -- =========================================================================
 

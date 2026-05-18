@@ -10,6 +10,29 @@ function origin() {
   );
 }
 
+/**
+ * If the login form carries an `invite` (per-person slug) or `conference`
+ * (community slug), thread it through the callback's `next` param so the
+ * post-auth redirect lands on `/claim/<slug>` (atomic conversation seed)
+ * or `/conferences/<slug>/join` (membership upsert) instead of dashboard.
+ */
+function nextFromForm(formData: FormData): string {
+  const inv = String(formData.get("invite") ?? "").trim().toLowerCase();
+  if (inv && /^[a-z0-9-]+$/.test(inv)) {
+    return `/claim/${encodeURIComponent(inv)}`;
+  }
+  const conf = String(formData.get("conference") ?? "").trim().toLowerCase();
+  if (conf && /^[a-z0-9-]+$/.test(conf)) {
+    return `/conferences/${encodeURIComponent(conf)}/join`;
+  }
+  return "/dashboard";
+}
+
+function callbackUrl(formData: FormData): string {
+  const next = nextFromForm(formData);
+  return `${origin()}/auth/callback?next=${encodeURIComponent(next)}`;
+}
+
 // ── Magic link ────────────────────────────────────────────────────────────
 export async function login(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -18,7 +41,7 @@ export async function login(formData: FormData) {
   const supabase = createClient();
   const { error } = await supabase.auth.signInWithOtp({
     email,
-    options: { emailRedirectTo: `${origin()}/auth/callback` }
+    options: { emailRedirectTo: callbackUrl(formData) }
   });
 
   if (error) {
@@ -46,7 +69,7 @@ export async function signInWithPassword(formData: FormData) {
     const detail = encodeURIComponent(error.message);
     redirect(`/login?error=password_failed&detail=${detail}`);
   }
-  redirect("/dashboard");
+  redirect(nextFromForm(formData));
 }
 
 // ── Password sign-up ──────────────────────────────────────────────────────
@@ -69,14 +92,14 @@ export async function signUpWithPassword(formData: FormData) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${origin()}/auth/callback` }
+    options: { emailRedirectTo: callbackUrl(formData) }
   });
   if (error) {
     const detail = encodeURIComponent(error.message);
     redirect(`/login?error=password_failed&detail=${detail}`);
   }
   // If a session came back immediately, email confirmation is off — go in.
-  if (data.session) redirect("/dashboard");
+  if (data.session) redirect(nextFromForm(formData));
   // Otherwise they need to confirm via email first.
   redirect("/login?sent=1");
 }
