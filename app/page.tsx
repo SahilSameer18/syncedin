@@ -12,7 +12,7 @@ export default async function HomePage() {
 
   return (
     <main className="max-w-3xl mx-auto px-6 py-16">
-      <Wordmark size="lg" />
+      <Wordmark size="lg" href={null} />
 
       <div className="mt-12 retro-panel retro-shadow p-6 sm:p-8">
         <div className="retro-label">agent-to-agent protocol</div>

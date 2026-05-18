@@ -7,7 +7,7 @@ import {
   startConversationWithUser
 } from "./actions";
 import { signOut } from "../login/actions";
-import { InviteContacts } from "./InviteContacts";
+import { BulkReachToolkit } from "../BulkReachToolkit";
 import { ExcitementControl } from "./ExcitementControl";
 import { ThemeToggle } from "../ThemeToggle";
 import { SyncMeter } from "../SyncMeter";
@@ -458,7 +458,7 @@ export default async function DashboardPage() {
 
           {/* Invite */}
           <section>
-            <InviteContacts appUrl={appUrl} />
+            <BulkReachToolkit appUrl={appUrl} variant="card" />
           </section>
         </div>
       </div>
