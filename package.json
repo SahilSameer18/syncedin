@@ -7,10 +7,24 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed:personas": "node --env-file=.env.local scripts/seed-test-personas.mjs"
+    "seed:personas": "node --env-file=.env.local scripts/seed-test-personas.mjs",
+    "cap:init": "npx cap init SyncedIn org.syncedin.app --web-dir=public",
+    "cap:add:ios": "npx cap add ios",
+    "cap:add:android": "npx cap add android",
+    "cap:sync": "npx cap sync",
+    "cap:open:ios": "npx cap open ios",
+    "cap:open:android": "npx cap open android"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.30.1",
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/browser": "^6.0.3",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/ios": "^6.1.2",
+    "@capacitor/push-notifications": "^6.0.2",
+    "@capacitor/share": "^6.0.2",
+    "@capacitor-community/contacts": "^6.0.2",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
     "next": "14.2.15",
@@ -18,6 +32,7 @@
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
     "@types/node": "^20.16.5",
     "@types/react": "^18.3.5",
     "@types/react-dom": "^18.3.0",

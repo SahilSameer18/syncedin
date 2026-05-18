@@ -51,10 +51,30 @@ export async function generateMetadata({
     inviter?.display_name ||
     inviter?.email?.split("@")[0] ||
     "Their twin";
+  const inviterFirst = inviterName.split(/\s+/)[0];
   const personName =
     invite.person_title?.split(/[-|,(·]/)[0]?.trim() || "you";
-  const title = `${personName}, your digital twin awaits`;
-  const description = `${inviterName} sent you a SyncedIn invite. Their clone has already started a conversation. Sign up and your clone replies, two twins find the win-win.`;
+  const personFirst = personName.split(/\s+/)[0];
+  // The IMAGE shows "{personName}, your digital twin awaits."
+  // The TITLE (bold caption in iMessage / Slack / Twitter) should be a
+  // different hook — curiosity-pull copy, not a redundant echo of the image.
+  // Rotates deterministically by slug so each invite has a distinct subject
+  // line but the same person always sees the same one.
+  const hooks = [
+    `${inviterFirst}'s clone made the first move`,
+    `${inviterFirst} sent their twin to talk to yours, ${personFirst}`,
+    `${inviterFirst}'s twin already drafted something for you`,
+    `A clone-to-clone intro from ${inviterFirst}`,
+    `${inviterFirst}'s twin started this — your turn, ${personFirst}`,
+    `Open this. ${inviterFirst}'s clone has a proposal`,
+    `${personFirst}, ${inviterFirst}'s twin reached out`
+  ];
+  const slugHash = Array.from(slug).reduce(
+    (a, c) => a + c.charCodeAt(0),
+    0
+  );
+  const title = hooks[slugHash % hooks.length];
+  const description = `${inviterName}'s clone has already started a conversation. Sign up and your clone replies — two twins find the win-win.`;
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";

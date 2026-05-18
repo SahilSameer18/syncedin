@@ -27,6 +27,11 @@
   --green: #5ee5b2;
   --red: #ff7878;
   --radius: 12px;
+  /* iMessage-style chat bubble for the "other" side. Lighter than the
+     panel so received messages float clearly off the surface. */
+  --bubble-them: #2a3247;
+  --bubble-them-text: #f0f2f7;
+  --bubble-them-text-dim: #99a2bd;
 }
 
 /* Solid panel fills (used when a real surface is needed). */
@@ -51,6 +56,11 @@
   --green: #008a5c;
   --red: #c62828;
   --radius: 12px;
+  /* iMessage-style chat bubble for received messages — the canonical
+     iOS light-grey. */
+  --bubble-them: #e5e5ea;
+  --bubble-them-text: #1c1c1e;
+  --bubble-them-text-dim: #6c6c70;
 }
 
 :root[data-theme="light"] body {

@@ -101,9 +101,22 @@ export function DiscoverSearch({
         })
       });
       const j = await r.json();
+      const url = (j.invite_url ?? "") as string;
       setDraftText(j.message ?? "");
-      setShortText(j.short_message ?? "");
-      setInviteUrl(j.invite_url ?? "");
+      setInviteUrl(url);
+      // Always append the personalized URL to the short connection note —
+      // LinkedIn DMs / texts read better with the link inline. We trim the
+      // note text to leave room for "\n\n{url}" inside the 200-char cap.
+      let short = (j.short_message ?? "") as string;
+      if (url) {
+        const suffix = `\n\n${url}`;
+        const budget = 200 - suffix.length;
+        if (short.length > budget) {
+          short = short.slice(0, Math.max(0, budget - 1)).trimEnd() + "…";
+        }
+        short = `${short}${suffix}`;
+      }
+      setShortText(short);
     } catch {
       setDraftText("");
     } finally {
@@ -285,6 +298,8 @@ export function DiscoverSearch({
                           <li
                             key={p.url}
                             className="retro-panel retro-panel-hover p-3"
+                            onClick={() => toggleExpand(p.url)}
+                            style={{ cursor: "pointer" }}
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div className="text-left flex-1 min-w-0">
@@ -295,38 +310,37 @@ export function DiscoverSearch({
                                   href={p.url}
                                   target="_blank"
                                   rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
                                   className="retro-dim text-xs mt-0.5 underline hover:text-white block"
                                   style={{ wordBreak: "break-all" }}
                                 >
                                   {p.url}
                                 </a>
                                 {!isOpen && preview && (
-                                  <button
-                                    type="button"
-                                    onClick={() => toggleExpand(p.url)}
-                                    className="retro-dim text-xs mt-1 line-clamp-2 text-left w-full"
-                                    style={{
-                                      background: "transparent",
-                                      border: 0,
-                                      padding: 0,
-                                      cursor: "pointer"
-                                    }}
+                                  <div
+                                    className="retro-dim text-xs mt-1 line-clamp-2"
                                   >
                                     {preview}
-                                  </button>
+                                  </div>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 shrink-0">
                                 <button
                                   type="button"
-                                  onClick={() => toggleExpand(p.url)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleExpand(p.url);
+                                  }}
                                   className="retro-dim text-xs hover:text-white"
                                 >
                                   {isOpen ? "− collapse" : "+ expand"}
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={() => draftOutreach(p)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    draftOutreach(p);
+                                  }}
                                   disabled={drafting === p.url}
                                   className="retro-btn text-sm"
                                 >
@@ -396,21 +410,42 @@ export function DiscoverSearch({
                                     <button
                                       type="button"
                                       onClick={() => copy(draftText)}
-                                      className="retro-btn retro-btn-primary text-sm"
+                                      className="retro-btn text-sm"
                                     >
                                       Copy DM
                                     </button>
                                     {inviteUrl && (
-                                      <a
-                                        href={inviteUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="retro-btn text-sm"
-                                      >
-                                        Preview invite page →
-                                      </a>
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => copy(inviteUrl)}
+                                          className="retro-btn retro-btn-primary text-sm"
+                                          title={inviteUrl}
+                                        >
+                                          🔗 Copy invite URL
+                                        </button>
+                                        <a
+                                          href={inviteUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="retro-btn text-sm"
+                                        >
+                                          Preview →
+                                        </a>
+                                      </>
                                     )}
                                   </div>
+                                  {inviteUrl && (
+                                    <div
+                                      className="text-xs mt-1.5"
+                                      style={{
+                                        color: "var(--text-dim)",
+                                        wordBreak: "break-all"
+                                      }}
+                                    >
+                                      {inviteUrl}
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -546,23 +581,17 @@ export function DiscoverSearch({
                       <li
                         key={p.url}
                         className="retro-panel retro-panel-hover p-3"
+                        onClick={() => toggleExpand(p.url)}
+                        style={{ cursor: "pointer" }}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="text-left flex-1 min-w-0">
-                            <button
-                              type="button"
-                              onClick={() => toggleExpand(p.url)}
+                            <div
                               className="text-left font-semibold text-sm"
-                              style={{
-                                background: "transparent",
-                                border: 0,
-                                padding: 0,
-                                cursor: "pointer",
-                                color: "var(--text)"
-                              }}
+                              style={{ color: "var(--text)" }}
                             >
                               {p.title}
-                            </button>
+                            </div>
                             <a
                               href={p.url}
                               target="_blank"
@@ -574,32 +603,30 @@ export function DiscoverSearch({
                               {p.url}
                             </a>
                             {!isOpen && preview && (
-                              <button
-                                type="button"
-                                onClick={() => toggleExpand(p.url)}
-                                className="retro-dim text-xs mt-1 line-clamp-1 text-left w-full"
-                                style={{
-                                  background: "transparent",
-                                  border: 0,
-                                  padding: 0,
-                                  cursor: "pointer"
-                                }}
+                              <div
+                                className="retro-dim text-xs mt-1 line-clamp-1"
                               >
                                 {preview}
-                              </button>
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
                             <button
                               type="button"
-                              onClick={() => toggleExpand(p.url)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleExpand(p.url);
+                              }}
                               className="retro-dim text-xs hover:text-white"
                             >
                               {isOpen ? "− collapse" : "+ expand"}
                             </button>
                             <button
                               type="button"
-                              onClick={() => draftOutreach(p)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                draftOutreach(p);
+                              }}
                               disabled={drafting === p.url}
                               className="retro-btn text-sm"
                             >
@@ -686,16 +713,37 @@ export function DiscoverSearch({
                                   Copy DM
                                 </button>
                                 {inviteUrl && (
-                                  <a
-                                    href={inviteUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="retro-btn text-sm"
-                                  >
-                                    Preview invite page →
-                                  </a>
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => copy(inviteUrl)}
+                                      className="retro-btn retro-btn-primary text-sm"
+                                      title={inviteUrl}
+                                    >
+                                      🔗 Copy invite URL
+                                    </button>
+                                    <a
+                                      href={inviteUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="retro-btn text-sm"
+                                    >
+                                      Preview →
+                                    </a>
+                                  </>
                                 )}
                               </div>
+                              {inviteUrl && (
+                                <div
+                                  className="text-xs mt-1.5"
+                                  style={{
+                                    color: "var(--text-dim)",
+                                    wordBreak: "break-all"
+                                  }}
+                                >
+                                  {inviteUrl}
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}

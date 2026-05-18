@@ -19,8 +19,19 @@ export function BulkReachToolkit({
   const [copied, setCopied] = useState<string | null>(null);
   const [contactPickerSupported, setContactPickerSupported] = useState(false);
   const [emails, setEmails] = useState<string[]>([]);
+  // New richer contact entries: (name, email) so Exa can find the person and
+  // the slug + opener can be properly personalized. Coexists with `emails`
+  // for backward compat with the channel buttons that bulk-bcc.
+  const [entries, setEntries] = useState<
+    Array<{ name: string; email?: string }>
+  >([]);
+  const [entryName, setEntryName] = useState("");
+  const [entryEmail, setEntryEmail] = useState("");
   const [csvError, setCsvError] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
+  const [importHelp, setImportHelp] = useState<null | "linkedin" | "google">(
+    null
+  );
   const [personalized, setPersonalized] = useState<
     Array<{
       contact: { name: string; email?: string };
@@ -85,9 +96,25 @@ export function BulkReachToolkit({
     e.target.value = "";
   }
 
+  function addEntry() {
+    const name = entryName.trim();
+    const email = entryEmail.trim().toLowerCase();
+    if (!name && !email) return;
+    setEntries((prev) => [...prev, { name, email: email || undefined }]);
+    setEntryName("");
+    setEntryEmail("");
+  }
+
   async function generatePersonalized() {
-    if (emails.length === 0) {
-      setGenError("Import a CSV or pick contacts first.");
+    // Prefer the rich entries list; fall back to plain email list for backward compat.
+    const contacts =
+      entries.length > 0
+        ? entries
+        : emails.map((e) => ({ email: e }));
+    if (contacts.length === 0) {
+      setGenError(
+        "Add at least one name+email above, or import a CSV first."
+      );
       return;
     }
     setGenerating(true);
@@ -97,7 +124,7 @@ export function BulkReachToolkit({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          contacts: emails.map((e) => ({ email: e }))
+          contacts
         })
       });
       const j = await r.json();
@@ -174,11 +201,10 @@ export function BulkReachToolkit({
     },
     {
       icon: "💼",
-      label: "LinkedIn post",
-      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(
-        appUrl
-      )}`,
-      note: "share to your LinkedIn feed."
+      label: "Import LinkedIn CSV",
+      onClick: () => setImportHelp("linkedin"),
+      note:
+        "export your connections from LinkedIn → upload here → we make a custom URL per person."
     },
     {
       icon: "📋",
@@ -204,9 +230,10 @@ export function BulkReachToolkit({
       : []),
     {
       icon: "👥",
-      label: "Open Google Contacts",
-      href: "https://contacts.google.com/?hl=en",
-      note: "export a CSV, drop it back here."
+      label: "Import Google Contacts CSV",
+      onClick: () => setImportHelp("google"),
+      note:
+        "export contacts from Google → upload here → we make a custom URL per person."
     },
     {
       icon: "📲",
@@ -248,24 +275,53 @@ export function BulkReachToolkit({
         </>
       )}
 
-      {/* CSV importer */}
+      {/* People list — (name, email) per row + inline CSV import */}
       <div className="mt-5 retro-panel p-4">
         <div
           className="retro-label"
           style={{ color: "var(--amber-bright)" }}
         >
-          drop a contact list
+          who do you want to invite?
         </div>
         <p
           className="text-xs mt-1"
           style={{ color: "var(--text-dim)" }}
         >
-          Export from Gmail, LinkedIn, your CRM, anywhere. We extract every
-          email and load it into the Email / Gmail buttons below.
+          Full name + email so we can pick the right person on the web and
+          generate a custom landing page for each.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <label className="retro-btn text-sm cursor-pointer">
-            + import .csv
+          <input
+            type="text"
+            placeholder="Full name"
+            value={entryName}
+            onChange={(e) => setEntryName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addEntry()}
+            className="retro-input text-sm"
+            style={{ flex: "2 1 160px", minWidth: 0 }}
+          />
+          <input
+            type="email"
+            placeholder="email@domain.com"
+            value={entryEmail}
+            onChange={(e) => setEntryEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addEntry()}
+            className="retro-input text-sm"
+            style={{ flex: "3 1 200px", minWidth: 0 }}
+          />
+          <button
+            type="button"
+            onClick={addEntry}
+            disabled={!entryName.trim() && !entryEmail.trim()}
+            className="retro-btn retro-btn-primary text-sm"
+          >
+            + add
+          </button>
+          <label
+            className="retro-btn text-sm cursor-pointer"
+            title="Import a CSV (Gmail / LinkedIn / Google export). We extract names + emails."
+          >
+            import .csv
             <input
               type="file"
               accept=".csv,text/csv,text/plain"
@@ -273,24 +329,62 @@ export function BulkReachToolkit({
               style={{ display: "none" }}
             />
           </label>
-          {emails.length > 0 && (
-            <>
-              <span
-                className="text-xs"
-                style={{ color: "var(--text-dim)" }}
-              >
-                loaded: {emails.length} email{emails.length === 1 ? "" : "s"}
-              </span>
-              <button
-                type="button"
-                onClick={() => setEmails([])}
-                className="text-xs retro-dim hover:text-white"
-              >
-                clear
-              </button>
-            </>
-          )}
         </div>
+
+        {entries.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {entries.map((c, i) => (
+              <span
+                key={`${c.email || c.name}-${i}`}
+                className="retro-panel text-xs inline-flex items-center gap-2"
+                style={{
+                  padding: "4px 8px",
+                  borderColor: "var(--border)"
+                }}
+              >
+                <span style={{ color: "var(--text)", fontWeight: 600 }}>
+                  {c.name || "(no name)"}
+                </span>
+                {c.email && (
+                  <span style={{ color: "var(--text-dim)" }}>{c.email}</span>
+                )}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setEntries((prev) => prev.filter((_, j) => j !== i))
+                  }
+                  className="retro-dim hover:text-white"
+                  aria-label="Remove"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <button
+              type="button"
+              onClick={() => setEntries([])}
+              className="text-xs retro-dim hover:text-white"
+              style={{ marginLeft: 6 }}
+            >
+              clear all
+            </button>
+          </div>
+        )}
+
+        {emails.length > 0 && entries.length === 0 && (
+          <div className="mt-3 text-xs" style={{ color: "var(--text-dim)" }}>
+            CSV loaded {emails.length} email{emails.length === 1 ? "" : "s"}.
+            They&apos;ll be used for bulk-bcc + personalized invites below.
+            <button
+              type="button"
+              onClick={() => setEmails([])}
+              className="ml-2 retro-dim hover:text-white"
+            >
+              clear
+            </button>
+          </div>
+        )}
+
         {csvError && (
           <p
             className="mt-2 text-xs"
@@ -506,6 +600,18 @@ export function BulkReachToolkit({
                       >
                         🟢 WA
                       </a>
+                      <a
+                        href={`https://signal.me/#p/?text=${encodeURIComponent(
+                          `${p.starter}\n\n${p.url}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="retro-btn text-xs"
+                        style={{ padding: "5px 10px" }}
+                        title="Signal works best from desktop with Signal Desktop installed."
+                      >
+                        🔒 Signal
+                      </a>
                       {p.contact.email && (
                         <a
                           href={`mailto:${p.contact.email}?subject=${encodeURIComponent(
@@ -525,6 +631,93 @@ export function BulkReachToolkit({
           </div>
         )}
       </div>
+
+      {/* Import-help panel — shows when LinkedIn or Google Contacts CSV is clicked */}
+      {importHelp && (
+        <div className="mt-4 retro-panel p-4" style={{ borderColor: "var(--amber)" }}>
+          <div className="flex items-start justify-between gap-3">
+            <div
+              className="retro-label"
+              style={{ color: "var(--amber-bright)" }}
+            >
+              {importHelp === "linkedin"
+                ? "import linkedin connections"
+                : "import google contacts"}
+            </div>
+            <button
+              type="button"
+              onClick={() => setImportHelp(null)}
+              className="retro-dim hover:text-white text-xs"
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
+          {importHelp === "linkedin" ? (
+            <ol
+              className="mt-3 text-xs space-y-1.5"
+              style={{ color: "var(--text-dim)" }}
+            >
+              <li>
+                1. Open{" "}
+                <a
+                  href="https://www.linkedin.com/mypreferences/d/download-my-data"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                  style={{ color: "var(--amber-bright)" }}
+                >
+                  LinkedIn → Settings → Get a copy of your data
+                </a>
+                .
+              </li>
+              <li>
+                2. Check &quot;Connections&quot;. Request archive (usually
+                ready in 10 minutes; email when done).
+              </li>
+              <li>
+                3. Unzip → find <code>Connections.csv</code> → drop it into
+                the &quot;import .csv&quot; button above.
+              </li>
+              <li>
+                4. We pull every name + email and generate a personalized
+                landing page for each.
+              </li>
+            </ol>
+          ) : (
+            <ol
+              className="mt-3 text-xs space-y-1.5"
+              style={{ color: "var(--text-dim)" }}
+            >
+              <li>
+                1. Open{" "}
+                <a
+                  href="https://contacts.google.com/?hl=en"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline"
+                  style={{ color: "var(--amber-bright)" }}
+                >
+                  Google Contacts
+                </a>
+                .
+              </li>
+              <li>
+                2. Top-left menu → &quot;Export&quot; → All contacts →
+                &quot;Google CSV&quot;.
+              </li>
+              <li>
+                3. Drop the downloaded <code>contacts.csv</code> into the
+                &quot;import .csv&quot; button above.
+              </li>
+              <li>
+                4. Every contact gets a personalized URL like{" "}
+                <code>syncedin.org/their-name</code> with a custom opener.
+              </li>
+            </ol>
+          )}
+        </div>
+      )}
 
       {/* QR code (free public API) */}
       {qrOpen && (

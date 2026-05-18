@@ -14,6 +14,7 @@ import { SyncMeter } from "../SyncMeter";
 import { SummaryBackfill } from "./SummaryBackfill";
 import { DiscoverSearch } from "./DiscoverSearch";
 import { Avatar } from "../Avatar";
+import { NavMenu } from "../NavMenu";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -23,6 +24,18 @@ export default async function DashboardPage() {
   if (!user) redirect("/login");
 
   const service = createServiceClient();
+
+  // ── Invite gate ─────────────────────────────────────────────────────
+  // New users must draft at least 2 personalized invites before getting
+  // full dashboard access. The hypernetwork only works when the people
+  // each member actually wants to coordinate with come in too.
+  const { count: myInviteCount } = await service
+    .from("pending_invites")
+    .select("slug", { count: "exact", head: true })
+    .eq("inviter_user_id", user.id);
+  if ((myInviteCount ?? 0) < 2) {
+    redirect("/onboarding/invite-gate");
+  }
 
   // Parallelize the independent first wave: my twin, my profile, my
   // conversations, sample personas, all real users for discovery.
@@ -42,7 +55,7 @@ export default async function DashboardPage() {
       .maybeSingle(),
     supabase
       .from("profiles")
-      .select("display_name")
+      .select("display_name, avatar_url")
       .eq("id", user.id)
       .maybeSingle(),
     supabase
@@ -184,38 +197,27 @@ export default async function DashboardPage() {
       {/* Fire-and-forget backfill for missing summaries/scores */}
       <SummaryBackfill conversationIds={needsBackfillIds} />
 
-      {/* Header */}
+      {/* Header — clean: wordmark · theme · +new · profile-avatar dropdown */}
       <div className="flex items-center justify-between">
         <Wordmark />
         <div className="flex items-center gap-3 text-sm">
           <ThemeToggle />
-          <Link href="/hypernetwork" className="retro-dim hover:text-white">
-            hypernetwork
-          </Link>
-          <Link href="/feedback" className="retro-dim hover:text-white">
-            feedback
-          </Link>
-          <Link href="/messages" className="retro-dim hover:text-white">
-            messages
-          </Link>
-          <Link href="/onboarding" className="retro-dim hover:text-white">
-            edit twin
-          </Link>
-          <Link
-            href="/settings/notifications"
-            className="retro-dim hover:text-white"
-          >
-            notifications
-          </Link>
-          <form action={signOut}>
-            <button className="retro-dim hover:text-white">sign out</button>
-          </form>
           <Link
             href="/conversations/new"
             className="retro-btn retro-btn-primary"
           >
             + new
           </Link>
+          <NavMenu
+            userId={user.id}
+            displayName={
+              myProfile?.display_name ||
+              user.email?.split("@")[0] ||
+              "you"
+            }
+            avatarUrl={(myProfile as any)?.avatar_url ?? null}
+            signOutAction={signOut}
+          />
         </div>
       </div>
 
@@ -237,7 +239,12 @@ export default async function DashboardPage() {
       <div className="mt-8 grid md:grid-cols-[260px_1fr] gap-8 items-start">
         {/* LEFT — clone meter */}
         <aside className="md:sticky md:top-6 flex flex-col items-center gap-4">
-          <SyncMeter inputs={syncInputs} size={240} />
+          <SyncMeter
+            inputs={syncInputs}
+            size={220}
+            avatarUrl={(myProfile as any)?.avatar_url ?? null}
+            userId={user.id}
+          />
           <Link
             href="/onboarding"
             className="retro-btn retro-btn-primary w-full text-center"

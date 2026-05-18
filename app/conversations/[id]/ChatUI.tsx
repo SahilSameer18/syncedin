@@ -3,6 +3,145 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { Message } from "@/lib/types";
+import { Avatar } from "../../Avatar";
+
+/**
+ * EditInfoBadge — small (?) icon, on hover surfaces an explainer that
+ * (a) editing a message regenerates everything after it, AND
+ * (b) we also capture WHY you changed it, which is the meta-learning
+ *     signal that makes your twin truly act like you over time.
+ */
+function EditInfoBadge() {
+  return (
+    <span
+      style={{
+        position: "relative",
+        display: "inline-flex"
+      }}
+      className="group"
+    >
+      <span
+        aria-label="What do edits do?"
+        style={{
+          width: 18,
+          height: 18,
+          borderRadius: "50%",
+          border: "1px solid var(--border-bright)",
+          color: "var(--text-dim)",
+          fontSize: 11,
+          fontWeight: 700,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "help",
+          background: "var(--panel)"
+        }}
+      >
+        ?
+      </span>
+      <span
+        className="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+        style={{
+          position: "absolute",
+          top: "calc(100% + 6px)",
+          right: 0,
+          width: 280,
+          padding: "10px 12px",
+          background: "var(--panel-solid)",
+          border: "1px solid var(--border)",
+          borderRadius: 10,
+          fontSize: 12,
+          lineHeight: 1.5,
+          color: "var(--text)",
+          zIndex: 20,
+          boxShadow: "0 12px 32px -10px rgba(0,0,0,0.45)"
+        }}
+      >
+        <strong style={{ display: "block", marginBottom: 4 }}>
+          Edits = training signal
+        </strong>
+        Right-click any message to copy, double-click your own to edit. When
+        you edit, everything after regenerates AND we ask why — that "why"
+        is the meta-learning that makes your twin truly act like you. The
+        more you edit, the more perfect it gets.
+      </span>
+    </span>
+  );
+}
+
+/**
+ * TwinLink — two avatars connected by a pulsing arc, showing that the
+ * conversation is between two clones. When `active` is true (twins are
+ * talking), the arc animates; when finished, the arc holds a solid link.
+ */
+function TwinLink({
+  self,
+  other,
+  active
+}: {
+  self: { id: string; name: string; avatarUrl: string | null };
+  other: { id: string; name: string; avatarUrl: string | null };
+  active: boolean;
+}) {
+  return (
+    <div
+      className="flex items-center"
+      style={{ gap: 0, position: "relative", height: 44 }}
+      aria-label={`${self.name} ↔ ${other.name}`}
+    >
+      <Avatar
+        id={self.id}
+        name={self.name}
+        avatarUrl={self.avatarUrl}
+        size={40}
+        ringColor="var(--amber-bright)"
+      />
+      <div
+        style={{
+          width: 36,
+          height: 40,
+          position: "relative",
+          marginLeft: -6,
+          marginRight: -6
+        }}
+      >
+        <svg viewBox="0 0 36 40" width="36" height="40">
+          <defs>
+            <linearGradient id="tl_link" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="#3a4dff" />
+              <stop offset="100%" stopColor="#8b3dff" />
+            </linearGradient>
+          </defs>
+          {/* base arc */}
+          <path
+            d="M 4 20 Q 18 4 32 20 Q 18 36 4 20 Z"
+            fill="none"
+            stroke="url(#tl_link)"
+            strokeWidth={active ? 2 : 1.5}
+            opacity={active ? 0.35 : 0.6}
+          />
+          {/* traveling spark when active */}
+          {active && (
+            <circle r="2.5" fill="#fff">
+              <animateMotion
+                dur="1.6s"
+                repeatCount="indefinite"
+                path="M 4 20 Q 18 4 32 20 Q 18 36 4 20 Z"
+              />
+            </circle>
+          )}
+        </svg>
+      </div>
+      <Avatar
+        id={other.id}
+        name={other.name}
+        avatarUrl={other.avatarUrl}
+        size={40}
+        ringColor="#3a4dff"
+      />
+    </div>
+  );
+}
 
 const AGREEMENT_MARKER = ">>> AGREEMENT:";
 const CLIENT_TURN_CAP = 16; // safety net; server enforces the real cap
@@ -187,13 +326,29 @@ export function ChatUI({
     if (!editingId) return;
     const id = editingId;
     const newText = editText;
+    // Meta-learning prompt: capture the WHY behind the edit. This is the
+    // proprietary calibration signal that lets your twin learn your worldview
+    // over time, not just your word choices. Optional — skip leaves reason null.
+    let reason: string | null = null;
+    try {
+      reason = window.prompt(
+        "Why did you change this? (one sentence — helps your twin learn your taste, can skip)",
+        ""
+      );
+    } catch {
+      /* environments without prompt() */
+    }
     setRunning(true);
     setError(null);
     try {
       const res = await fetch("/api/edit-message", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message_id: id, new_text: newText })
+        body: JSON.stringify({
+          message_id: id,
+          new_text: newText,
+          reason: reason ?? undefined
+        })
       });
       if (!res.ok) throw new Error(await readError(res));
       // Locally: keep messages up to & including the edited one, drop the rest.
@@ -307,24 +462,44 @@ export function ChatUI({
   return (
     <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-screen">
       <header className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
-        <div>
-          <Link href="/dashboard" className="retro-dim text-xs">
-            &lt; back
-          </Link>
-          <div className="text-lg font-bold mt-1 flex items-center gap-2">
-            {other.name}
-            {other.isTestPersona && (
-              <span className="retro-label retro-panel px-1.5 py-0.5">
-                sample
+        <div className="flex items-center gap-3 min-w-0">
+          <TwinLink
+            self={{
+              id: selfUserId,
+              name: selfName,
+              avatarUrl: selfAvatarUrl ?? null
+            }}
+            other={{
+              id: other.id,
+              name: other.name,
+              avatarUrl: other.avatarUrl ?? null
+            }}
+            active={running}
+          />
+          <div className="min-w-0">
+            <Link href="/dashboard" className="retro-dim text-xs">
+              &lt; back
+            </Link>
+            <div className="text-lg font-bold mt-0.5 flex items-center gap-2 truncate">
+              <span className="truncate">{selfName}</span>
+              <span className="retro-dim text-sm">×</span>
+              <span className="truncate">{other.name}</span>
+              {other.isTestPersona && (
+                <span className="retro-label retro-panel px-1.5 py-0.5">
+                  sample
+                </span>
+              )}
+            </div>
+            <div className="retro-dim text-xs flex items-center gap-1.5">
+              <span>
+                {running
+                  ? "twins are talking…"
+                  : done
+                  ? "conversation complete"
+                  : "agent-to-agent conversation"}
               </span>
-            )}
-          </div>
-          <div className="retro-dim text-xs">
-            {running
-              ? "twins are talking…"
-              : done
-              ? "conversation complete"
-              : "agent-to-agent conversation"}
+              <EditInfoBadge />
+            </div>
           </div>
         </div>
         {!running && (
@@ -367,8 +542,8 @@ export function ChatUI({
                     style={{
                       fontFamily: MSG_FONT,
                       borderRadius: 18,
-                      background: mine ? "#2f6bff" : "#26262b",
-                      color: mine ? "#fff" : "#e8e8ea",
+                      background: mine ? "#0b84ff" : "var(--bubble-them, #e5e5ea)",
+                      color: mine ? "#ffffff" : "var(--bubble-them-text, #1c1c1e)",
                       borderBottomRightRadius: mine ? 5 : 18,
                       borderBottomLeftRadius: mine ? 18 : 5,
                       boxShadow: "0 0 0 2px var(--amber)"
@@ -411,8 +586,8 @@ export function ChatUI({
                     style={{
                       fontFamily: MSG_FONT,
                       borderRadius: 18,
-                      background: mine ? "#2f6bff" : "#26262b",
-                      color: mine ? "#fff" : "#e8e8ea",
+                      background: mine ? "#0b84ff" : "var(--bubble-them, #e5e5ea)",
+                      color: mine ? "#ffffff" : "var(--bubble-them-text, #1c1c1e)",
                       borderBottomRightRadius: mine ? 5 : 18,
                       borderBottomLeftRadius: mine ? 18 : 5
                     }}
@@ -443,7 +618,11 @@ export function ChatUI({
           <div className="text-left">
             <div
               className="inline-block px-3.5 py-2.5 text-sm"
-              style={{ background: "#26262b", borderRadius: 18, color: "#9aa0b0" }}
+              style={{
+                background: "var(--bubble-them, #e5e5ea)",
+                borderRadius: 18,
+                color: "var(--bubble-them-text-dim, #6c6c70)"
+              }}
             >
               twins are drafting the next turn
               <span className="retro-cursor" />

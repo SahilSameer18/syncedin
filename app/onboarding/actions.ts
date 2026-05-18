@@ -26,6 +26,8 @@ export async function saveTwin(formData: FormData) {
     communication_style: s(formData.get("communication_style")),
     deal_breakers: s(formData.get("deal_breakers")),
     ai_export_blob: s(formData.get("ai_export_blob")),
+    hometown: s(formData.get("hometown")),
+    current_city: s(formData.get("current_city")),
     updated_at: new Date().toISOString()
   };
 

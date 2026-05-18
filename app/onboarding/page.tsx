@@ -35,7 +35,9 @@ export default async function OnboardingPage({
     communication_style: twin?.communication_style ?? "",
     deal_breakers: twin?.deal_breakers ?? "",
     ai_export_blob: twin?.ai_export_blob ?? "",
-    avatar_url: profile?.avatar_url ?? ""
+    avatar_url: profile?.avatar_url ?? "",
+    hometown: (twin as any)?.hometown ?? "",
+    current_city: (twin as any)?.current_city ?? ""
   };
 
   return (

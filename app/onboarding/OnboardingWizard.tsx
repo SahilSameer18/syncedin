@@ -57,6 +57,8 @@ type Initial = {
   deal_breakers: string;
   ai_export_blob: string;
   avatar_url: string;
+  hometown: string;
+  current_city: string;
 };
 
 const STEPS = [
@@ -112,7 +114,9 @@ export function OnboardingWizard({
           deal_preferences: state.deal_preferences,
           communication_style: state.communication_style,
           deal_breakers: state.deal_breakers,
-          ai_export_blob: state.ai_export_blob
+          ai_export_blob: state.ai_export_blob,
+          hometown: state.hometown,
+          current_city: state.current_city
         })
       }).catch(() => {
         /* fire-and-forget; the final submit handles persistence too */
@@ -168,6 +172,8 @@ export function OnboardingWizard({
         value={state.ai_export_blob}
       />
       <input type="hidden" name="avatar_url" value={state.avatar_url} />
+      <input type="hidden" name="hometown" value={state.hometown} />
+      <input type="hidden" name="current_city" value={state.current_city} />
 
       {/* Progress strip */}
       <div className="flex items-center gap-2 mb-6">
@@ -280,6 +286,45 @@ export function OnboardingWizard({
                   onChange={(next) => set("avatar_url", next)}
                 />
               </div>
+            </div>
+
+            {/* Location signals — used to bias web search toward people in
+                your geographic orbit (hometown roots + current city). */}
+            <div className="grid sm:grid-cols-2 gap-3 mt-4">
+              <label className="block">
+                <div
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--text)" }}
+                >
+                  Where do you live now?
+                </div>
+                <input
+                  value={state.current_city}
+                  onChange={(e) => set("current_city", e.target.value)}
+                  placeholder="San Francisco, CA"
+                  className="retro-input mt-1"
+                />
+                <p className="text-xs mt-1 retro-dim">
+                  We&apos;ll prioritize people near you in discovery.
+                </p>
+              </label>
+              <label className="block">
+                <div
+                  className="text-sm font-semibold"
+                  style={{ color: "var(--text)" }}
+                >
+                  Where are you from?
+                </div>
+                <input
+                  value={state.hometown}
+                  onChange={(e) => set("hometown", e.target.value)}
+                  placeholder="Detroit, MI"
+                  className="retro-input mt-1"
+                />
+                <p className="text-xs mt-1 retro-dim">
+                  Hometown context for finding people from your roots.
+                </p>
+              </label>
             </div>
 
             {/* Intelligent auto-discovery — finds you on the web and pulls

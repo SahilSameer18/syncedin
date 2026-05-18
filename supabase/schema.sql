@@ -73,6 +73,19 @@ create table if not exists public.edit_deltas (
 create index if not exists edit_deltas_user_idx
   on public.edit_deltas (user_id, created_at desc);
 
+-- Why did you make this edit? Captured at edit time. Meta-learning signal
+-- that lets future drafts internalize the user's worldview, not just their
+-- word choices.
+alter table public.edit_deltas
+  add column if not exists reason text;
+
+-- Location signals — used to bias Exa results toward people in the user's
+-- geographic orbit (hometown + current city).
+alter table public.twin_profiles
+  add column if not exists hometown text;
+alter table public.twin_profiles
+  add column if not exists current_city text;
+
 -- =========================================================================
 -- Row Level Security
 -- =========================================================================

@@ -25,6 +25,8 @@ export async function POST(req: Request) {
     communication_style?: string;
     deal_breakers?: string;
     ai_export_blob?: string;
+    hometown?: string;
+    current_city?: string;
   };
   try {
     body = await req.json();
@@ -54,6 +56,8 @@ export async function POST(req: Request) {
       communication_style: clean(body.communication_style),
       deal_breakers: clean(body.deal_breakers),
       ai_export_blob: clean(body.ai_export_blob),
+      hometown: clean(body.hometown),
+      current_city: clean(body.current_city),
       updated_at: new Date().toISOString()
     },
     { onConflict: "user_id" }

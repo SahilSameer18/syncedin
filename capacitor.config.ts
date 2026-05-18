@@ -1,0 +1,46 @@
+import type { CapacitorConfig } from "@capacitor/cli";
+
+/**
+ * Capacitor — wraps the deployed SyncedIn web app in native iOS + Android shells.
+ *
+ * Strategy: server.url points at production, so each native app is essentially a
+ * fast custom browser window onto syncedin.org. Pushes / contacts / share /
+ * camera all go through native plugins. Web deploys roll into the apps
+ * instantly without resubmitting to the App Store.
+ *
+ * For a local dev build that points at `http://10.0.2.2:3000` (Android) or
+ * `http://localhost:3000` (iOS sim), swap `server.url` to that and run
+ * `npm run cap:sync`.
+ */
+const config: CapacitorConfig = {
+  appId: "org.syncedin.app",
+  appName: "SyncedIn",
+  webDir: "public",
+  bundledWebRuntime: false,
+  server: {
+    url: "https://syncedin.org",
+    cleartext: false,
+    androidScheme: "https",
+    iosScheme: "https",
+    allowNavigation: ["syncedin.org", "*.syncedin.org", "*.supabase.co"]
+  },
+  ios: {
+    contentInset: "always",
+    backgroundColor: "#04050aff"
+  },
+  android: {
+    backgroundColor: "#04050aff",
+    allowMixedContent: false
+  },
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"]
+    },
+    SplashScreen: {
+      launchAutoHide: true,
+      backgroundColor: "#04050a"
+    }
+  }
+};
+
+export default config;

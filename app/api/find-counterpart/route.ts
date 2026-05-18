@@ -62,10 +62,48 @@ export async function POST(req: Request) {
   }
 
   // ── Exa fallback for context / discovery ────────────────────────────
+  // Location-aware: pull the searcher's hometown + current city and use them
+  // to (a) bias the Exa query string and (b) re-rank results by mention.
   let exa_people: ExaPerson[] = [];
   if (!isEmail) {
+    const { data: twin } = await service
+      .from("twin_profiles")
+      .select("hometown, current_city")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const cities = [twin?.current_city, twin?.hometown]
+      .filter((c): c is string => Boolean(c && c.trim()))
+      .map((c) => c.trim());
+
     try {
-      exa_people = await exaPeopleSearch(query, 15);
+      // Augment the query with the user's location signals so Exa weighs
+      // locally-relevant results higher.
+      const augmented =
+        cities.length > 0
+          ? `${query} (location: ${cities.join(" or ")})`
+          : query;
+      exa_people = await exaPeopleSearch(augmented, 20);
+
+      // Re-rank: any result whose snippet or title mentions one of the
+      // cities floats to the top. Stable sort otherwise.
+      if (cities.length > 0) {
+        const norm = (s: string) => s.toLowerCase();
+        const cityKeys = cities.map(norm);
+        exa_people = exa_people
+          .map((p, idx) => {
+            const hay =
+              norm(p.title || "") + " " + (p.highlights || []).map(norm).join(" ");
+            const hit = cityKeys.some((c) => hay.includes(c));
+            return { p, idx, score: hit ? 1 : 0 };
+          })
+          .sort((a, b) =>
+            b.score - a.score === 0 ? a.idx - b.idx : b.score - a.score
+          )
+          .slice(0, 15)
+          .map(({ p }) => p);
+      } else {
+        exa_people = exa_people.slice(0, 15);
+      }
     } catch (e) {
       // Non-fatal — Exa is a "nice to have" here.
       console.error("exa lookup in find-counterpart failed", e);

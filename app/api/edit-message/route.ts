@@ -19,13 +19,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { message_id?: string; new_text?: string };
+  let body: { message_id?: string; new_text?: string; reason?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
-  const { message_id, new_text } = body;
+  const { message_id, new_text, reason } = body;
   if (!message_id || !new_text || !new_text.trim()) {
     return NextResponse.json({ error: "missing_fields" }, { status: 400 });
   }
@@ -94,7 +94,8 @@ export async function POST(req: Request) {
       user_id: user.id,
       original_draft: msg.original_draft,
       edited_text: new_text,
-      conversation_snapshot: priorMessages ?? []
+      conversation_snapshot: priorMessages ?? [],
+      reason: reason?.trim() || null
     });
     if (deltaErr) console.error("edit_delta insert failed", deltaErr);
   }
