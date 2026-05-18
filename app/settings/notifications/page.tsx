@@ -1,9 +1,8 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { Wordmark } from "../../Wordmark";
 import { saveNotificationPrefs } from "./actions";
 import { NotifPrefsForm } from "./NotifPrefsForm";
+import { AppShell } from "../../AppShell";
 
 export const dynamic = "force-dynamic";
 
@@ -41,15 +40,8 @@ export default async function NotificationSettingsPage({
   };
 
   return (
-    <main className="max-w-2xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <Link href="/dashboard" className="retro-dim text-xs">
-          dashboard &gt;
-        </Link>
-      </div>
-
-      <h1 className="retro-h1 text-2xl mt-6">Email notifications</h1>
+    <AppShell>
+      <h1 className="retro-h1 text-2xl">Email notifications</h1>
       <p className="mt-1 retro-dim text-sm">
         Pick what reaches your inbox. Everything else stays on SyncedIn so your
         twin can keep doing the work without flooding you.
@@ -64,6 +56,6 @@ export default async function NotificationSettingsPage({
         action={saveNotificationPrefs}
         defaultEmail={profile?.email ?? ""}
       />
-    </main>
+    </AppShell>
   );
 }

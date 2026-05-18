@@ -767,11 +767,7 @@ export function ChatUI({
     : "";
 
   return (
-    <main
-      className="max-w-6xl mx-auto px-4 py-4 grid lg:grid-cols-[1fr_360px] gap-6 items-start h-screen"
-      style={{ minHeight: 0 }}
-    >
-      <div className="flex flex-col h-full min-w-0">
+    <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-screen">
       <header className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
         <div className="flex items-center gap-3 min-w-0">
           <TwinLink

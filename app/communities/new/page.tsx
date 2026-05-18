@@ -49,7 +49,21 @@ export default async function NewCommunityPage() {
         </p>
 
         <div className="mt-8">
-          <NetworkDensity />
+          <NetworkDensity
+            slowLabel="Today · speed of human bandwidth"
+            fastLabel="On SyncedIn · speed of light"
+            slowCaption="Members trickle through one DM, one event, one intro at a time. Most of the high-leverage pairs in your community never connect."
+            fastCaption="Twins talk in parallel 24/7. The community's network density compounds with every new member."
+            tagline={
+              <>
+                Density compounds,{" "}
+                <span style={{ color: "var(--amber-bright)" }}>
+                  forever
+                </span>
+                .
+              </>
+            }
+          />
         </div>
 
         <div className="mt-16 grid sm:grid-cols-3 gap-3">

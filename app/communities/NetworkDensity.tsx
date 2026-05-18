@@ -14,7 +14,27 @@
  * Tagline: "Deeper connections, faster."
  * Pure SMIL/SVG — no JS, identical on server and client.
  */
-export function NetworkDensity() {
+export function NetworkDensity({
+  // Left-side label — defaults to a one-time event ("speed of walking").
+  // Communities can override to "speed of human bandwidth" since they're
+  // ongoing relationships, not a one-shot conference room.
+  slowLabel = "Today · speed of walking",
+  fastLabel = "On SyncedIn · speed of light",
+  slowCaption = "One conversation at a time. Most of the right counterparts in the room never actually meet.",
+  fastCaption = "N² parallel conversations resolve in seconds, surfacing the highest-leverage matches ahead of time.",
+  tagline = (
+    <>
+      Deeper connections,{" "}
+      <span style={{ color: "var(--amber-bright)" }}>faster</span>.
+    </>
+  )
+}: {
+  slowLabel?: string;
+  fastLabel?: string;
+  slowCaption?: string;
+  fastCaption?: string;
+  tagline?: React.ReactNode;
+}) {
   const N = 14;
 
   // Scattered "before" positions.
@@ -114,7 +134,7 @@ export function NetworkDensity() {
             className="retro-label text-center"
             style={{ color: "var(--text-dim)" }}
           >
-            Today · speed of walking
+            {slowLabel}
           </div>
           <svg
             viewBox="0 0 380 340"
@@ -188,41 +208,97 @@ export function NetworkDensity() {
               );
             })}
 
-            {/* Scattered attendees */}
-            {left.map((p, i) => (
-              <g key={i}>
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={9}
-                  fill="var(--panel-2)"
-                  stroke="var(--border-bright)"
-                  strokeWidth={1.5}
-                >
-                  <animate
-                    attributeName="cy"
-                    values={`${p.y};${p.y + 3};${p.y - 2};${p.y}`}
-                    dur={`${4 + (i % 3)}s`}
-                    repeatCount="indefinite"
-                  />
-                </circle>
-                <circle cx={p.x} cy={p.y - 3} r={3.5} fill="var(--text-dim)">
-                  <animate
-                    attributeName="cy"
-                    values={`${p.y - 3};${p.y};${p.y - 5};${p.y - 3}`}
-                    dur={`${4 + (i % 3)}s`}
-                    repeatCount="indefinite"
-                  />
-                </circle>
-              </g>
-            ))}
+            {/* Scattered attendees — each one literally walks. A 4-stop
+                Brownian path with a unique offset per index, durations
+                staggered so they don't all stride in sync. Body + head
+                share the path so each "person" stays whole. */}
+            {left.map((p, i) => {
+              // Generate a deterministic 4-waypoint walk inside the canvas.
+              // Use index-based math instead of Math.random so SSR + client
+              // match exactly (no hydration warning).
+              const dx1 = ((i * 53) % 60) - 30;
+              const dy1 = ((i * 31) % 50) - 25;
+              const dx2 = ((i * 71) % 70) - 35;
+              const dy2 = ((i * 47) % 60) - 30;
+              const dx3 = ((i * 29) % 55) - 27;
+              const dy3 = ((i * 67) % 45) - 22;
+              const clampX = (x: number) => Math.max(30, Math.min(350, x));
+              const clampY = (y: number) => Math.max(30, Math.min(310, y));
+              const xs = [
+                p.x,
+                clampX(p.x + dx1),
+                clampX(p.x + dx2),
+                clampX(p.x + dx3),
+                p.x
+              ];
+              const ys = [
+                p.y,
+                clampY(p.y + dy1),
+                clampY(p.y + dy2),
+                clampY(p.y + dy3),
+                p.y
+              ];
+              // 12–18 seconds per loop, staggered so the room feels alive.
+              const dur = `${12 + (i % 7)}s`;
+              return (
+                <g key={i}>
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={9}
+                    fill="var(--panel-2)"
+                    stroke="var(--border-bright)"
+                    strokeWidth={1.5}
+                  >
+                    <animate
+                      attributeName="cx"
+                      values={xs.join(";")}
+                      dur={dur}
+                      repeatCount="indefinite"
+                      calcMode="spline"
+                      keySplines="0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1"
+                    />
+                    <animate
+                      attributeName="cy"
+                      values={ys.join(";")}
+                      dur={dur}
+                      repeatCount="indefinite"
+                      calcMode="spline"
+                      keySplines="0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1"
+                    />
+                  </circle>
+                  <circle
+                    cx={p.x}
+                    cy={p.y - 3}
+                    r={3.5}
+                    fill="var(--text-dim)"
+                  >
+                    <animate
+                      attributeName="cx"
+                      values={xs.join(";")}
+                      dur={dur}
+                      repeatCount="indefinite"
+                      calcMode="spline"
+                      keySplines="0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1"
+                    />
+                    <animate
+                      attributeName="cy"
+                      values={ys.map((y) => y - 3).join(";")}
+                      dur={dur}
+                      repeatCount="indefinite"
+                      calcMode="spline"
+                      keySplines="0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1; 0.4 0 0.6 1"
+                    />
+                  </circle>
+                </g>
+              );
+            })}
           </svg>
           <p
             className="retro-dim text-xs mt-3 text-center"
             style={{ lineHeight: 1.5, paddingInline: 6 }}
           >
-            One conversation at a time. Most of the right counterparts in
-            the room never actually meet.
+            {slowCaption}
           </p>
         </div>
 
@@ -232,7 +308,7 @@ export function NetworkDensity() {
             className="retro-label text-center"
             style={{ color: "var(--amber-bright)" }}
           >
-            On SyncedIn · speed of light
+            {fastLabel}
           </div>
           <svg
             viewBox="0 0 380 340"
@@ -374,8 +450,7 @@ export function NetworkDensity() {
             className="retro-dim text-xs mt-3 text-center"
             style={{ lineHeight: 1.5, paddingInline: 6 }}
           >
-            N² parallel conversations resolve in seconds, surfacing the
-            highest-leverage matches ahead of time.
+            {fastCaption}
           </p>
         </div>
       </div>
@@ -397,8 +472,7 @@ export function NetworkDensity() {
             color: "var(--text)"
           }}
         >
-          Deeper connections,{" "}
-          <span style={{ color: "var(--amber-bright)" }}>faster</span>.
+          {tagline}
         </div>
       </div>
     </div>
