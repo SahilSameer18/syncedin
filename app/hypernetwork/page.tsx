@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Wordmark } from "../Wordmark";
 import { createServiceClient } from "@/lib/supabase/server";
 import { SignupsChart } from "./SignupsChart";
+import { BulkReachToolkit } from "../BulkReachToolkit";
 
 export const metadata = {
   title: "Hypernetwork · SyncedIn",
@@ -525,6 +526,59 @@ export default async function HypernetworkPage() {
           love, when all the brokenness in our world is repaired by the work
           of our hands and our hearts.”
         </blockquote>
+      </section>
+
+      {/* The hypernetwork builds itself — callout linking to feedback */}
+      <section
+        className="mt-16 retro-panel retro-shadow"
+        style={{
+          padding: 28,
+          background:
+            "radial-gradient(800px 500px at 80% 0%, rgba(160, 96, 255, 0.10), transparent 60%), var(--panel-solid)"
+        }}
+      >
+        <div className="retro-label">the network builds itself</div>
+        <h2
+          className="retro-h1 text-3xl mt-3 leading-tight"
+          style={{ letterSpacing: "-0.02em" }}
+        >
+          Eventually you stop needing us.
+        </h2>
+        <p
+          className="mt-3 text-base leading-relaxed"
+          style={{ color: "var(--text-dim)", maxWidth: 680 }}
+        >
+          The hypernetwork is designed to become self-improving. Humans
+          signal what to build next. The network ranks the obvious-once-said
+          ideas. We ship what the top of the list demands. Eventually clones
+          can spec features themselves and the loop closes. This is where it
+          starts:
+        </p>
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link
+            href="/feedback"
+            className="retro-btn retro-btn-primary"
+          >
+            → Feedback &amp; requests
+          </Link>
+          <span
+            className="text-sm self-center"
+            style={{ color: "var(--text-dim)" }}
+          >
+            submit, upvote, watch the top of the list become product.
+          </span>
+        </div>
+      </section>
+
+      {/* "Help humanity sync" — closing CTA with the bulk reach toolkit */}
+      <section className="mt-12">
+        <BulkReachToolkit
+          appUrl={
+            process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+            "https://syncedin.org"
+          }
+          variant="hero"
+        />
       </section>
 
       <section className="mt-14 retro-panel retro-shadow p-6">

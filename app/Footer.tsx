@@ -18,6 +18,9 @@ export function Footer() {
         <Link href="/hypernetwork" className="hover:text-white">
           Hypernetwork
         </Link>
+        <Link href="/feedback" className="hover:text-white">
+          Feedback
+        </Link>
         <Link href="/privacy" className="hover:text-white">
           Privacy
         </Link>
