@@ -14,7 +14,7 @@ import { SyncMeter } from "../SyncMeter";
 import { SummaryBackfill } from "./SummaryBackfill";
 import { DiscoverSearch } from "./DiscoverSearch";
 import { Avatar } from "../Avatar";
-import { NavMenu } from "../NavMenu";
+import { Sidebar } from "../Sidebar";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -251,51 +251,54 @@ export default async function DashboardPage() {
     accepted_agreements: acceptedAgreementsCount ?? 0
   };
 
+  const displayName =
+    myProfile?.display_name || user.email?.split("@")[0] || "you";
+
   return (
-    <main className="max-w-6xl mx-auto px-5 py-8">
+    <main className="max-w-7xl mx-auto px-5 py-6 grid lg:grid-cols-[220px_1fr] gap-6 items-start">
       {/* Fire-and-forget backfill for missing summaries/scores */}
       <SummaryBackfill conversationIds={needsBackfillIds} />
 
-      {/* Header — clean: wordmark · theme · +new · profile-avatar dropdown */}
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <div className="flex items-center gap-3 text-sm">
-          <ThemeToggle />
-          <Link
-            href="/conversations/new"
-            className="retro-btn retro-btn-primary"
+      {/* LEFT — persistent vertical sidebar */}
+      <Sidebar
+        userId={user.id}
+        displayName={displayName}
+        avatarUrl={(myProfile as any)?.avatar_url ?? null}
+        signOutAction={signOut}
+      />
+
+      {/* RIGHT — everything else */}
+      <div className="min-w-0">
+        {/* Top bar — wordmark, theme, +new only */}
+        <div className="flex items-center justify-between">
+          <Wordmark />
+          <div className="flex items-center gap-3 text-sm">
+            <ThemeToggle />
+            <Link
+              href="/conversations/new"
+              className="retro-btn retro-btn-primary"
+            >
+              + new
+            </Link>
+          </div>
+        </div>
+
+        {!twinComplete && (
+          <div
+            className="mt-6 retro-panel p-4 text-sm"
+            style={{ borderColor: "var(--amber)" }}
           >
-            + new
-          </Link>
-          <NavMenu
-            userId={user.id}
-            displayName={
-              myProfile?.display_name ||
-              user.email?.split("@")[0] ||
-              "you"
-            }
-            avatarUrl={(myProfile as any)?.avatar_url ?? null}
-            signOutAction={signOut}
-          />
-        </div>
-      </div>
+            <span className="retro-amber font-semibold">! </span>
+            Your twin is incomplete.{" "}
+            <Link href="/onboarding" className="retro-amber underline">
+              Finish onboarding
+            </Link>{" "}
+            so it has enough context to represent you.
+          </div>
+        )}
 
-      {!twinComplete && (
-        <div
-          className="mt-6 retro-panel p-4 text-sm"
-          style={{ borderColor: "var(--amber)" }}
-        >
-          <span className="retro-amber font-semibold">! </span>
-          Your twin is incomplete.{" "}
-          <Link href="/onboarding" className="retro-amber underline">
-            Finish onboarding
-          </Link>{" "}
-          so it has enough context to represent you.
-        </div>
-      )}
-
-      {/* Two-column layout: SyncMeter on the left (sticky), Discover + everything else on the right */}
-      <div className="mt-8 grid md:grid-cols-[260px_1fr] gap-8 items-start">
+        {/* Two-column inner: SyncMeter (sticky) + Discover/everything */}
+        <div className="mt-8 grid md:grid-cols-[260px_1fr] gap-8 items-start">
         {/* LEFT — clone meter */}
         <aside className="md:sticky md:top-6 flex flex-col items-center gap-4">
           <SyncMeter
@@ -461,6 +464,7 @@ export default async function DashboardPage() {
             <BulkReachToolkit appUrl={appUrl} variant="card" />
           </section>
         </div>
+      </div>
       </div>
     </main>
   );
