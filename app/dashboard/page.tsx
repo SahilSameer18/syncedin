@@ -166,6 +166,65 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .eq("response", "accepted");
 
+  // Status pills per conversation: sealed / your-turn / waiting / negotiating.
+  // Pull all agreement_responses for the user's conversations once.
+  const convIds = (conversations ?? []).map((c) => c.id);
+  type AgrResp = { conversation_id: string; user_id: string; response: string };
+  const { data: allResps } = convIds.length
+    ? await service
+        .from("agreement_responses")
+        .select("conversation_id, user_id, response")
+        .in("conversation_id", convIds)
+    : { data: [] as AgrResp[] };
+  const respsByConv = new Map<string, AgrResp[]>();
+  for (const r of (allResps ?? []) as AgrResp[]) {
+    const list = respsByConv.get(r.conversation_id) ?? [];
+    list.push(r);
+    respsByConv.set(r.conversation_id, list);
+  }
+  function statusForConv(c: {
+    id: string;
+    participant_a: string;
+    participant_b: string;
+  }):
+    | { kind: "sealed"; label: string; color: string }
+    | { kind: "your_turn"; label: string; color: string }
+    | { kind: "waiting"; label: string; color: string }
+    | { kind: "negotiating"; label: string; color: string }
+    | null {
+    const rs = respsByConv.get(c.id) ?? [];
+    const mine = rs.find((r) => r.user_id === user!.id);
+    const otherId =
+      c.participant_a === user!.id ? c.participant_b : c.participant_a;
+    const theirs = rs.find((r) => r.user_id === otherId);
+    if (mine?.response === "accepted" && theirs?.response === "accepted") {
+      return { kind: "sealed", label: "✓ deal sealed", color: "var(--green)" };
+    }
+    if (theirs?.response === "accepted" && !mine) {
+      return {
+        kind: "your_turn",
+        label: "→ your turn",
+        color: "var(--amber-bright)"
+      };
+    }
+    if (mine?.response === "accepted" && !theirs) {
+      const otherName = nameById.get(otherId) ?? "them";
+      return {
+        kind: "waiting",
+        label: `⏳ waiting on ${otherName.split(/\s+/)[0]}`,
+        color: "var(--text-dim)"
+      };
+    }
+    if (rs.length > 0) {
+      return {
+        kind: "negotiating",
+        label: "↻ negotiating",
+        color: "var(--text-dim)"
+      };
+    }
+    return null;
+  }
+
   // Backfill any conversation missing a summary or excitement score.
   const needsBackfillIds = (conversations ?? [])
     .filter(
@@ -300,8 +359,25 @@ export default async function DashboardPage() {
                       href={`/conversations/${c.id}`}
                       className="min-w-0 flex-1"
                     >
-                      <div className="font-semibold text-sm">
-                        {nameById.get(otherId) ?? "Unknown"}
+                      <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
+                        <span>{nameById.get(otherId) ?? "Unknown"}</span>
+                        {(() => {
+                          const st = statusForConv(c);
+                          if (!st) return null;
+                          return (
+                            <span
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                              style={{
+                                color: st.color,
+                                border: `1px solid ${st.color}`,
+                                background: "transparent",
+                                letterSpacing: "0.04em"
+                              }}
+                            >
+                              {st.label}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {c.counterpart_summary && (
                         <div className="retro-dim text-xs mt-1">

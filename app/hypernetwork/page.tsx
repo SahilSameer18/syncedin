@@ -210,7 +210,7 @@ export default async function HypernetworkPage() {
   return (
     <main className="max-w-5xl mx-auto px-5 py-10">
       <div className="flex items-center justify-between">
-        <Wordmark size="md" />
+        <Wordmark />
         <div className="flex items-center gap-4 text-sm">
           <Link href="/dashboard" className="retro-dim hover:text-white">
             dashboard

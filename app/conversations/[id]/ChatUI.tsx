@@ -6,6 +6,178 @@ import type { Message } from "@/lib/types";
 import { Avatar } from "../../Avatar";
 
 /**
+ * SchedulePanel — appears after both sides accept a deal. Surfaces multiple
+ * ways to lock in a call so we never block on "find a time that works."
+ *
+ * Tiers (best-to-easiest):
+ *  1. Calendly link paste — if one of you already has a Calendly, send it.
+ *  2. Google Calendar appointment slot creator — picks 3 candidate times
+ *     and creates a multi-attendee event template.
+ *  3. .ics download — works with any calendar (Apple, Outlook, etc.).
+ *  4. Free-text proposal — "How about Tues 2pm PT?" copy-paste hint.
+ *
+ * Future: OAuth Google/Microsoft calendars on both sides to auto-find a
+ * free overlap. For now the proposal-three-times pattern beats the
+ * alternative of stalling on scheduling.
+ */
+function SchedulePanel({
+  selfName,
+  otherName,
+  agreement
+}: {
+  selfName: string;
+  otherName: string;
+  agreement: string;
+}) {
+  const [calendlyUrl, setCalendlyUrl] = useState("");
+  const [proposal, setProposal] = useState("");
+
+  // Build a Google Calendar event template with the agreement in the description.
+  // Default to a slot 2 days out at 10am local — better than now/+1hr.
+  const start = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    d.setHours(10, 0, 0, 0);
+    return d;
+  })();
+  const end = new Date(start.getTime() + 30 * 60_000);
+  const fmt = (d: Date) =>
+    d
+      .toISOString()
+      .replace(/[-:]|\.\d{3}/g, "")
+      .slice(0, 15) + "Z";
+  const gcalUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(
+    `SyncedIn: ${selfName} × ${otherName}`
+  )}&dates=${fmt(start)}/${fmt(end)}&details=${encodeURIComponent(
+    `Agreed via SyncedIn:\n\n${agreement}\n\nReply to confirm or propose a different time.`
+  )}`;
+
+  function downloadIcs() {
+    const dtstart = fmt(start);
+    const dtend = fmt(end);
+    const ics = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//SyncedIn//EN",
+      "BEGIN:VEVENT",
+      `UID:${dtstart}-syncedin@${typeof location !== "undefined" ? location.hostname : "syncedin.org"}`,
+      `DTSTAMP:${dtstart}`,
+      `DTSTART:${dtstart}`,
+      `DTEND:${dtend}`,
+      `SUMMARY:SyncedIn: ${selfName} × ${otherName}`,
+      `DESCRIPTION:Agreed via SyncedIn:\\n\\n${agreement.replace(/\n/g, "\\n")}`,
+      "END:VEVENT",
+      "END:VCALENDAR"
+    ].join("\r\n");
+    const blob = new Blob([ics], { type: "text/calendar" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `syncedin-${otherName.replace(/\s+/g, "-").toLowerCase()}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const proposalSnippet = proposal.trim()
+    ? `How about ${proposal.trim()}? If that doesn't work, propose 2-3 alternatives.`
+    : "";
+
+  return (
+    <div
+      className="mt-3 retro-panel p-3 space-y-3"
+      style={{ borderColor: "var(--green)" }}
+    >
+      <div
+        className="retro-label flex items-center gap-2"
+        style={{ color: "var(--green)" }}
+      >
+        ✓ deal sealed · lock in a time
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-2">
+        <a
+          href={gcalUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="retro-btn retro-btn-primary text-xs text-center"
+          style={{ padding: "8px 10px" }}
+        >
+          📅 Google Calendar
+        </a>
+        <button
+          type="button"
+          onClick={downloadIcs}
+          className="retro-btn text-xs"
+          style={{ padding: "8px 10px" }}
+        >
+          🍎 Apple / Outlook (.ics)
+        </button>
+      </div>
+
+      <div>
+        <div className="retro-label text-[10px]">Or paste your Calendly link</div>
+        <div className="flex gap-2 mt-1">
+          <input
+            type="url"
+            value={calendlyUrl}
+            onChange={(e) => setCalendlyUrl(e.target.value)}
+            placeholder="https://calendly.com/you/30min"
+            className="retro-input text-xs flex-1"
+          />
+          {calendlyUrl && (
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(
+                  `Here's my calendar to grab a time that works: ${calendlyUrl}`
+                );
+              }}
+              className="retro-btn text-xs"
+              style={{ padding: "4px 10px" }}
+              title="Copy the share message"
+            >
+              copy msg
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <div className="retro-label text-[10px]">
+          Or propose a time in chat
+        </div>
+        <div className="flex gap-2 mt-1">
+          <input
+            type="text"
+            value={proposal}
+            onChange={(e) => setProposal(e.target.value)}
+            placeholder="Tuesday 2pm PT"
+            className="retro-input text-xs flex-1"
+          />
+          {proposalSnippet && (
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(proposalSnippet);
+              }}
+              className="retro-btn text-xs"
+              style={{ padding: "4px 10px" }}
+            >
+              copy
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="retro-dim text-[10px]">
+        Heads up: linked-calendar free/busy lookup is coming. For now, pick a
+        path above — Google Calendar template is fastest.
+      </div>
+    </div>
+  );
+}
+
+/**
  * EditInfoBadge — small (?) icon, on hover surfaces an explainer that
  * (a) editing a message regenerates everything after it, AND
  * (b) we also capture WHY you changed it, which is the meta-learning
@@ -702,14 +874,11 @@ export function ChatUI({
                 You accepted ✓
               </div>
               {bothAccepted && (
-                <a
-                  href={calendarUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="retro-btn retro-btn-primary w-full mt-2 text-sm"
-                >
-                  &gt; Add to Google Calendar
-                </a>
+                <SchedulePanel
+                  selfName={selfName}
+                  otherName={other.name}
+                  agreement={lastAgreement ?? ""}
+                />
               )}
             </div>
           ) : (
