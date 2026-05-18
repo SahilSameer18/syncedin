@@ -86,9 +86,23 @@ export function ContextSources({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
+  // Which snippet bodies are expanded. Default: all collapsed (cards can be
+  // very long once Apify pulls in a real X / IG profile worth of posts).
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  function toggleExpand(id: string) {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const current = QUICK_TYPES.find((t) => t.key === active) ?? QUICK_TYPES[0];
-  const hintsAddingNote = active === "x" || active === "instagram";
+  // Note textarea is ONLY meaningful for "Any URL" — for LinkedIn / X /
+  // Instagram we scrape the profile directly (Apify + Exa) and use those
+  // posts as the user's voice/writing-style signal. No manual note needed.
+  const showNoteField = active !== "linkedin" && active !== "x" && active !== "instagram";
 
   async function submitUrl() {
     if (!input.trim()) return;
@@ -110,15 +124,17 @@ export function ContextSources({
         setError(j.detail || j.error);
         return;
       }
+      // Newest first — so a freshly-added snippet doesn't get lost below
+      // existing long blobs that the user has to scroll past.
       onChange([
-        ...snippets,
         {
           id: newId(),
           label: j.label || current.label,
           source: j.source || url,
           text: j.extracted_text || "",
           note: purpose || undefined
-        }
+        },
+        ...snippets
       ]);
       setInput("");
       setPurpose("");
@@ -145,13 +161,13 @@ export function ContextSources({
         return;
       }
       onChange([
-        ...snippets,
         {
           id: newId(),
           label: j.label || "Pasted text",
           source: j.source || "manual",
           text: j.extracted_text || ""
-        }
+        },
+        ...snippets
       ]);
       setPasted("");
     } catch {
@@ -230,20 +246,19 @@ export function ContextSources({
         </button>
       </div>
 
-      {/* Optional purpose / extra context note for this URL */}
-      <div className="mt-2">
-        <textarea
-          value={purpose}
-          onChange={(e) => setPurpose(e.target.value.slice(0, 1500))}
-          rows={2}
-          placeholder={
-            hintsAddingNote
-              ? "X & Instagram often block our scraper. Add a few sentences about what's on this profile and why it matters to you."
-              : "Optional: a few words on what this link is and why your twin should care about it."
-          }
-          className="retro-input text-sm"
-        />
-      </div>
+      {/* Optional purpose note — only for "Any URL". LinkedIn / X / Instagram
+          are scraped directly and used as voice samples; no manual note. */}
+      {showNoteField && (
+        <div className="mt-2">
+          <textarea
+            value={purpose}
+            onChange={(e) => setPurpose(e.target.value.slice(0, 1500))}
+            rows={2}
+            placeholder="Optional: a few words on what this link is and why your twin should care about it."
+            className="retro-input text-sm"
+          />
+        </div>
+      )}
 
       <details className="mt-3">
         <summary
@@ -291,68 +306,128 @@ export function ContextSources({
           <ul className="mt-2 space-y-2">
             {snippets.map((s) => {
               const isEditing = editing === s.id;
+              // Currently-editing rows are always open. Otherwise consult
+              // the expanded Set. Cards open with a smooth click anywhere.
+              const isOpen = isEditing || expanded.has(s.id);
+              const preview = s.text.replace(/\s+/g, " ").slice(0, 110);
+              const charCount = s.text.length;
               return (
-                <li key={s.id} className="retro-panel p-3">
-                  <div className="flex items-start justify-between gap-3">
+                <li
+                  key={s.id}
+                  className="retro-panel"
+                  style={{ padding: 0, overflow: "hidden" }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleExpand(s.id)}
+                    className="w-full text-left flex items-start justify-between gap-3 p-3"
+                    style={{
+                      background: "transparent",
+                      border: 0,
+                      cursor: "pointer"
+                    }}
+                  >
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div
-                        className="font-semibold text-sm"
-                        style={{ color: "var(--text)" }}
-                      >
-                        {s.label}
+                      <div className="flex items-center gap-2">
+                        <span
+                          style={{
+                            fontFamily:
+                              '"IBM Plex Mono", ui-monospace, monospace',
+                            fontSize: 11,
+                            color: "var(--text-dim)",
+                            width: 12,
+                            display: "inline-block"
+                          }}
+                        >
+                          {isOpen ? "−" : "+"}
+                        </span>
+                        <span
+                          className="font-semibold text-sm"
+                          style={{ color: "var(--text)" }}
+                        >
+                          {s.label}
+                        </span>
+                        <span
+                          className="retro-dim text-[10px]"
+                          style={{ marginLeft: "auto" }}
+                        >
+                          {charCount.toLocaleString()} chars
+                        </span>
                       </div>
+                      {!isOpen && (
+                        <div
+                          className="retro-dim text-xs mt-1 line-clamp-1"
+                          style={{ paddingLeft: 18 }}
+                        >
+                          {preview}
+                          {s.text.length > preview.length ? "…" : ""}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+
+                  {isOpen && (
+                    <div className="px-3 pb-3">
                       <a
                         href={
                           s.source.startsWith("http") ? s.source : undefined
                         }
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="retro-dim text-xs underline mt-0.5 inline-block"
+                        onClick={(e) => e.stopPropagation()}
+                        className="retro-dim text-xs underline inline-block"
                         style={{ wordBreak: "break-all" }}
                       >
                         {s.source}
                       </a>
-                    </div>
-                    <div className="flex gap-2 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setEditing(isEditing ? null : s.id)
-                        }
-                        className="retro-dim text-xs hover:text-white"
-                      >
-                        {isEditing ? "done" : "edit"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => remove(s.id)}
-                        className="retro-dim text-xs hover:text-white"
-                        style={{ color: "var(--red)" }}
-                      >
-                        remove
-                      </button>
-                    </div>
-                  </div>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditing(isEditing ? null : s.id);
+                          }}
+                          className="retro-dim text-xs hover:text-white"
+                        >
+                          {isEditing ? "done" : "edit"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            remove(s.id);
+                          }}
+                          className="text-xs hover:text-white"
+                          style={{ color: "var(--red)" }}
+                        >
+                          remove
+                        </button>
+                      </div>
 
-                  {isEditing ? (
-                    <textarea
-                      value={s.text}
-                      onChange={(e) => updateText(s.id, e.target.value)}
-                      rows={Math.min(20, Math.max(6, s.text.split(/\n/).length + 2))}
-                      className="retro-input text-sm mt-3 font-mono"
-                      style={{ minHeight: 180 }}
-                      autoFocus
-                    />
-                  ) : (
-                    <div
-                      className="mt-3 text-sm"
-                      style={{
-                        color: "var(--text)",
-                        whiteSpace: "pre-wrap",
-                        lineHeight: 1.55
-                      }}
-                    >
-                      {s.text}
+                      {isEditing ? (
+                        <textarea
+                          value={s.text}
+                          onChange={(e) => updateText(s.id, e.target.value)}
+                          rows={Math.min(
+                            20,
+                            Math.max(6, s.text.split(/\n/).length + 2)
+                          )}
+                          className="retro-input text-sm mt-3 font-mono"
+                          style={{ minHeight: 180 }}
+                          autoFocus
+                        />
+                      ) : (
+                        <div
+                          className="mt-3 text-sm"
+                          style={{
+                            color: "var(--text)",
+                            whiteSpace: "pre-wrap",
+                            lineHeight: 1.55
+                          }}
+                        >
+                          {s.text}
+                        </div>
+                      )}
                     </div>
                   )}
                 </li>

@@ -80,7 +80,29 @@ export async function POST(req: Request) {
   }
 
   // 2. Ask Claude to rewrite it as a tight first-person snippet.
-  const system = `You convert a raw web/social scrape ABOUT a person into a short, first-person snippet they can use as twin context.
+  //
+  // Two modes:
+  //  - SOCIAL profile (X / Twitter / Instagram / LinkedIn): treat the scrape
+  //    as VOICE / writing-flavor signal. Preserve actual phrasing, cadence,
+  //    favorite words, sentence rhythm. The output reads like the person's
+  //    own voice — because the twin will be writing in that voice later.
+  //  - ANY OTHER URL: extract dossier facts in clean first-person prose.
+  const sourceLower = source.toLowerCase();
+  const isSocial =
+    /linkedin\.com|twitter\.com|x\.com|instagram\.com/.test(sourceLower);
+
+  const system = isSocial
+    ? `You're extracting a person's WRITING VOICE from their own social posts. This is style training data — NOT a summary.
+
+Rules:
+- First person ("I", "my", "I think..."). Present tense.
+- Preserve the user's actual phrasing, cadence, favorite words, sentence rhythm. If they're terse, be terse. If they riff, riff. If they use lowercase or no punctuation, preserve that.
+- Up to 300 words. Multiple short paragraphs are fine.
+- Lead with the voice example, then a single short paragraph at the end summarizing what they care about.
+- Skip filler: ads, navigation, follower counts, "Liked by", repeated brand mentions, retweet boilerplate.
+- Never invent details. If the scrape is thin, return only what's supported.
+- No em-dashes, no markdown, no bullets, no headers.`
+    : `You convert a raw web/social scrape ABOUT a person into a short, first-person snippet they can use as twin context.
 
 Rules:
 - First person ("I", "my", "I work on..."), present tense.

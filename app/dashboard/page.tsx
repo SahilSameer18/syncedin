@@ -1,20 +1,17 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { Wordmark } from "../Wordmark";
 import {
   startTestConversation,
   startConversationWithUser
 } from "./actions";
-import { signOut } from "../login/actions";
 import { BulkReachToolkit } from "../BulkReachToolkit";
 import { ExcitementControl } from "./ExcitementControl";
-import { ThemeToggle } from "../ThemeToggle";
 import { SyncMeter } from "../SyncMeter";
 import { SummaryBackfill } from "./SummaryBackfill";
 import { DiscoverSearch } from "./DiscoverSearch";
 import { Avatar } from "../Avatar";
-import { Sidebar } from "../Sidebar";
+import { AppShell } from "../AppShell";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -251,38 +248,12 @@ export default async function DashboardPage() {
     accepted_agreements: acceptedAgreementsCount ?? 0
   };
 
-  const displayName =
-    myProfile?.display_name || user.email?.split("@")[0] || "you";
-
   return (
-    <main className="max-w-7xl mx-auto px-5 py-6 grid lg:grid-cols-[220px_1fr] gap-6 items-start">
+    <AppShell maxWidth="max-w-7xl">
       {/* Fire-and-forget backfill for missing summaries/scores */}
       <SummaryBackfill conversationIds={needsBackfillIds} />
 
-      {/* LEFT — persistent vertical sidebar */}
-      <Sidebar
-        userId={user.id}
-        displayName={displayName}
-        avatarUrl={(myProfile as any)?.avatar_url ?? null}
-        signOutAction={signOut}
-      />
-
-      {/* RIGHT — everything else */}
-      <div className="min-w-0">
-        {/* Top bar — wordmark, theme, +new only */}
-        <div className="flex items-center justify-between">
-          <Wordmark />
-          <div className="flex items-center gap-3 text-sm">
-            <ThemeToggle />
-            <Link
-              href="/conversations/new"
-              className="retro-btn retro-btn-primary"
-            >
-              + new
-            </Link>
-          </div>
-        </div>
-
+      <>
         {!twinComplete && (
           <div
             className="mt-6 retro-panel p-4 text-sm"
@@ -464,8 +435,7 @@ export default async function DashboardPage() {
             <BulkReachToolkit appUrl={appUrl} variant="card" />
           </section>
         </div>
-      </div>
-      </div>
-    </main>
+      </>
+    </AppShell>
   );
 }

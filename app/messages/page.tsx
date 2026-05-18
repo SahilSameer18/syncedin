@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { Wordmark } from "../Wordmark";
 import { ExcitementControl } from "../dashboard/ExcitementControl";
 import { Avatar } from "../Avatar";
+import { AppShell } from "../AppShell";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -50,23 +50,8 @@ export default async function MessagesPage() {
   );
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-8">
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/dashboard" className="retro-dim hover:text-white">
-            dashboard
-          </Link>
-          <Link
-            href="/conversations/new"
-            className="retro-btn retro-btn-primary"
-          >
-            + new
-          </Link>
-        </div>
-      </div>
-
-      <h1 className="retro-h1 text-3xl mt-8">Messages</h1>
+    <AppShell>
+      <h1 className="retro-h1 text-3xl">Messages</h1>
       <p className="retro-dim text-sm mt-2">
         Every conversation your twin is having or has had. Sorted by Sync
         score, so the highest-leverage ones surface first.
@@ -151,6 +136,6 @@ export default async function MessagesPage() {
           })}
         </div>
       )}
-    </main>
+    </AppShell>
   );
 }

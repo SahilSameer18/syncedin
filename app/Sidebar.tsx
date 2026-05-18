@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "./Avatar";
+import { Wordmark } from "./Wordmark";
 
 /**
  * Sidebar — vertical nav for signed-in users.
@@ -17,12 +18,14 @@ export function Sidebar({
   userId,
   displayName,
   avatarUrl,
-  signOutAction
+  signOutAction,
+  conferences = []
 }: {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
   signOutAction: () => void | Promise<void>;
+  conferences?: { slug: string; name: string }[];
 }) {
   const pathname = usePathname() ?? "";
 
@@ -44,7 +47,7 @@ export function Sidebar({
     <aside
       style={{
         position: "sticky",
-        top: 24,
+        top: 16,
         alignSelf: "start",
         background: "var(--panel-solid)",
         border: "1px solid var(--border)",
@@ -56,6 +59,21 @@ export function Sidebar({
         minHeight: 480
       }}
     >
+      {/* Wordmark at the very top — clickable home button */}
+      <Link
+        href="/"
+        aria-label="SyncedIn — home"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2px 6px 8px",
+          textDecoration: "none"
+        }}
+      >
+        <Wordmark size="sm" href={null} />
+      </Link>
+
       {/* Profile block */}
       <Link
         href="/onboarding"
@@ -145,6 +163,75 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      {/* My conferences */}
+      {conferences.length > 0 && (
+        <div style={{ marginTop: 6 }}>
+          <div
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--text-dim)",
+              padding: "0 10px 4px",
+              marginTop: 4
+            }}
+          >
+            Your conferences
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {conferences.map((c) => {
+              const href = `/conferences/${c.slug}`;
+              const active = pathname === href || pathname.startsWith(href + "/");
+              return (
+                <Link
+                  key={c.slug}
+                  href={href}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "7px 10px",
+                    borderRadius: 8,
+                    fontSize: 13,
+                    color: active ? "var(--text)" : "var(--text-dim)",
+                    background: active ? "var(--panel-2)" : "transparent",
+                    fontWeight: active ? 600 : 400,
+                    textDecoration: "none",
+                    borderLeft: active
+                      ? "2px solid var(--amber)"
+                      : "2px solid transparent"
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 18,
+                      display: "inline-flex",
+                      justifyContent: "center",
+                      fontSize: 11,
+                      color: active ? "var(--amber-bright)" : "var(--text-dim)",
+                      fontFamily: '"IBM Plex Mono", ui-monospace, monospace'
+                    }}
+                  >
+                    ◈
+                  </span>
+                  <span
+                    style={{
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      minWidth: 0,
+                      flex: 1
+                    }}
+                  >
+                    {c.name}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Sign out pinned to bottom */}
       <div style={{ marginTop: "auto", paddingTop: 10 }}>
