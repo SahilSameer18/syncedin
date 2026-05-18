@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { notifyNewConnection } from "@/lib/notify";
 
 async function openConversationBetween(userId: string, otherId: string) {
   const supabase = createClient();
@@ -24,6 +25,12 @@ async function openConversationBetween(userId: string, otherId: string) {
     console.error("conversation insert failed", error);
     return null;
   }
+  // Fire-and-forget notify both sides of the new connection.
+  notifyNewConnection({
+    conversationId: conv.id as string,
+    participantA: userId,
+    participantB: otherId
+  }).catch((e) => console.warn("[new-conv] notify failed", e));
   return conv.id as string;
 }
 

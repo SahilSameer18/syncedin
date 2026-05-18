@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { notifyNewConnection } from "@/lib/notify";
 
 /**
  * Manually set the excitement score on a conversation. Locking it means the
@@ -132,5 +133,11 @@ export async function startConversationWithUser(formData: FormData) {
     console.error("conversation insert failed", error);
     redirect("/dashboard?error=create_failed");
   }
+  // Fire-and-forget notification to both participants.
+  notifyNewConnection({
+    conversationId: conv.id,
+    participantA: user.id,
+    participantB: otherId
+  }).catch((e) => console.warn("[start-conv] notify failed", e));
   redirect(`/conversations/${conv.id}`);
 }

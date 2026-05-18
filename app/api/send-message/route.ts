@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { notifyNewMessage } from "@/lib/notify";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -81,6 +82,13 @@ export async function POST(req: Request) {
     });
     if (deltaErr) console.error("delta insert failed", deltaErr);
   }
+
+  // Fire-and-forget notification to the counterpart.
+  notifyNewMessage({
+    conversationId: conversation_id,
+    messageId: message.id,
+    senderUserId: user.id
+  }).catch((e) => console.warn("[send-message] notify failed", e));
 
   return NextResponse.json({ message });
 }

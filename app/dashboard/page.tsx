@@ -201,6 +201,12 @@ export default async function DashboardPage() {
           <Link href="/onboarding" className="retro-dim hover:text-white">
             edit twin
           </Link>
+          <Link
+            href="/settings/notifications"
+            className="retro-dim hover:text-white"
+          >
+            notifications
+          </Link>
           <form action={signOut}>
             <button className="retro-dim hover:text-white">sign out</button>
           </form>

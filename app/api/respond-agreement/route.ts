@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { notifyAgreementSealed } from "@/lib/notify";
 
 /**
  * Record a participant's response to a proposed final destination.
@@ -86,6 +87,11 @@ export async function POST(req: Request) {
     );
     const bothAccepted =
       accepted.has(conv.participant_a) && accepted.has(conv.participant_b);
+    if (bothAccepted) {
+      notifyAgreementSealed({ conversationId: conversation_id }).catch((e) =>
+        console.warn("[respond-agreement] notify failed", e)
+      );
+    }
     return NextResponse.json({ ok: true, both_accepted: bothAccepted });
   }
 

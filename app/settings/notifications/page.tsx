@@ -1,0 +1,69 @@
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { Wordmark } from "../../Wordmark";
+import { saveNotificationPrefs } from "./actions";
+import { NotifPrefsForm } from "./NotifPrefsForm";
+
+export const dynamic = "force-dynamic";
+
+export default async function NotificationSettingsPage({
+  searchParams
+}: {
+  searchParams: { saved?: string };
+}) {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const service = createServiceClient();
+  const [{ data: profile }, { data: prefs }] = await Promise.all([
+    service
+      .from("profiles")
+      .select("email, display_name")
+      .eq("id", user.id)
+      .maybeSingle(),
+    service
+      .from("notification_preferences")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle()
+  ]);
+
+  const initial = {
+    email_address: prefs?.email_address ?? profile?.email ?? "",
+    on_new_connection: prefs?.on_new_connection ?? true,
+    on_new_message: prefs?.on_new_message ?? true,
+    on_agreement_accepted: prefs?.on_agreement_accepted ?? true,
+    on_call_scheduled: prefs?.on_call_scheduled ?? true
+  };
+
+  return (
+    <main className="max-w-2xl mx-auto px-6 py-8">
+      <div className="flex items-center justify-between">
+        <Wordmark />
+        <Link href="/dashboard" className="retro-dim text-xs">
+          dashboard &gt;
+        </Link>
+      </div>
+
+      <h1 className="retro-h1 text-2xl mt-6">Email notifications</h1>
+      <p className="mt-1 retro-dim text-sm">
+        Pick what reaches your inbox. Everything else stays on SyncedIn so your
+        twin can keep doing the work without flooding you.
+      </p>
+
+      {searchParams.saved === "1" && (
+        <p className="mt-3 text-sm retro-green">✓ Saved.</p>
+      )}
+
+      <NotifPrefsForm
+        initial={initial}
+        action={saveNotificationPrefs}
+        defaultEmail={profile?.email ?? ""}
+      />
+    </main>
+  );
+}

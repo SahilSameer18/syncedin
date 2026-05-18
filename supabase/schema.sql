@@ -369,6 +369,55 @@ drop policy if exists "scoring_prompts_update_own" on public.scoring_prompts;
 create policy "scoring_prompts_update_own" on public.scoring_prompts
   for update using (auth.uid() = user_id);
 
+-- =========================================================================
+-- Notification preferences + send log
+-- Per-user toggles for what gets emailed; log prevents duplicates.
+-- =========================================================================
+
+create table if not exists public.notification_preferences (
+  user_id uuid primary key references public.profiles(id) on delete cascade,
+  email_address text, -- nullable: defaults to profiles.email
+  on_new_connection boolean not null default true,
+  on_new_message boolean not null default true,
+  on_agreement_accepted boolean not null default true,
+  on_call_scheduled boolean not null default true,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.notification_preferences enable row level security;
+
+drop policy if exists "notif_prefs_select_own" on public.notification_preferences;
+create policy "notif_prefs_select_own" on public.notification_preferences
+  for select using (auth.uid() = user_id);
+
+drop policy if exists "notif_prefs_insert_own" on public.notification_preferences;
+create policy "notif_prefs_insert_own" on public.notification_preferences
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "notif_prefs_update_own" on public.notification_preferences;
+create policy "notif_prefs_update_own" on public.notification_preferences
+  for update using (auth.uid() = user_id);
+
+create table if not exists public.notification_log (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  kind text not null, -- 'new_connection' | 'new_message' | 'agreement_accepted' | 'call_scheduled'
+  subject_id uuid, -- conversation_id or other related row
+  dedupe_key text not null,
+  sent_at timestamptz not null default now(),
+  email_address text,
+  unique (user_id, dedupe_key)
+);
+
+create index if not exists notification_log_user_idx
+  on public.notification_log (user_id, sent_at desc);
+
+alter table public.notification_log enable row level security;
+
+drop policy if exists "notif_log_select_own" on public.notification_log;
+create policy "notif_log_select_own" on public.notification_log
+  for select using (auth.uid() = user_id);
+
 create table if not exists public.scoring_calibrations (
   id uuid primary key default uuid_generate_v4(),
   user_id uuid not null references public.profiles(id) on delete cascade,
