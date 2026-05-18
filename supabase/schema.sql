@@ -100,8 +100,20 @@ create table if not exists public.conferences (
   starts_at date,
   ends_at date,
   city text,
+  -- 'conference' (one-time event) or 'community' (ongoing group). Same
+  -- mechanics, different landing copy + sidebar label + URL prefix.
+  kind text not null default 'conference'
+    check (kind in ('conference', 'community')),
   created_at timestamptz not null default now()
 );
+
+-- Idempotent column add for existing deployments.
+alter table public.conferences
+  add column if not exists kind text not null default 'conference';
+alter table public.conferences
+  drop constraint if exists conferences_kind_check;
+alter table public.conferences
+  add constraint conferences_kind_check check (kind in ('conference', 'community'));
 
 create index if not exists conferences_owner_idx
   on public.conferences (owner_user_id);

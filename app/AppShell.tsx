@@ -1,29 +1,22 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "./Sidebar";
-import { ThemeToggle } from "./ThemeToggle";
 import { signOut } from "./login/actions";
 
 /**
- * AppShell — wraps every signed-in page with the persistent left sidebar
- * and a slim top bar (wordmark + theme + +new). Pages that use AppShell get
- * a consistent navigation chrome without each page hand-rolling its own header.
+ * AppShell — wraps every signed-in page with the persistent left sidebar.
+ * The sidebar holds the logo, primary actions ("+ new"), nav, conferences,
+ * theme toggle, and sign out — so the main column starts immediately with
+ * page content, no chrome bar above it.
  *
- * Server component so the auth check + profile fetch run on the edge before
- * any client JS hydrates. Pages still own their own data loading; AppShell
- * just handles the chrome.
- *
- * If you need to render WITHOUT the top "+ new" button (e.g. inside a
- * conversation surface), pass topRight={null}.
+ * Server component so the auth check + profile + conferences fetch run on
+ * the edge before any client JS hydrates.
  */
 export async function AppShell({
   children,
-  topRight,
   maxWidth = "max-w-6xl"
 }: {
   children: React.ReactNode;
-  topRight?: React.ReactNode | null;
   maxWidth?: string;
 }) {
   const supabase = createClient();
@@ -32,36 +25,39 @@ export async function AppShell({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, { data: myConfs }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name, avatar_url, email")
-      .eq("id", user.id)
-      .maybeSingle(),
-    // All conferences I'm a member of OR own — surfaced in the sidebar so
-    // it's one click to switch context.
-    supabase
-      .from("conference_members")
-      .select("conference_slug, conferences(slug, name)")
-      .eq("user_id", user.id)
-  ]);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("display_name, avatar_url, email")
+    .eq("id", user.id)
+    .maybeSingle();
 
   const displayName =
     profile?.display_name || user.email?.split("@")[0] || "you";
 
-  const conferences = (myConfs ?? [])
-    .map((m: any) => m.conferences)
-    .filter(Boolean)
-    .map((c: any) => ({ slug: c.slug as string, name: c.name as string }));
-
-  const defaultTopRight = (
-    <Link
-      href="/conversations/new"
-      className="retro-btn retro-btn-primary"
-    >
-      + new
-    </Link>
-  );
+  // Conferences in the sidebar — fetched in two safe steps so a transient
+  // join failure or a missing FK relationship hint can't crash the entire
+  // shell (which would 500 every signed-in page). If anything throws, the
+  // sidebar just renders without the "Your conferences" section.
+  let conferences: { slug: string; name: string }[] = [];
+  try {
+    const { data: memberRows } = await supabase
+      .from("conference_members")
+      .select("conference_slug")
+      .eq("user_id", user.id);
+    const slugs = (memberRows ?? []).map((r: any) => r.conference_slug);
+    if (slugs.length > 0) {
+      const { data: confs } = await supabase
+        .from("conferences")
+        .select("slug, name")
+        .in("slug", slugs);
+      conferences = (confs ?? []).map((c: any) => ({
+        slug: c.slug as string,
+        name: c.name as string
+      }));
+    }
+  } catch (e) {
+    console.warn("[AppShell] conferences sidebar fetch failed", e);
+  }
 
   return (
     <main
@@ -75,14 +71,7 @@ export async function AppShell({
         conferences={conferences}
       />
 
-      <div className="min-w-0">
-        {/* Slim top bar — wordmark moved into sidebar, leaving just utility */}
-        <div className="flex items-center justify-end gap-3 text-sm mb-4">
-          <ThemeToggle />
-          {topRight === null ? null : topRight ?? defaultTopRight}
-        </div>
-        {children}
-      </div>
+      <div className="min-w-0">{children}</div>
     </main>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "./Avatar";
 import { Wordmark } from "./Wordmark";
+import { ThemeToggle } from "./ThemeToggle";
 
 /**
  * Sidebar — vertical nav for signed-in users.
@@ -34,6 +35,7 @@ export function Sidebar({
     { href: "/messages", label: "Messages", icon: "✉" },
     { href: "/hypernetwork", label: "Hypernetwork", icon: "◇" },
     { href: "/conferences/new", label: "Sync a conference", icon: "◈" },
+    { href: "/communities/new", label: "Sync a community", icon: "◇" },
     { href: "/onboarding", label: "Edit twin", icon: "◐" },
     { href: "/settings/notifications", label: "Notifications", icon: "◉" },
     { href: "/feedback", label: "Feedback", icon: "✦" }
@@ -59,7 +61,8 @@ export function Sidebar({
         minHeight: 480
       }}
     >
-      {/* Wordmark at the very top — clickable home button */}
+      {/* Wordmark at the very top — clickable home button. md size so it
+          actually reads as a logo rather than a tiny chip. */}
       <Link
         href="/"
         aria-label="SyncedIn — home"
@@ -67,11 +70,28 @@ export function Sidebar({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "2px 6px 8px",
+          padding: "4px 6px 10px",
           textDecoration: "none"
         }}
       >
-        <Wordmark size="sm" href={null} />
+        <Wordmark size="md" href={null} />
+      </Link>
+
+      {/* Primary action — moved out of the top bar so the right column gets
+          to start with page content, not utility chrome. */}
+      <Link
+        href="/conversations/new"
+        className="retro-btn retro-btn-primary"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 6,
+          padding: "9px 12px",
+          fontSize: 14
+        }}
+      >
+        + new conversation
       </Link>
 
       {/* Profile block */}
@@ -233,9 +253,19 @@ export function Sidebar({
         </div>
       )}
 
-      {/* Sign out pinned to bottom */}
-      <div style={{ marginTop: "auto", paddingTop: 10 }}>
-        <form action={signOutAction}>
+      {/* Bottom row: theme toggle + sign out */}
+      <div
+        style={{
+          marginTop: "auto",
+          paddingTop: 10,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          borderTop: "1px solid var(--border)"
+        }}
+      >
+        <form action={signOutAction} style={{ flex: 1 }}>
           <button
             type="submit"
             style={{
@@ -251,7 +281,8 @@ export function Sidebar({
               cursor: "pointer",
               width: "100%",
               textAlign: "left",
-              fontFamily: "inherit"
+              fontFamily: "inherit",
+              marginTop: 6
             }}
           >
             <span
@@ -268,6 +299,9 @@ export function Sidebar({
             <span>Sign out</span>
           </button>
         </form>
+        <div style={{ marginTop: 6 }}>
+          <ThemeToggle />
+        </div>
       </div>
     </aside>
   );
