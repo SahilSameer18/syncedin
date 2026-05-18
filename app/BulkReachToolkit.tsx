@@ -21,6 +21,16 @@ export function BulkReachToolkit({
   const [emails, setEmails] = useState<string[]>([]);
   const [csvError, setCsvError] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
+  const [personalized, setPersonalized] = useState<
+    Array<{
+      contact: { name: string; email?: string };
+      slug: string;
+      url: string;
+      starter: string;
+    }>
+  >([]);
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
 
   useEffect(() => {
     setContactPickerSupported(
@@ -73,6 +83,34 @@ export function BulkReachToolkit({
     };
     reader.readAsText(f);
     e.target.value = "";
+  }
+
+  async function generatePersonalized() {
+    if (emails.length === 0) {
+      setGenError("Import a CSV or pick contacts first.");
+      return;
+    }
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const r = await fetch("/api/bulk-create-invites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          contacts: emails.map((e) => ({ email: e }))
+        })
+      });
+      const j = await r.json();
+      if (j.error) {
+        setGenError(j.detail || j.error);
+        return;
+      }
+      setPersonalized(j.results ?? []);
+    } catch {
+      setGenError("Couldn't reach the server.");
+    } finally {
+      setGenerating(false);
+    }
   }
 
   function gmailUrl(): string {
@@ -318,6 +356,175 @@ export function BulkReachToolkit({
           ✓ copied {copied}
         </div>
       )}
+
+      {/* Personalized invite slugs — one custom landing page per contact */}
+      <div
+        className="mt-4 retro-panel"
+        style={{
+          padding: 16,
+          borderColor: "var(--amber)"
+        }}
+      >
+        <div
+          className="retro-label"
+          style={{ color: "var(--amber-bright)" }}
+        >
+          personalized invites · one custom landing page per contact
+        </div>
+        <p
+          className="text-xs mt-1"
+          style={{ color: "var(--text-dim)" }}
+        >
+          For each imported contact we generate a custom URL like
+          syncedin.org/their-name with a personalized opening message from
+          your twin. Much higher click-through than a generic invite.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2 items-center">
+          <button
+            type="button"
+            onClick={generatePersonalized}
+            disabled={generating || emails.length === 0}
+            className="retro-btn retro-btn-primary text-sm"
+          >
+            {generating
+              ? "generating…"
+              : `+ generate ${emails.length || ""} personalized invites`}
+          </button>
+          {emails.length === 0 && (
+            <span
+              className="text-xs"
+              style={{ color: "var(--text-dim)" }}
+            >
+              import emails above first
+            </span>
+          )}
+        </div>
+        {genError && (
+          <p
+            className="text-xs mt-2"
+            style={{ color: "var(--red)" }}
+          >
+            {genError}
+          </p>
+        )}
+
+        {personalized.length > 0 && (
+          <div className="mt-4">
+            <div
+              className="text-xs mb-2"
+              style={{ color: "var(--text-dim)" }}
+            >
+              {personalized.length} personalized invite{personalized.length === 1 ? "" : "s"} ready. Each row has a "send via" button that opens iMessage/Gmail/Email with the personalized link prefilled.
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const all = personalized
+                  .map(
+                    (p) =>
+                      `${p.contact.name}${p.contact.email ? " <" + p.contact.email + ">" : ""}: ${p.url}`
+                  )
+                  .join("\n");
+                copy(all, "all personalized links");
+              }}
+              className="retro-btn text-sm mb-3"
+            >
+              copy all as list
+            </button>
+            <ul className="space-y-2">
+              {personalized.map((p) => (
+                <li
+                  key={p.slug}
+                  className="retro-panel"
+                  style={{ padding: 10 }}
+                >
+                  <div className="flex flex-wrap items-center gap-2 justify-between">
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div
+                        className="font-semibold text-sm"
+                        style={{ color: "var(--text)" }}
+                      >
+                        {p.contact.name}
+                        {p.contact.email && (
+                          <span
+                            className="text-xs ml-2"
+                            style={{ color: "var(--text-dim)" }}
+                          >
+                            {p.contact.email}
+                          </span>
+                        )}
+                      </div>
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs underline"
+                        style={{
+                          color: "var(--amber-bright)",
+                          wordBreak: "break-all"
+                        }}
+                      >
+                        {p.url}
+                      </a>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => copy(p.url, "link")}
+                        className="retro-btn text-xs"
+                        style={{ padding: "5px 10px" }}
+                      >
+                        copy link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          copy(`${p.starter}\n\n${p.url}`, "message")
+                        }
+                        className="retro-btn text-xs"
+                        style={{ padding: "5px 10px" }}
+                      >
+                        copy msg
+                      </button>
+                      <a
+                        href={`sms:?&body=${encodeURIComponent(
+                          `${p.starter}\n\n${p.url}`
+                        )}`}
+                        className="retro-btn text-xs"
+                        style={{ padding: "5px 10px" }}
+                      >
+                        💬 SMS
+                      </a>
+                      <a
+                        href={`https://wa.me/?text=${encodeURIComponent(
+                          `${p.starter}\n\n${p.url}`
+                        )}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="retro-btn text-xs"
+                        style={{ padding: "5px 10px" }}
+                      >
+                        🟢 WA
+                      </a>
+                      {p.contact.email && (
+                        <a
+                          href={`mailto:${p.contact.email}?subject=${encodeURIComponent(
+                            "An invite from " + appUrl
+                          )}&body=${encodeURIComponent(`${p.starter}\n\n${p.url}`)}`}
+                          className="retro-btn text-xs"
+                          style={{ padding: "5px 10px" }}
+                        >
+                          ✉️ Email
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
 
       {/* QR code (free public API) */}
       {qrOpen && (

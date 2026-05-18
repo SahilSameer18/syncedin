@@ -192,6 +192,9 @@ export default async function DashboardPage() {
           <Link href="/hypernetwork" className="retro-dim hover:text-white">
             hypernetwork
           </Link>
+          <Link href="/feedback" className="retro-dim hover:text-white">
+            feedback
+          </Link>
           <Link href="/messages" className="retro-dim hover:text-white">
             messages
           </Link>
