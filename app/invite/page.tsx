@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
@@ -144,7 +145,20 @@ export default async function InvitePage() {
             the math
           </div>
           <h3 className="retro-h1 text-xl mt-2">
-            Every personalized invite costs you 5 seconds. Every signup compounds the hypernetwork.
+            Every personalized invite costs you 5 seconds. Every signup
+            compounds the{" "}
+            <Link
+              href="/hypernetwork"
+              style={{
+                color: "var(--amber-bright)",
+                textDecoration: "underline",
+                textDecorationThickness: 2,
+                textUnderlineOffset: 3
+              }}
+            >
+              hypernetwork
+            </Link>
+            .
           </h3>
           <p
             className="mt-3 text-sm leading-relaxed"
