@@ -540,3 +540,71 @@ create policy "scoring_calibrations_select_own" on public.scoring_calibrations
 drop policy if exists "scoring_calibrations_insert_own" on public.scoring_calibrations;
 create policy "scoring_calibrations_insert_own" on public.scoring_calibrations
   for insert with check (auth.uid() = user_id);
+
+-- =========================================================================
+-- POLLS — ask a question to every twin on the platform, synthesize the
+-- collective answer. Each user can see how their own twin answered and
+-- override it; overrides feed back into future synthesis runs.
+-- =========================================================================
+
+create table if not exists public.polls (
+  id uuid primary key default uuid_generate_v4(),
+  created_by uuid not null references public.profiles(id) on delete cascade,
+  question text not null,
+  context text,                                  -- optional framing for the LLM
+  status text not null default 'running',        -- 'running' | 'ready' | 'closed'
+  synthesis text,                                -- LLM-generated paragraph summarizing all twins' answers
+  synthesis_one_liner text,                      -- ≤140 char headline summary
+  responses_count integer not null default 0,
+  overrides_count integer not null default 0,
+  created_at timestamptz not null default now(),
+  synthesized_at timestamptz
+);
+
+create index if not exists polls_created_idx
+  on public.polls (created_at desc);
+create index if not exists polls_creator_idx
+  on public.polls (created_by, created_at desc);
+
+alter table public.polls enable row level security;
+
+-- Everyone signed-in can read polls (they're network-wide).
+drop policy if exists "polls_select_all_authed" on public.polls;
+create policy "polls_select_all_authed" on public.polls
+  for select using (auth.role() = 'authenticated');
+
+drop policy if exists "polls_insert_own" on public.polls;
+create policy "polls_insert_own" on public.polls
+  for insert with check (auth.uid() = created_by);
+
+drop policy if exists "polls_update_own" on public.polls;
+create policy "polls_update_own" on public.polls
+  for update using (auth.uid() = created_by);
+
+create table if not exists public.poll_responses (
+  id uuid primary key default uuid_generate_v4(),
+  poll_id uuid not null references public.polls(id) on delete cascade,
+  twin_user_id uuid not null references public.profiles(id) on delete cascade,
+  twin_response text not null,                   -- what the LLM generated as the twin's answer
+  human_override text,                           -- user-provided correction (if any)
+  was_overridden boolean not null default false,
+  generated_at timestamptz not null default now(),
+  overridden_at timestamptz,
+  unique (poll_id, twin_user_id)
+);
+
+create index if not exists poll_responses_poll_idx
+  on public.poll_responses (poll_id);
+create index if not exists poll_responses_user_idx
+  on public.poll_responses (twin_user_id, generated_at desc);
+
+alter table public.poll_responses enable row level security;
+
+drop policy if exists "poll_responses_select_all_authed" on public.poll_responses;
+create policy "poll_responses_select_all_authed" on public.poll_responses
+  for select using (auth.role() = 'authenticated');
+
+-- Only the twin's owner can update their own response (override path).
+drop policy if exists "poll_responses_update_own_twin" on public.poll_responses;
+create policy "poll_responses_update_own_twin" on public.poll_responses
+  for update using (auth.uid() = twin_user_id);

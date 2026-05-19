@@ -36,6 +36,7 @@ export function Sidebar({
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "💬" },
     { href: "/invite", label: "Invite", icon: "💌" },
+    { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/hypernetwork", label: "Hypernetwork", icon: "🌐" },
     { href: "/conferences/new", label: "Sync a conference", icon: "🎤" },
     { href: "/communities/new", label: "Sync a community", icon: "👥" },

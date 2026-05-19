@@ -628,7 +628,18 @@ export function BulkReachToolkit({
                 .join("\n");
               copy(all, "all personalized links");
             }}
-            className="retro-btn text-sm mt-3"
+            className="mt-3"
+            style={{
+              fontSize: 10,
+              padding: "3px 8px",
+              border: "1px solid var(--border)",
+              borderRadius: 6,
+              background: "transparent",
+              color: "var(--text-dim)",
+              cursor: "pointer",
+              letterSpacing: "0.04em"
+            }}
+            title="Copy every personalized link as a plain-text list"
           >
             copy all as list
           </button>
