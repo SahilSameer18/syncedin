@@ -112,25 +112,16 @@ export default async function PollListPage() {
         </div>
       </section>
 
-      {/* RECENT POLLS */}
+      {/* RECENT POLLS — skip this section entirely when the schema isn't
+          provisioned yet; the API error surfaces inline on the create form
+          and a separate "no recent polls" message would just be noise. */}
+      {!schemaMissing && (
       <section className="mt-14 mb-8">
         <div className="retro-label">recent polls</div>
         <h2 className="retro-h1 text-2xl mt-2">
           What the network has been asked.
         </h2>
-        {schemaMissing ? (
-          <p
-            className="mt-4 text-sm"
-            style={{ color: "var(--text-dim)" }}
-          >
-            Poll database not yet provisioned. Apply the latest{" "}
-            <code style={{ color: "var(--amber-bright)" }}>
-              supabase/schema.sql
-            </code>{" "}
-            in the Supabase SQL editor (the polls + poll_responses tables)
-            and refresh.
-          </p>
-        ) : polls.length === 0 ? (
+        {polls.length === 0 ? (
           <p
             className="mt-4 text-sm"
             style={{ color: "var(--text-dim)" }}
@@ -200,6 +191,7 @@ export default async function PollListPage() {
           </ul>
         )}
       </section>
+      )}
     </AppShell>
   );
 }

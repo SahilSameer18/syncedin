@@ -37,12 +37,15 @@ export function Sidebar({
     { href: "/messages", label: "Messages", icon: "💬" },
     { href: "/invite", label: "Invite", icon: "💌" },
     { href: "/poll", label: "Poll", icon: "📊" },
-    { href: "/hypernetwork", label: "Hypernetwork", icon: "🌐" },
     { href: "/conferences/new", label: "Sync a conference", icon: "🎤" },
     { href: "/communities/new", label: "Sync a community", icon: "👥" },
     { href: "/onboarding", label: "Edit twin", icon: "🧬" },
     { href: "/settings/notifications", label: "Notifications", icon: "🔔" },
-    { href: "/feedback", label: "Feedback", icon: "💡" }
+    { href: "/feedback", label: "Feedback", icon: "💡" },
+    // The Hypernetwork sits at the bottom as the destination — every other
+    // action above feeds into it. Renamed from "Hypernetwork" so the label
+    // reads like a place you can visit, not a generic concept.
+    { href: "/hypernetwork", label: "The Hypernetwork", icon: "🌐" }
   ];
 
   const isActive = (href: string) =>
