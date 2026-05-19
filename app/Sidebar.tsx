@@ -63,18 +63,16 @@ export function Sidebar({
         minHeight: 480
       }}
     >
-      {/* Wordmark — sized to actually read at sidebar width. Inline style
-          on the img inside Wordmark caps height at 60px and width at 100%
-          of the sidebar (192px after padding) so it scales DOWN if needed
-          but never renders as a tiny chip. */}
+      {/* Wordmark — fills the sidebar width. Width:100% forces it to spread
+          to the full available column instead of rendering at the PNG's
+          natural pixel size (which was the bug: maxWidth + objectFit was
+          letterboxing it to ~30px tall). */}
       <Link
         href="/"
         aria-label="SyncedIn — home"
         style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "4px 4px 8px",
+          display: "block",
+          padding: "4px 4px 10px",
           textDecoration: "none",
           width: "100%"
         }}
@@ -83,11 +81,9 @@ export function Sidebar({
           src="/syncedin-wordmark.png"
           alt="SyncedIn"
           style={{
-            height: 56,
-            width: "auto",
-            maxWidth: "100%",
-            display: "block",
-            objectFit: "contain"
+            width: "100%",
+            height: "auto",
+            display: "block"
           }}
         />
       </Link>
