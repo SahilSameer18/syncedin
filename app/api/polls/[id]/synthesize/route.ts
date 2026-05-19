@@ -2,6 +2,28 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
 
+const HEADLINE_MAX = 240;
+
+/** Word/sentence-boundary aware truncation. Matches the version in
+ *  /api/polls/create so re-synthesis headlines clamp identically. */
+function clampHeadline(raw: string): string {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  if (s.length <= HEADLINE_MAX) return s;
+  const window = s.slice(0, HEADLINE_MAX);
+  const sentenceEnd = Math.max(
+    window.lastIndexOf("."),
+    window.lastIndexOf("!"),
+    window.lastIndexOf("?")
+  );
+  if (sentenceEnd > HEADLINE_MAX * 0.6) {
+    return window.slice(0, sentenceEnd + 1).trim();
+  }
+  const space = window.lastIndexOf(" ");
+  if (space > 40) return window.slice(0, space).trim() + "…";
+  return window.trim() + "…";
+}
+
 /**
  * Re-synthesize an existing poll's responses — useful after human
  * overrides have come in since the original run. Any signed-in user can
@@ -70,7 +92,7 @@ export async function POST(
 
   const system = `You read N first-person twin responses to a single poll question and produce a synthesis. Output STRICT JSON:
 {
-  "one_liner": "<≤140 chars, the headline finding>",
+  "one_liner": "<ONE complete sentence — the headline finding. Full sentence, no trailing fragments. Aim for 15-30 words.>",
   "paragraph": "<3-5 sentences. Quantify what fraction of respondents leaned which way. Name 1-2 distinctive outlier takes. Land on what the network collectively believes.>"
 }
 
@@ -78,6 +100,7 @@ Rules:
 - Voice is neutral / analytical, NOT promotional.
 - Responses marked (override) are human-corrected ground truth — weight them more heavily than their LLM-generated counterparts.
 - NO em-dashes, NO emojis, NO markdown.
+- one_liner MUST be a complete sentence that stands on its own.
 - Return ONLY the JSON, nothing else.`;
 
   const responseList = rows
@@ -120,7 +143,7 @@ Return the JSON synthesis now.`
           one_liner?: string;
           paragraph?: string;
         };
-        oneLiner = (parsed.one_liner || oneLiner).slice(0, 140);
+        oneLiner = clampHeadline(parsed.one_liner || oneLiner) || oneLiner;
         paragraph = (parsed.paragraph || paragraph).trim();
       } catch {
         /* fall through to defaults */

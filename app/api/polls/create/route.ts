@@ -21,6 +21,36 @@ import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
  */
 
 const MAX_TWINS = 60; // hard cap for a single poll run
+const HEADLINE_MAX = 240; // soft cap for the one-liner synthesis headline
+
+/**
+ * Clamp the synthesis one-liner to a usable length without truncating
+ * mid-word. If the headline is already short enough, returns it unchanged.
+ * Otherwise: cut at the LAST sentence boundary that fits, falling back to
+ * the last whitespace boundary, then append an ellipsis only if we cut
+ * mid-sentence. Prevents the "respondents agree…, individual discipline,
+ * systemic ownership, institutional scale, and hi" mid-word truncation
+ * we shipped on the first poll.
+ */
+function clampHeadline(raw: string): string {
+  const s = (raw || "").trim();
+  if (!s) return "";
+  if (s.length <= HEADLINE_MAX) return s;
+  const window = s.slice(0, HEADLINE_MAX);
+  // Prefer a sentence ending (.!?).
+  const sentenceEnd = Math.max(
+    window.lastIndexOf("."),
+    window.lastIndexOf("!"),
+    window.lastIndexOf("?")
+  );
+  if (sentenceEnd > HEADLINE_MAX * 0.6) {
+    return window.slice(0, sentenceEnd + 1).trim();
+  }
+  // Otherwise cut at last space.
+  const space = window.lastIndexOf(" ");
+  if (space > 40) return window.slice(0, space).trim() + "…";
+  return window.trim() + "…";
+}
 
 type TwinRow = {
   user_id: string;
@@ -86,7 +116,7 @@ async function synthesize(
 ): Promise<{ paragraph: string; oneLiner: string }> {
   const system = `You read N first-person twin responses to a single poll question and produce a synthesis. Output STRICT JSON:
 {
-  "one_liner": "<≤140 chars, the headline finding>",
+  "one_liner": "<ONE complete sentence — the headline finding. Must be a full sentence, no trailing fragments. Aim for 15-30 words.>",
   "paragraph": "<3-5 sentences. Quantify what fraction of respondents leaned which way. Name 1-2 distinctive outlier takes. Land on what the network collectively believes.>"
 }
 
@@ -94,6 +124,7 @@ Rules:
 - Voice is neutral / analytical, NOT promotional.
 - If multiple respondents are marked (override) — meaning the human corrected their twin's answer — weight those more heavily, since they're ground truth from the actual person.
 - NO em-dashes, NO emojis, NO markdown.
+- one_liner MUST be a complete sentence that stands on its own.
 - Return ONLY the JSON, nothing else.`;
 
   const responseList = rows
@@ -127,7 +158,7 @@ Return the JSON synthesis now.`;
   if (start === -1 || end === -1) {
     return {
       paragraph: text.slice(0, 800),
-      oneLiner: text.split(/[.!?]/)[0]?.slice(0, 140) || "Synthesis ready."
+      oneLiner: clampHeadline(text) || "Synthesis ready."
     };
   }
   try {
@@ -137,7 +168,7 @@ Return the JSON synthesis now.`;
     };
     return {
       paragraph: (parsed.paragraph || "").trim(),
-      oneLiner: (parsed.one_liner || "").trim().slice(0, 140)
+      oneLiner: clampHeadline((parsed.one_liner || "").trim())
     };
   } catch {
     return {
