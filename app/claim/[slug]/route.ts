@@ -37,7 +37,7 @@ export async function GET(
   const { data: invite } = await service
     .from("pending_invites")
     .select(
-      "slug, inviter_user_id, conversation_starter, claimed_by_user_id, claimed_conversation_id"
+      "slug, inviter_user_id, person_title, person_highlights, recipient_avatar_url, conversation_starter, claimed_by_user_id, claimed_conversation_id"
     )
     .eq("slug", slug)
     .maybeSingle();
@@ -125,7 +125,65 @@ export async function GET(
     })
     .eq("slug", slug);
 
+  // PRE-FILL the new user's profile from the scraped invite data so they
+  // immediately see "wait, they already know me" on the welcome page. We
+  // only update fields that are currently blank — never overwrite values
+  // the user has set themselves on a re-claim.
+  const { data: existingProfile } = await service
+    .from("profiles")
+    .select("display_name, avatar_url")
+    .eq("id", user.id)
+    .maybeSingle();
+  const profileUpdates: Record<string, any> = {};
+  if (
+    !existingProfile?.display_name &&
+    invite.person_title &&
+    invite.person_title.trim().length > 1
+  ) {
+    profileUpdates.display_name = invite.person_title;
+  }
+  if (
+    !(existingProfile as any)?.avatar_url &&
+    invite.recipient_avatar_url
+  ) {
+    profileUpdates.avatar_url = invite.recipient_avatar_url;
+  }
+  if (Object.keys(profileUpdates).length > 0) {
+    await service
+      .from("profiles")
+      .update(profileUpdates)
+      .eq("id", user.id);
+  }
+
+  // Pre-seed a twin_profile with whatever we scraped — the new user lands
+  // on /welcome already "half-built." They can refine later via /onboarding.
+  const highlights = Array.isArray(invite.person_highlights)
+    ? (invite.person_highlights as string[])
+    : [];
+  const seedBlob = highlights.join("\n\n").slice(0, 4000);
+  if (seedBlob.length > 50) {
+    await service.from("twin_profiles").upsert(
+      {
+        user_id: user.id,
+        ai_export_blob: seedBlob
+      },
+      { onConflict: "user_id", ignoreDuplicates: true }
+    );
+  }
+
+  // VARIANT A (current default): drop the new user STRAIGHT into the
+  // conversation. The inviter's opener is already there waiting. They see
+  // a real, populated thread on first paint — no form, no interrogation.
+  // The conversation UI itself pushes them to edit/reply, which is the
+  // single highest-leverage action they can take.
+  //
+  // Future A/B/C variants we should test (see docs/onboarding-variants.md):
+  //   - VARIANT B: route through /welcome first (built, parked here)
+  //   - VARIANT C: minimal one-question modal ("what do you do?") before
+  //     conversation
+  //   - VARIANT D: progressive — drop into convo, surface a coachmark
+  //     after their first reply offering to refine the twin
   return NextResponse.redirect(
-    `${url.origin}/conversations/${conversationId}`
+    `${url.origin}/conversations/${conversationId}?seeded=1`
   );
 }

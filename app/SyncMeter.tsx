@@ -175,13 +175,21 @@ export function SyncMeter({
   // Outer container preserves aspect ratio at any `size`.
   const aspect = VB_H / VB_W;
 
+  // Outer glow intensity scales aggressively with sync — barely-there at
+  // low %, blazing magenta halo at high %. This is the "power" feel: the
+  // more you've uploaded, the more energy bleeds out of the silhouette.
+  const glowStrength = 6 + (total / 99) * 48;
+  const glowOpacity = 0.22 + (total / 99) * 0.45;
+  const glowColor = `rgba(216, 59, 255, ${glowOpacity})`;
+  const innerGlow = `rgba(120, 60, 255, ${0.18 + (total / 99) * 0.3})`;
+
   return (
     <div
       style={{
         position: "relative",
         width: size,
         height: size * aspect,
-        filter: `drop-shadow(0 0 ${10 + (total / 99) * 26}px rgba(120, 60, 220, 0.32))`
+        filter: `drop-shadow(0 0 ${glowStrength * 0.5}px ${innerGlow}) drop-shadow(0 0 ${glowStrength}px ${glowColor})`
       }}
     >
       <svg
@@ -191,20 +199,38 @@ export function SyncMeter({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
-          {/* SCI-FI UPLOAD gradient — SyncedIn brand blue → violet, not the
-              old rainbow. Reads as a clone being uploaded into the body. */}
+          {/* SCI-FI UPLOAD gradient v2 — "power core."
+              Reads as: dormant indigo at the feet → electric blue charging
+              up through the legs → deep violet at the torso → hot magenta
+              cresting at the surface → near-white overdrive past the line.
+              The further you've uploaded, the further up this ramp the fill
+              has climbed. Powerful, not pretty. */}
           <linearGradient
             id="syncUpload"
             x1="0"
             y1={FILL_BOTTOM}
             x2="0"
-            y2={FILL_TOP - 40}
+            y2={FILL_TOP - 30}
             gradientUnits="userSpaceOnUse"
           >
-            <stop offset="0%" stopColor="#1f3bce" />
-            <stop offset="40%" stopColor="#3a4dff" />
-            <stop offset="75%" stopColor="#6b2dc9" />
-            <stop offset="100%" stopColor="#a060ff" />
+            <stop offset="0%" stopColor="#05021f" />
+            <stop offset="22%" stopColor="#1e3aff" />
+            <stop offset="50%" stopColor="#6b2dc9" />
+            <stop offset="78%" stopColor="#d83bff" />
+            <stop offset="100%" stopColor="#ff5cf0" />
+          </linearGradient>
+          {/* Hot surface halo — used behind the white surface bar so the
+              fill line reads as molten / overclocked rather than flat. */}
+          <linearGradient
+            id="syncSurfaceHalo"
+            x1="0"
+            y1="0"
+            x2="0"
+            y2="1"
+          >
+            <stop offset="0%" stopColor="#ff5cf0" stopOpacity="0" />
+            <stop offset="50%" stopColor="#ff5cf0" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#ff5cf0" stopOpacity="0" />
           </linearGradient>
           <clipPath id="syncBodyClip" clipPathUnits="userSpaceOnUse">
             <path d={bodyPath} />
@@ -224,18 +250,42 @@ export function SyncMeter({
             height={VB_H - fillY}
             fill="url(#syncUpload)"
           />
-          {/* Surface line — breathes slightly to feel alive */}
+          {/* Hot magenta halo — sits behind the surface bar so the white
+              core reads as molten metal at the upload front, not a thin
+              line. The halo height pulses gently. */}
           <rect
             x="0"
-            y={fillY - 2}
+            y={fillY - 18}
             width={VB_W}
-            height={4}
+            height={36}
+            fill="url(#syncSurfaceHalo)"
+          >
+            <animate
+              attributeName="height"
+              values="28;42;28"
+              dur="1.8s"
+              repeatCount="indefinite"
+            />
+            <animate
+              attributeName="y"
+              values={`${fillY - 14};${fillY - 21};${fillY - 14}`}
+              dur="1.8s"
+              repeatCount="indefinite"
+            />
+          </rect>
+          {/* White-hot surface core — thicker than v1 so it reads as power,
+              not just a progress tick. Breathes brightness. */}
+          <rect
+            x="0"
+            y={fillY - 3}
+            width={VB_W}
+            height={6}
             fill="#ffffff"
-            opacity={0.78}
+            opacity={0.92}
           >
             <animate
               attributeName="opacity"
-              values="0.6;0.95;0.6"
+              values="0.75;1;0.75"
               dur="1.6s"
               repeatCount="indefinite"
             />

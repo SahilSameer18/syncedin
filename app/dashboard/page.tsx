@@ -22,17 +22,20 @@ export default async function DashboardPage() {
 
   const service = createServiceClient();
 
-  // ── Invite gate ─────────────────────────────────────────────────────
-  // New users must draft at least 2 personalized invites before getting
-  // full dashboard access. The hypernetwork only works when the people
-  // each member actually wants to coordinate with come in too.
+  // ── Invite gate DISABLED ────────────────────────────────────────────
+  // Real-user feedback: the hard 2-invite requirement felt like an
+  // interrogation. The user added 2 emails + sent via a broadcast
+  // channel, the gate (which only counts generated personalized invites)
+  // still blocked them — same screen, same message, no path forward.
+  //
+  // Invites should be encouragement, not a dashboard-blocking gate.
+  // Keeping the count fetch in case a softer prompt wants to surface
+  // ("you've sent N invites — try the personalized flow next") later.
   const { count: myInviteCount } = await service
     .from("pending_invites")
     .select("slug", { count: "exact", head: true })
     .eq("inviter_user_id", user.id);
-  if ((myInviteCount ?? 0) < 2) {
-    redirect("/onboarding/invite-gate");
-  }
+  void myInviteCount;
 
   // Parallelize the independent first wave: my twin, my profile, my
   // conversations, sample personas, all real users for discovery.
