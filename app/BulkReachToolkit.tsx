@@ -423,9 +423,13 @@ export function BulkReachToolkit({
           className="text-xs mt-1"
           style={{ color: "var(--text-dim)" }}
         >
-          Drop a LinkedIn / X / Instagram / Facebook URL and we&apos;ll
-          scrape the rest — no name needed. For an email or phone, add the
-          name so we can look the person up.
+          Drop a{" "}
+          <PlatformChip name="LinkedIn" domain="linkedin.com" /> ·{" "}
+          <PlatformChip name="X" domain="x.com" /> ·{" "}
+          <PlatformChip name="Instagram" domain="instagram.com" /> ·{" "}
+          <PlatformChip name="Facebook" domain="facebook.com" /> URL and
+          we&apos;ll scrape the rest — no name needed. For an email or
+          phone, add the name so we can look the person up.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -970,5 +974,48 @@ export function BulkReachToolkit({
         </button>
       </details>
     </div>
+  );
+}
+
+/**
+ * PlatformChip — inline favicon + name pill used in the "Drop a..." intro
+ * copy. Uses Google's favicon CDN so we don't have to host four logo files,
+ * and the chip scales perfectly with whatever font-size it inherits.
+ */
+function PlatformChip({
+  name,
+  domain
+}: {
+  name: string;
+  domain: string;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+        padding: "1px 6px 1px 3px",
+        background: "var(--panel-2)",
+        border: "1px solid var(--border)",
+        borderRadius: 6,
+        verticalAlign: "baseline",
+        lineHeight: 1.3
+      }}
+    >
+      <img
+        src={`https://www.google.com/s2/favicons?domain=${domain}&sz=32`}
+        alt=""
+        width={12}
+        height={12}
+        style={{
+          borderRadius: 2,
+          display: "inline-block",
+          flexShrink: 0
+        }}
+        loading="lazy"
+      />
+      <span style={{ fontWeight: 700, color: "var(--text)" }}>{name}</span>
+    </span>
   );
 }
