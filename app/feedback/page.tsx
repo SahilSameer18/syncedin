@@ -1,7 +1,6 @@
-import Link from "next/link";
-import { Wordmark } from "../Wordmark";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { FeedbackList } from "./FeedbackList";
+import { AppShell } from "../AppShell";
 
 export const metadata = {
   title: "Feedback & Requests · SyncedIn",
@@ -71,20 +70,8 @@ export default async function FeedbackPage() {
     .sort((a, b) => b.score - a.score || b.created_at.localeCompare(a.created_at));
 
   return (
-    <main className="max-w-3xl mx-auto px-5 pt-4 pb-8">
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <div className="flex items-center gap-4 text-sm">
-          <Link href="/hypernetwork" className="retro-dim hover:text-white">
-            hypernetwork
-          </Link>
-          <Link href="/dashboard" className="retro-dim hover:text-white">
-            dashboard
-          </Link>
-        </div>
-      </div>
-
-      <section className="mt-3">
+    <AppShell>
+      <section className="mt-4">
         <div className="retro-label">feedback &amp; requests</div>
         <h1 className="retro-h1 text-4xl mt-3 leading-tight">
           What should SyncedIn build next?
@@ -106,6 +93,6 @@ export default async function FeedbackPage() {
         userId={user?.id ?? null}
         posts={ranked}
       />
-    </main>
+    </AppShell>
   );
 }

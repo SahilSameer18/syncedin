@@ -144,7 +144,7 @@ export default async function NewConferencePage() {
           </button>
         </form>
       </section>
-    </main>
+    </AppShell>
   );
 }
 
