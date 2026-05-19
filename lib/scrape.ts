@@ -20,6 +20,12 @@
 import { exaGetContents } from "@/lib/exa";
 
 const APIFY_TOKEN = process.env.APIFY_TOKEN;
+// ScrapingDog: a fully separate provider with dedicated IG + X profile
+// endpoints. Used as a second vendor (real cross-provider redundancy, not
+// just a different Apify actor). Sign up at scrapingdog.com → copy API key
+// → set SCRAPINGDOG_API_KEY in Vercel env. If the key is unset, this whole
+// branch is skipped silently and we fall back to Apify alone.
+const SCRAPINGDOG_API_KEY = process.env.SCRAPINGDOG_API_KEY;
 
 function isXUrl(url: string): boolean {
   return /(?:^|\/\/)(?:www\.)?(?:twitter|x)\.com\//i.test(url);
@@ -36,6 +42,141 @@ function handleFromUrl(url: string): string | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * ScrapingDog Instagram profile endpoint — independent vendor (not Apify).
+ * Docs: https://docs.scrapingdog.com/instagram-scraper/instagram-profile
+ *
+ * Returns the profile + recent posts as one JSON blob. We flatten the
+ * useful bits (bio, follower count, external_url, post captions, profile
+ * image URL) into a single text payload for the LLM.
+ */
+async function scrapingDogInstagram(handle: string): Promise<string> {
+  if (!SCRAPINGDOG_API_KEY) throw new Error("SCRAPINGDOG_API_KEY missing");
+  const url = `https://api.scrapingdog.com/instagram/profile?api_key=${encodeURIComponent(
+    SCRAPINGDOG_API_KEY
+  )}&username=${encodeURIComponent(handle)}`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) {
+    throw new Error(
+      `ScrapingDog IG ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`
+    );
+  }
+  const j = (await res.json()) as Record<string, unknown>;
+  // ScrapingDog wraps the actual profile under various keys depending on
+  // API version — try them all defensively.
+  const p =
+    (j.profile as Record<string, unknown>) ||
+    (j.data as Record<string, unknown>) ||
+    (j.user as Record<string, unknown>) ||
+    j;
+  const fullName =
+    (p.full_name as string) || (p.fullName as string) || handle;
+  const biography = (p.biography as string) || (p.bio as string) || "";
+  const followers =
+    (p.followers as number) ||
+    (p.followers_count as number) ||
+    (p.followersCount as number) ||
+    0;
+  const externalUrl =
+    (p.external_url as string) ||
+    (p.externalUrl as string) ||
+    (p.website as string) ||
+    "";
+  const bioLinks = Array.isArray(p.bio_links)
+    ? (p.bio_links as any[])
+        .map((b) => (typeof b === "string" ? b : b?.url))
+        .filter(Boolean)
+    : [];
+  const profilePic =
+    (p.profile_pic_url_hd as string) ||
+    (p.profile_pic_url as string) ||
+    (p.profilePicUrl as string) ||
+    "";
+  const posts =
+    (p.posts as any[]) ||
+    (p.recent_posts as any[]) ||
+    (p.latestPosts as any[]) ||
+    [];
+  const captions = posts
+    .slice(0, 8)
+    .map((post) =>
+      typeof post?.caption === "string"
+        ? post.caption
+        : typeof post?.text === "string"
+        ? post.text
+        : ""
+    )
+    .filter(Boolean);
+
+  if (!biography && captions.length === 0 && !fullName) {
+    throw new Error("ScrapingDog IG returned empty payload");
+  }
+  return flatten(
+    {
+      handle: `@${handle}`,
+      fullName,
+      biography,
+      followers,
+      external_url: externalUrl,
+      bio_links: bioLinks,
+      profile_image: profilePic,
+      latestPosts: captions
+    },
+    0
+  );
+}
+
+/**
+ * ScrapingDog X / Twitter profile endpoint.
+ */
+async function scrapingDogX(handle: string): Promise<string> {
+  if (!SCRAPINGDOG_API_KEY) throw new Error("SCRAPINGDOG_API_KEY missing");
+  const url = `https://api.scrapingdog.com/twitter/profile?api_key=${encodeURIComponent(
+    SCRAPINGDOG_API_KEY
+  )}&handle=${encodeURIComponent(handle)}`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) {
+    throw new Error(
+      `ScrapingDog X ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`
+    );
+  }
+  const j = (await res.json()) as Record<string, unknown>;
+  const p =
+    (j.profile as Record<string, unknown>) ||
+    (j.user as Record<string, unknown>) ||
+    (j.data as Record<string, unknown>) ||
+    j;
+  const name = (p.name as string) || (p.fullName as string) || handle;
+  const bio = (p.description as string) || (p.bio as string) || "";
+  const followers =
+    (p.followers_count as number) ||
+    (p.followers as number) ||
+    0;
+  const tweets =
+    (j.tweets as any[]) ||
+    (p.tweets as any[]) ||
+    (p.recent_tweets as any[]) ||
+    [];
+  const tweetTexts = tweets
+    .slice(0, 20)
+    .map((t) => (t?.text as string) || (t?.full_text as string) || "")
+    .filter(Boolean);
+
+  if (!bio && tweetTexts.length === 0 && !name) {
+    throw new Error("ScrapingDog X returned empty payload");
+  }
+  return flatten(
+    {
+      handle: `@${handle}`,
+      name,
+      bio,
+      followers,
+      recent_tweets: tweetTexts
+    },
+    0
+  );
 }
 
 async function apifyRun(
@@ -82,17 +223,64 @@ function flatten(value: unknown, depth = 0): string {
   return "";
 }
 
+/**
+ * Multi-actor X scraper with redundancy. Tries apidojo/tweet-scraper first
+ * (most popular, but its output shape drifts between revisions), then
+ * apify/twitter-scraper-lite, then quacker/twitter-scraper. Whichever
+ * returns usable tweets wins. If all three return empty/garbage, throws.
+ */
 async function scrapeXProfile(url: string): Promise<string> {
   const handle = handleFromUrl(url);
   if (!handle) throw new Error("Could not parse X handle from URL");
-  // apidojo/tweet-scraper is the most-used X scraper actor; takes a profile URL.
-  const items = await apifyRun("apidojo/tweet-scraper", {
-    twitterHandles: [handle],
-    maxItems: 25,
-    sort: "Latest"
-  });
+
+  const actors: Array<{
+    slug: string;
+    input: Record<string, unknown>;
+  }> = [
+    {
+      slug: "apidojo/tweet-scraper",
+      input: { twitterHandles: [handle], maxItems: 25, sort: "Latest" }
+    },
+    {
+      slug: "apify/twitter-scraper-lite",
+      input: {
+        searchTerms: [`from:${handle}`],
+        maxItems: 25,
+        sortBy: "Latest"
+      }
+    },
+    {
+      slug: "quacker/twitter-scraper",
+      input: {
+        handles: [handle],
+        tweetsDesired: 25,
+        addUserInfo: true
+      }
+    }
+  ];
+
+  let items: unknown[] = [];
+  let triedActors: string[] = [];
+  for (const a of actors) {
+    triedActors.push(a.slug);
+    try {
+      const got = await apifyRun(a.slug, a.input, 50);
+      if (got.length > 0) {
+        items = got;
+        console.log(
+          `[scrape:x] actor ${a.slug} returned ${got.length} items for @${handle}`
+        );
+        break;
+      }
+      console.warn(`[scrape:x] actor ${a.slug} returned 0 items for @${handle}`);
+    } catch (e) {
+      console.warn(`[scrape:x] actor ${a.slug} threw:`, e);
+    }
+  }
   if (items.length === 0) {
-    throw new Error("Apify returned no items for X profile");
+    throw new Error(
+      `All X actors returned empty for @${handle}. Tried: ${triedActors.join(", ")}.`
+    );
   }
   // Field shapes drift between actor revisions: tweets may live under
   // text / fullText / full_text / tweet, author/user under author / user /
@@ -151,24 +339,61 @@ async function scrapeXProfile(url: string): Promise<string> {
   return lines.join("\n\n");
 }
 
+/**
+ * Multi-actor Instagram scraper with redundancy. Tries apify/instagram-scraper
+ * first (free tier, directUrls input), falls back to apify/instagram-api-scraper
+ * (faster, returns profile JSON), then dtrungtin/instagram-profile-scraper
+ * (community alternative). Whichever returns usable profile data wins.
+ */
 async function scrapeInstagramProfile(url: string): Promise<string> {
   const handle = handleFromUrl(url);
   if (!handle) throw new Error("Could not parse Instagram handle from URL");
-  // apify/instagram-scraper is on the FREE tier and accepts a directUrls
-  // input. It returns a flat array where each row is either a profile-shaped
-  // doc or a post-shaped doc depending on resultsType. We ask for "details"
-  // and resultsLimit=5 to get the profile + up to 5 recent posts in one shot.
-  //
-  // (We tried apify/instagram-profile-scraper first — it's gated behind the
-  // Creators-tier paid plan and silently returns no items on free tokens.)
-  const items = await apifyRun("apify/instagram-scraper", {
-    directUrls: [url],
-    resultsType: "details",
-    resultsLimit: 5,
-    addParentData: false
-  });
+
+  const actors: Array<{
+    slug: string;
+    input: Record<string, unknown>;
+  }> = [
+    {
+      slug: "apify/instagram-scraper",
+      input: {
+        directUrls: [url],
+        resultsType: "details",
+        resultsLimit: 5,
+        addParentData: false
+      }
+    },
+    {
+      slug: "apify/instagram-api-scraper",
+      input: { usernames: [handle] }
+    },
+    {
+      slug: "dtrungtin/instagram-profile-scraper",
+      input: { usernames: [handle] }
+    }
+  ];
+
+  let items: unknown[] = [];
+  let triedActors: string[] = [];
+  for (const a of actors) {
+    triedActors.push(a.slug);
+    try {
+      const got = await apifyRun(a.slug, a.input, 60);
+      if (got.length > 0) {
+        items = got;
+        console.log(
+          `[scrape:ig] actor ${a.slug} returned ${got.length} items for @${handle}`
+        );
+        break;
+      }
+      console.warn(`[scrape:ig] actor ${a.slug} returned 0 items for @${handle}`);
+    } catch (e) {
+      console.warn(`[scrape:ig] actor ${a.slug} threw:`, e);
+    }
+  }
   if (items.length === 0) {
-    throw new Error("Apify returned no items for Instagram profile");
+    throw new Error(
+      `All Instagram actors returned empty for @${handle}. Tried: ${triedActors.join(", ")}.`
+    );
   }
 
   // Heuristically locate the profile row (has biography or fullName) and
@@ -196,12 +421,36 @@ async function scrapeInstagramProfile(url: string): Promise<string> {
     .filter(Boolean)
     .slice(0, 8);
 
+  // Enrich extraction: pull profile image, bio links, and external URL.
+  // For an IG profile the image + bio + first few captions + any links in
+  // the bio give the LLM enough specific signal to write a real opener.
+  const profilePic =
+    (profile.profile_pic_url_hd as string) ||
+    (profile.profilePicUrl as string) ||
+    (profile.profile_pic_url as string) ||
+    "";
+  const bioLinks = Array.isArray((profile as any).biographyExternalUrls)
+    ? ((profile as any).biographyExternalUrls as any[])
+        .map((b) =>
+          typeof b === "string" ? b : b?.url || b?.external_url || ""
+        )
+        .filter(Boolean)
+    : Array.isArray((profile as any).bio_links)
+    ? ((profile as any).bio_links as any[])
+        .map((b) =>
+          typeof b === "string" ? b : b?.url || b?.external_url || ""
+        )
+        .filter(Boolean)
+    : [];
+
   return flatten(
     {
       handle: `@${handle}`,
       fullName: profile.fullName,
       biography: profile.biography,
       external_url: profile.externalUrl ?? (profile as any).external_url,
+      bio_links: bioLinks,
+      profile_image: profilePic,
       followers: profile.followersCount,
       posts: profile.postsCount,
       latestPosts: captions
@@ -211,12 +460,79 @@ async function scrapeInstagramProfile(url: string): Promise<string> {
 }
 
 /**
- * Try Exa first. If it returns empty (very common for X / Instagram), and
- * the URL is from a platform Apify can reach, fall back to Apify. If
- * everything fails, throw — caller surfaces a "paste it manually" hint.
+ * scrapePublicProfile — the chain.
+ *
+ * CRITICAL FIX (May 2026): for X / Instagram / Facebook URLs we now SKIP
+ * Exa entirely and go straight to Apify. The previous chain called Exa
+ * first, and Exa just returned the page <title> for those auth-walled
+ * platforms (e.g. "Jack Jay (@jackjay.io) · Instagram photos and videos",
+ * ~100 chars) which passed our `length > 80` gate, so Apify never ran
+ * and the LLM got only the title to work with — producing the substance-
+ * less openers Jack reported.
+ *
+ * The new order:
+ *   - Social URL → Apify multi-actor chain only. If all actors fail,
+ *     throw (don't silently return the Exa title).
+ *   - Non-social URL (LinkedIn public posts, blogs, Substack, Crunchbase) →
+ *     Exa first (it works there), Apify fallback isn't applicable.
  */
 export async function scrapePublicProfile(url: string): Promise<string> {
-  // 1. Exa
+  // SOCIAL URLs — auth-walled, Exa can't reach past the page title.
+  //
+  // True cross-provider redundancy: try Apify first (we have a token,
+  // multiple actors), then ScrapingDog (different vendor entirely with
+  // dedicated IG + X endpoints). Whichever returns substance wins. Each
+  // vendor is independently configurable via env var — if a key is
+  // missing, that vendor is silently skipped.
+  if (isXUrl(url)) {
+    const handle = handleFromUrl(url) || "";
+    const errors: string[] = [];
+    if (APIFY_TOKEN) {
+      try {
+        return await scrapeXProfile(url);
+      } catch (e: any) {
+        errors.push(`apify: ${e?.message ?? e}`);
+      }
+    }
+    if (SCRAPINGDOG_API_KEY && handle) {
+      try {
+        return await scrapingDogX(handle);
+      } catch (e: any) {
+        errors.push(`scrapingdog: ${e?.message ?? e}`);
+      }
+    }
+    throw new Error(
+      `Couldn't scrape @${handle} on X from any vendor. ${errors.join(" | ")}`
+    );
+  }
+  if (isInstagramUrl(url)) {
+    const handle = handleFromUrl(url) || "";
+    const errors: string[] = [];
+    if (APIFY_TOKEN) {
+      try {
+        return await scrapeInstagramProfile(url);
+      } catch (e: any) {
+        errors.push(`apify: ${e?.message ?? e}`);
+      }
+    }
+    if (SCRAPINGDOG_API_KEY && handle) {
+      try {
+        return await scrapingDogInstagram(handle);
+      } catch (e: any) {
+        errors.push(`scrapingdog: ${e?.message ?? e}`);
+      }
+    }
+    if (!APIFY_TOKEN && !SCRAPINGDOG_API_KEY) {
+      throw new Error(
+        "Instagram profiles can't be scraped without APIFY_TOKEN or SCRAPINGDOG_API_KEY — set one in env or paste a few sentences manually."
+      );
+    }
+    throw new Error(
+      `Couldn't scrape @${handle} on Instagram from any vendor. ${errors.join(" | ")}`
+    );
+  }
+
+  // NON-SOCIAL URLs — Exa handles these well (LinkedIn, blogs, etc.).
   let exaText = "";
   try {
     exaText = await exaGetContents(url);
@@ -226,28 +542,11 @@ export async function scrapePublicProfile(url: string): Promise<string> {
   if (exaText && exaText.trim().length > 80) {
     return exaText;
   }
-
-  // 2. Apify per-platform fallbacks
-  if (isXUrl(url) && APIFY_TOKEN) {
-    try {
-      return await scrapeXProfile(url);
-    } catch (e) {
-      console.warn("[scrape] X via Apify failed", e);
-    }
-  }
-  if (isInstagramUrl(url) && APIFY_TOKEN) {
-    try {
-      return await scrapeInstagramProfile(url);
-    } catch (e) {
-      console.warn("[scrape] Instagram via Apify failed", e);
-    }
+  if (exaText && exaText.trim().length > 0) {
+    return exaText;
   }
 
-  // 3. Surface whatever Exa returned (even if short) — better than nothing.
-  if (exaText && exaText.trim().length > 0) return exaText;
-
-  const tip = APIFY_TOKEN
-    ? "Couldn't reach that profile from any scraper. Paste a few sentences manually instead."
-    : "X and Instagram block automated fetches. Add APIFY_TOKEN to enable the fallback scraper, or paste a few sentences manually.";
-  throw new Error(tip);
+  throw new Error(
+    "Couldn't fetch that URL. Paste a few sentences manually instead."
+  );
 }

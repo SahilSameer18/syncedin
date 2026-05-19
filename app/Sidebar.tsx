@@ -61,10 +61,10 @@ export function Sidebar({
         background: "var(--panel-solid)",
         border: "1px solid var(--border)",
         borderRadius: 14,
-        padding: "10px 14px 14px",
+        padding: "4px 14px 14px",
         display: "flex",
         flexDirection: "column",
-        gap: 6,
+        gap: 4,
         minHeight: 480
       }}
     >
@@ -77,7 +77,8 @@ export function Sidebar({
         aria-label="SyncedIn — home"
         style={{
           display: "block",
-          padding: "0 2px 2px",
+          padding: 0,
+          margin: 0,
           textDecoration: "none",
           width: "100%"
         }}

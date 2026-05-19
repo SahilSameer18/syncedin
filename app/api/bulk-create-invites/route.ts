@@ -100,7 +100,44 @@ export async function POST(req: Request) {
 
   // For any contact with a profile_url, scrape it (parallel). The scrape
   // becomes part of the personalization context fed to Claude when writing
-  // the opener for THAT specific person.
+  // the opener for THAT specific person — AND we now extract the real full
+  // name from the scrape and rewrite the contact's name in place, so the
+  // landing page says "Ryaan Aqid" instead of "Ryaanaqid" (the URL slug).
+  //
+  // Real-name extractor: the scraped payload looks like
+  //   "handle: @ryaanaqid\nfullName: Ryaan Aqid\nbiography: ..."
+  // (Apify-flattened format) or the LinkedIn page-content text usually
+  // starts with the person's full name as the H1. We try several signals.
+  function extractRealName(scrapeText: string): string | null {
+    if (!scrapeText) return null;
+    // Apify-flattened key:value lines.
+    // Look for the most authoritative key first: full_name / fullName.
+    // Use ASCII-only name regex (no \p{L}) since our TS target predates the
+    // unicode regex flag. Common accented Latin chars (à é ñ ü) are covered
+    // explicitly to handle real-world names.
+    const NAME_CHAR = "[A-Za-zÀ-ÖØ-öø-ÿ'.-]";
+    const NAME_WORD = `[A-ZÀ-Ö]${NAME_CHAR}+`;
+    const fullNameRe = new RegExp(
+      `^${NAME_WORD}(?:\\s+${NAME_CHAR}+){1,3}\\s*$`
+    );
+    const labelled = scrapeText.match(
+      /(?:^|\n)\s*(?:full[_\s]?name|fullName|name)\s*:\s*(.+)/i
+    );
+    if (labelled && labelled[1]) {
+      const candidate = labelled[1].split(/\n/)[0].trim().slice(0, 80);
+      if (candidate && fullNameRe.test(candidate)) {
+        return candidate;
+      }
+    }
+    // ScrapingDog X / IG payloads tend to surface a "name:" line too.
+    const xNameRe = new RegExp(
+      `(?:^|\\n)\\s*name\\s*:\\s*(${NAME_WORD}(?:\\s+${NAME_CHAR}+){1,3})`
+    );
+    const xName = scrapeText.match(xNameRe);
+    if (xName && xName[1]) return xName[1].trim();
+    return null;
+  }
+
   const scrapes: Record<string, string> = {};
   await Promise.all(
     contacts.map(async (c) => {
@@ -113,6 +150,18 @@ export async function POST(req: Request) {
         // feeding to Claude.
         if (text && text.trim().length > 15) {
           scrapes[c.name] = text.slice(0, 2000);
+          // Promote the scraped real name to the canonical name so the slug,
+          // OG title, and opener all use it. Move the scrape entry under the
+          // new key too.
+          const real = extractRealName(text);
+          if (real && real.toLowerCase() !== c.name.toLowerCase()) {
+            scrapes[real] = scrapes[c.name];
+            delete scrapes[c.name];
+            console.log(
+              `[bulk-invite] promoted name "${c.name}" → "${real}" from scrape`
+            );
+            c.name = real;
+          }
           console.log(
             `[bulk-invite] scrape ok for ${c.name}: ${text.length} chars`
           );
@@ -154,37 +203,66 @@ export async function POST(req: Request) {
   // map of {name → 3-sentence opener}.
   let starters: Record<string, string> = {};
   try {
-    const system = `You write a short opening message from ${selfName}'s digital twin to multiple recipients. Return ONLY valid JSON of the shape:
+    // PROMPT v2 — RECIPIENT-FIRST.
+    //
+    // The previous version produced openers like "Hey X, this is ${selfName}'s
+    // twin kicking off — ${selfName} would be thrilled if his twin could
+    // carry it forward — ${selfName} is looking for…" which is 100% about
+    // the sender. Jack flagged this: the recipient should always come
+    // first. Real cold-outreach that converts opens with something
+    // specific about THEM, then segues to the bridge / proposed value.
+    //
+    // New structure (hard-enforced via the system prompt):
+    //   Sentence 1: about the RECIPIENT — reference a real detail from
+    //     their scraped profile, or if no scrape, acknowledge their work
+    //     by name in a way that doesn't pretend.
+    //   Sentence 2: the bridge — what overlap / win-win exists between
+    //     them and ${selfName}.
+    //   Sentence 3: a real question that invites their reply.
+    const system = `You write SHORT cold-outreach openers from ${selfName}'s digital twin to multiple named recipients. The non-negotiable rule: every opener must LEAD with something specific about the recipient, NOT about ${selfName}.
+
+Return ONLY valid JSON of the shape:
 {
   "<recipient name 1>": "<opener>",
   "<recipient name 2>": "<opener>",
   ...
 }
 
-Each opener:
-- 2 or 3 sentences, first person, plain prose
-- Greets the named recipient by their first name
-- References that ${selfName}'s twin started this conversation and would love their twin to pick it up
-- Ends with a real question that invites a reply
-- NO em-dashes or en-dashes
-- NO markdown, no headers, no bullets`;
-    const userContent = `${selfName}'s goals: ${t?.goals || "(not specified)"}
+Each opener follows EXACTLY this three-beat structure:
 
-Recipients (write one opener per recipient, keyed by the exact name).
-Where a "Profile" block is provided, reference at least one specific detail
-from it so the opener reads like ${selfName}'s twin actually looked at the
-recipient's profile before writing.
+BEAT 1 — about the RECIPIENT (always first). Reference a concrete detail from their Profile block (a project, post, line in their bio, where they work, something they shipped). If the Profile block is empty, acknowledge them by name and reference whatever signal IS present (the platform — LinkedIn / X / Instagram — or note). Never lead with "${selfName}'s twin reached out" or any variant.
+
+BEAT 2 — the bridge (one sentence). Why their work + ${selfName}'s goals are a real win-win. Connect specific to specific.
+
+BEAT 3 — the question (one sentence). A genuine ask that invites their reply.
+
+Hard constraints:
+- 3 sentences total. First person from ${selfName}'s twin.
+- First sentence MUST be about the recipient. If it mentions ${selfName} before the recipient, the output is wrong.
+- It's fine to mention that "my twin is reaching out" once, near the end of beat 2 — but never as the lead.
+- NO em-dashes, NO en-dashes, NO markdown, NO bullets, NO emojis.
+- If the recipient's name appears to be a URL slug (lowercase, jammed-together, e.g. "chulucas"), use just their first name in a natural casing. If unsure, skip the name and address them directly ("Saw your work on...").`;
+    const userContent = `${selfName}'s goals: ${t?.goals || "(not specified)"}
+${selfName}'s deal preferences: ${t?.deal_preferences || "(not specified)"}
+
+Recipients (write one opener per recipient, keyed by the exact name shown).
+Each Profile block contains what was scraped from their public footprint.
+USE IT — reference at least one specific detail per opener. If a Profile
+block is absent or thin, the opener should still acknowledge the recipient
+in beat 1 (their name, the platform they came from, or whatever you can
+infer), and only THEN mention ${selfName}.
 
 ${contacts
   .map((c) => {
     const parts: string[] = [`- ${c.name}`];
+    if (c.profile_url) parts.push(`  source: ${c.profile_url}`);
     if (c.note) parts.push(`  note: ${c.note}`);
-    if (scrapes[c.name]) parts.push(`  Profile: ${scrapes[c.name]}`);
+    if (scrapes[c.name]) parts.push(`  Profile:\n${scrapes[c.name]}`);
     return parts.join("\n");
   })
   .join("\n\n")}
 
-Return the JSON object now.`;
+Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     const r = await anthropic.messages.create({
       model: TWIN_MODEL,
       max_tokens: Math.min(3000, 200 + contacts.length * 120),
@@ -228,9 +306,14 @@ Return the JSON object now.`;
       if (!existing) break;
       slug = `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`;
     }
+    // Fallback opener (used only when Claude generation failed for this
+    // specific recipient). Still tries to honor recipient-first by
+    // leading with their name + a soft acknowledgment of THEIR side
+    // before mentioning ${selfName}.
+    const firstName = c.name.split(" ")[0];
     const starter =
       starters[c.name] ||
-      `Hey ${c.name.split(" ")[0]}, ${selfName}'s twin would love to talk to yours. There's likely a real win-win between us. Sign up at the link and your clone can pick this up.`;
+      `${firstName}, I saw your profile and wanted to reach out before sending a generic invite. I'm ${selfName}'s twin — there's probably a real overlap between what you're working on and what we're focused on. What would be useful for you to hear about first?`;
     // Stash the scraped profile as a highlight so the public landing page
     // can render a "we know who you are" preview.
     const highlights: string[] = [];
@@ -238,13 +321,26 @@ Return the JSON object now.`;
     if (scrapes[c.name]) {
       highlights.push(scrapes[c.name].slice(0, 600));
     }
+    // Pull the recipient's profile photo URL out of the scraped payload so
+    // the OG card can embed it. The flattened scrape format is plain text
+    // with lines like "profile_image: https://..." (Apify IG path) or
+    // "profile_pic_url_hd: https://..." (ScrapingDog path).
+    let avatar_url: string | null = null;
+    const scrape = scrapes[c.name] || "";
+    if (scrape) {
+      const m = scrape.match(
+        /(?:^|\n)\s*(?:profile_image|profile_pic_url_hd|profile_pic_url|profilePicUrl)\s*:\s*(https?:\/\/\S+)/i
+      );
+      if (m && m[1]) avatar_url = m[1].trim();
+    }
     await service.from("pending_invites").insert({
       slug,
       inviter_user_id: user.id,
       person_title: c.name,
       person_url: c.profile_url ?? null,
       person_highlights: highlights,
-      conversation_starter: starter
+      conversation_starter: starter,
+      recipient_avatar_url: avatar_url
     });
     results.push({
       contact: c,

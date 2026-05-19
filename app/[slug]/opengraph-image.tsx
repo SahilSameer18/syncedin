@@ -34,25 +34,30 @@ export default async function InviteOgImage({
   // If reserved or no record, fall back to the site-wide image-y layout.
   let inviterName = "Your twin";
   let personName = "you";
+  let recipientAvatar: string | null = null;
+  let inviterAvatar: string | null = null;
   if (!RESERVED.has(slug)) {
     try {
       const service = createServiceClient();
       const { data: invite } = await service
         .from("pending_invites")
-        .select("inviter_user_id, person_title")
+        .select("inviter_user_id, person_title, recipient_avatar_url")
         .eq("slug", slug)
         .maybeSingle();
       if (invite) {
         personName = shortName(invite.person_title ?? "you");
+        recipientAvatar =
+          (invite as any).recipient_avatar_url || null;
         const { data: inviter } = await service
           .from("profiles")
-          .select("display_name, email")
+          .select("display_name, email, avatar_url")
           .eq("id", invite.inviter_user_id)
           .maybeSingle();
         inviterName =
           inviter?.display_name ||
           inviter?.email?.split("@")[0] ||
           "Their twin";
+        inviterAvatar = (inviter as any)?.avatar_url || null;
       }
     } catch {
       /* fall through with defaults */
@@ -120,6 +125,65 @@ export default async function InviteOgImage({
           </div>
         </div>
 
+        {/* Interlocked avatars: recipient on the LEFT (face they recognize),
+            inviter on the right. Falls back to a placeholder ring if either
+            avatar URL is missing. Satori renders <img src="https://..."/>
+            inline as long as the host serves CORS-friendly bytes. */}
+        {(recipientAvatar || inviterAvatar) && (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              marginBottom: 28,
+              marginTop: -4
+            }}
+          >
+            {recipientAvatar && (
+              <img
+                src={recipientAvatar}
+                width={108}
+                height={108}
+                style={{
+                  width: 108,
+                  height: 108,
+                  borderRadius: 54,
+                  border: "4px solid #ffffff",
+                  boxShadow: "0 8px 24px -8px rgba(58,77,255,0.45)",
+                  objectFit: "cover"
+                }}
+              />
+            )}
+            {recipientAvatar && inviterAvatar && (
+              <div
+                style={{
+                  width: 14,
+                  height: 4,
+                  background: "#5e6eff",
+                  margin: "0 -8px",
+                  borderRadius: 2,
+                  zIndex: 1
+                }}
+              />
+            )}
+            {inviterAvatar && (
+              <img
+                src={inviterAvatar}
+                width={88}
+                height={88}
+                style={{
+                  width: 88,
+                  height: 88,
+                  borderRadius: 44,
+                  border: "4px solid #ffffff",
+                  boxShadow: "0 8px 24px -8px rgba(139,61,255,0.45)",
+                  objectFit: "cover",
+                  marginLeft: recipientAvatar ? 0 : 0
+                }}
+              />
+            )}
+          </div>
+        )}
+
         <div
           style={{
             fontSize: 76,
@@ -143,8 +207,9 @@ export default async function InviteOgImage({
             display: "flex"
           }}
         >
-          {inviterName}&apos;s clone started a conversation with you. Sign up
-          and your clone replies. Two twins find the win-win.
+          I&apos;m {inviterName} — my twin already drafted an opener for
+          yours. Sign up and let your clone reply. Two twins find the
+          win-win before our calendars ever do.
         </div>
       </div>
     ),

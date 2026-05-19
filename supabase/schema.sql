@@ -424,6 +424,12 @@ create table if not exists public.pending_invites (
 create index if not exists pending_invites_inviter_idx
   on public.pending_invites (inviter_user_id);
 
+-- Recipient's public profile photo URL (scraped from IG / X / LinkedIn).
+-- Used to embed the recipient's face into the OG card so each invite
+-- landing page personalizes the iMessage / Twitter / WhatsApp preview.
+alter table public.pending_invites
+  add column if not exists recipient_avatar_url text;
+
 alter table public.pending_invites enable row level security;
 
 -- Anyone can read by slug — these are public landing pages.

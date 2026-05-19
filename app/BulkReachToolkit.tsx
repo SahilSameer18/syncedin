@@ -189,6 +189,14 @@ export function BulkReachToolkit({
     }
   }
 
+  // Parse LinkedIn / Google CSV imports into structured entries.
+  // LinkedIn's official Connections.csv has columns:
+  //   First Name, Last Name, URL, Email Address, Company, Position, Connected On
+  // (sometimes with a "Notes:" preamble at the top — skip rows until we hit
+  // the header.) We pull Name + URL + Email so every connection lands as a
+  // proper entry with a profile_url, which the scraper chain can then
+  // personalize against. Falls back to the old email-regex behavior when
+  // the file doesn't look like a structured CSV.
   function onCsv(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
     if (!f) return;
@@ -196,14 +204,127 @@ export function BulkReachToolkit({
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result || "");
+      const lines = text.split(/\r?\n/);
+
+      // Find the header row.
+      let headerIdx = -1;
+      for (let i = 0; i < Math.min(lines.length, 15); i++) {
+        const lower = lines[i].toLowerCase();
+        if (
+          (lower.includes("first name") ||
+            lower.includes("given name") ||
+            lower.includes("name")) &&
+          (lower.includes("url") ||
+            lower.includes("email") ||
+            lower.includes("profile"))
+        ) {
+          headerIdx = i;
+          break;
+        }
+      }
+
+      // Simple comma-aware CSV row splitter (handles double-quoted fields).
+      const splitRow = (row: string): string[] => {
+        const out: string[] = [];
+        let cur = "";
+        let inQuotes = false;
+        for (let i = 0; i < row.length; i++) {
+          const c = row[i];
+          if (c === '"') {
+            if (inQuotes && row[i + 1] === '"') {
+              cur += '"';
+              i++;
+            } else {
+              inQuotes = !inQuotes;
+            }
+          } else if (c === "," && !inQuotes) {
+            out.push(cur);
+            cur = "";
+          } else {
+            cur += c;
+          }
+        }
+        out.push(cur);
+        return out.map((s) => s.trim());
+      };
+
+      // Structured-CSV path.
+      if (headerIdx !== -1) {
+        const header = splitRow(lines[headerIdx]).map((h) =>
+          h.toLowerCase().replace(/^"|"$/g, "")
+        );
+        const idxOf = (...names: string[]) =>
+          header.findIndex((h) => names.some((n) => h === n || h.includes(n)));
+        const firstNameIdx = idxOf("first name", "given name");
+        const lastNameIdx = idxOf("last name", "family name", "surname");
+        const fullNameIdx = idxOf("name");
+        const urlIdx = idxOf("url", "profile url", "profile");
+        const emailIdx = idxOf("email address", "email");
+        const companyIdx = idxOf("company", "organization");
+
+        const newEntries: Array<{
+          name: string;
+          email?: string;
+          profile_url?: string;
+        }> = [];
+        for (let i = headerIdx + 1; i < lines.length; i++) {
+          const raw = lines[i];
+          if (!raw.trim()) continue;
+          const cells = splitRow(raw);
+          const fn =
+            firstNameIdx >= 0 ? cells[firstNameIdx] || "" : "";
+          const ln = lastNameIdx >= 0 ? cells[lastNameIdx] || "" : "";
+          const full =
+            fullNameIdx >= 0 && firstNameIdx === -1
+              ? cells[fullNameIdx] || ""
+              : "";
+          const name = (
+            [fn, ln].filter(Boolean).join(" ").trim() || full.trim()
+          );
+          const url = urlIdx >= 0 ? cells[urlIdx] || "" : "";
+          const email = emailIdx >= 0 ? cells[emailIdx] || "" : "";
+          // Need at least a name+url OR a name+email to be useful.
+          if (!name && !email && !url) continue;
+          newEntries.push({
+            name,
+            email: email ? email.toLowerCase() : undefined,
+            profile_url:
+              url && /^https?:\/\//i.test(url) ? url : undefined
+          });
+        }
+
+        if (newEntries.length > 0) {
+          setEntries((prev) => {
+            const seen = new Set(
+              prev.map((p) => `${p.name}|${p.email || ""}|${p.profile_url || ""}`)
+            );
+            const merged = [...prev];
+            for (const e of newEntries) {
+              const k = `${e.name}|${e.email || ""}|${e.profile_url || ""}`;
+              if (!seen.has(k)) {
+                seen.add(k);
+                merged.push(e);
+              }
+            }
+            return merged;
+          });
+          flash(`+${newEntries.length} contacts`);
+          e.target.value = "";
+          return;
+        }
+      }
+
+      // Fallback: plain regex sweep for emails (old behavior).
       const found = Array.from(
         text.matchAll(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g)
       ).map((m) => m[0].toLowerCase());
       if (found.length === 0) {
-        setCsvError("No emails found in that file.");
+        setCsvError(
+          "Couldn't find name+URL columns or emails in that file. Expected the LinkedIn 'Connections.csv' or a similar structured export."
+        );
       } else {
         setEmails((prev) => Array.from(new Set([...prev, ...found])));
-        flash(`+${found.length}`);
+        flash(`+${found.length} emails`);
       }
     };
     reader.readAsText(f);
@@ -265,7 +386,15 @@ export function BulkReachToolkit({
         setGenError(j.detail || j.error);
         return;
       }
-      setPersonalized(j.results ?? []);
+      // Append to (don't replace) the personalized list — running the
+      // generator twice in a row should keep prior results visible.
+      setPersonalized((prev) => [...prev, ...(j.results ?? [])]);
+      // Auto-clear the entries list once invites are generated. The
+      // contacts moved "down" — they're now in the personalized panel,
+      // no need to keep showing them above. Less visual stack, clearer
+      // signal that the generation step succeeded.
+      setEntries([]);
+      setEmails([]);
     } catch {
       setGenError("Couldn't reach the server.");
     } finally {

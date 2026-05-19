@@ -74,7 +74,7 @@ export async function generateMetadata({
     0
   );
   const title = hooks[slugHash % hooks.length];
-  const description = `${inviterName}'s clone has already started a conversation. Sign up and your clone replies — two twins find the win-win.`;
+  const description = `I'm ${inviterName} — my twin already drafted an opener for yours. Sign up and let your clone reply, two twins find the win-win.`;
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";
