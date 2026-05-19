@@ -57,7 +57,7 @@ export async function GET(req: Request) {
   // — no point spending a Claude call to rewrite generic copy as generic copy.
   const hasSignal =
     !!(t?.goals && t.goals.trim().length > 10) ||
-    !!(t?.blob && t.blob.trim().length > 20);
+    !!(t?.ai_export_blob && t.ai_export_blob.trim().length > 20);
   if (!hasSignal) {
     return NextResponse.json({
       message: fallbackMessage,
@@ -84,7 +84,9 @@ Rules:
 
     const userContent = `Inviter: ${selfName}
 Goals: ${t?.goals || "(none specified)"}
-Voice / about-me blob: ${t?.blob ? t.blob.slice(0, 1200) : "(none specified)"}
+Voice / about-me blob: ${
+      t?.ai_export_blob ? t.ai_export_blob.slice(0, 1200) : "(none specified)"
+    }
 Communication style: ${t?.communication_style || "(default)"}
 Deal preferences: ${t?.deal_preferences || "(none specified)"}
 
