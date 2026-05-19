@@ -221,11 +221,20 @@ export async function POST(req: Request) {
     //   Sentence 3: a real question that invites their reply.
     const system = `You write SHORT cold-outreach openers from ${selfName}'s digital twin to multiple named recipients. The non-negotiable rule: every opener must LEAD with something specific about the recipient, NOT about ${selfName}.
 
-Return ONLY valid JSON of the shape:
+Return ONLY valid JSON. Each value must be a PLAIN STRING — NEVER a nested object like {"opener": "..."}. The shape is exactly:
 {
-  "<recipient name 1>": "<opener>",
-  "<recipient name 2>": "<opener>",
-  ...
+  "Recipient Name One": "The opener text as a single plain string. No nesting.",
+  "Recipient Name Two": "Another opener as a plain string."
+}
+
+Wrong (do NOT do this):
+{
+  "Lucas Chu": { "opener": "Saw your LinkedIn..." }
+}
+
+Right:
+{
+  "Lucas Chu": "Saw your LinkedIn..."
 }
 
 Each opener follows EXACTLY this three-beat structure:
@@ -277,10 +286,31 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     const start = text.indexOf("{");
     const end = text.lastIndexOf("}");
     if (start !== -1 && end !== -1) {
-      starters = JSON.parse(text.slice(start, end + 1)) as Record<
+      const parsed = JSON.parse(text.slice(start, end + 1)) as Record<
         string,
-        string
+        unknown
       >;
+      // Defensive coercion: the LLM sometimes returns nested shapes like
+      // { "Lucas Chu": { "opener": "Saw your..." } } instead of the flat
+      // string mapping the prompt asks for. That bug shipped an opener
+      // stored as a raw JSON string ({"opener":"Saw..."}) which displayed
+      // on the landing page verbatim. Coerce every value to a clean
+      // first-person string before passing downstream.
+      starters = {};
+      for (const [key, val] of Object.entries(parsed)) {
+        if (typeof val === "string") {
+          starters[key] = val.trim();
+        } else if (val && typeof val === "object") {
+          // Try common nested shapes: { opener }, { message }, { text }.
+          const v = val as Record<string, unknown>;
+          const candidate =
+            (typeof v.opener === "string" && v.opener) ||
+            (typeof v.message === "string" && v.message) ||
+            (typeof v.text === "string" && v.text) ||
+            "";
+          if (candidate) starters[key] = (candidate as string).trim();
+        }
+      }
     }
   } catch (e) {
     console.error("bulk-create starters failed; falling back to template", e);
