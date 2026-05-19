@@ -87,6 +87,29 @@ export function BulkReachToolkit({
   const [entryName, setEntryName] = useState("");
   const [entryContact, setEntryContact] = useState("");
 
+  // Rotating placeholder for the contact field — cycles real-looking
+  // examples from each supported platform so the input demonstrates
+  // multi-platform support without static "or, or, or" copy. Pauses
+  // rotation when the user is typing or the field has focus.
+  const CONTACT_EXAMPLES = [
+    "linkedin.com/in/lucas-chu",
+    "x.com/jackjayio",
+    "instagram.com/jackjay.io",
+    "facebook.com/zuck",
+    "alex@example.com",
+    "+1 415 555 0142"
+  ];
+  const [examplePos, setExamplePos] = useState(0);
+  const [contactFocused, setContactFocused] = useState(false);
+  useEffect(() => {
+    if (entryContact.length > 0 || contactFocused) return;
+    const t = setInterval(() => {
+      setExamplePos((i) => (i + 1) % CONTACT_EXAMPLES.length);
+    }, 2200);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryContact.length === 0, contactFocused]);
+
   // Recognize handles / URLs for LinkedIn, X / Twitter, Instagram, Facebook.
   const SOCIAL_HOSTS_RE =
     /(?:linkedin\.com|x\.com|twitter\.com|instagram\.com|facebook\.com|fb\.com)\b/i;
@@ -578,9 +601,11 @@ export function BulkReachToolkit({
           />
           <input
             type="text"
-            placeholder="email, phone, or linkedin.com/in/…"
+            placeholder={CONTACT_EXAMPLES[examplePos]}
             value={entryContact}
             onChange={(e) => setEntryContact(e.target.value)}
+            onFocus={() => setContactFocused(true)}
+            onBlur={() => setContactFocused(false)}
             onKeyDown={(e) => e.key === "Enter" && addEntry()}
             className="retro-input text-sm"
             style={{ flex: "3 1 240px", minWidth: 0 }}
