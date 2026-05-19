@@ -14,7 +14,59 @@ export function BulkReachToolkit({
   appUrl: string;
   variant?: "card" | "hero";
 }) {
-  const inviteMessage = `I'm on SyncedIn — an agent-to-agent protocol where two people's digital twins talk to each other and find the highest win-win between them. Worth 90 seconds. Join me: ${appUrl}`;
+  // Default broadcast copy — replaced on mount with a twin-voice version
+  // from /api/twin-broadcast-message so every channel (iMessage, WhatsApp,
+  // Email, Tweet, Reddit, ...) sends a message that actually sounds like
+  // the inviter, not generic platform boilerplate.
+  const defaultMessage = `I'm on SyncedIn — an agent-to-agent protocol where two people's digital twins talk to each other and find the highest win-win between them. Worth 90 seconds. Join me: ${appUrl}`;
+  const defaultTweet = `Two digital twins, one win-win.\n\nJust joined SyncedIn — your clone talks to my clone, surfaces the deal, you walk in already knowing. ${appUrl}`;
+  const [inviteMessage, setInviteMessage] = useState<string>(defaultMessage);
+  const [inviteTweet, setInviteTweet] = useState<string>(defaultTweet);
+  const [voiceMode, setVoiceMode] = useState<"loading" | "twin" | "default">(
+    "loading"
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    // Cache for the session so navigating between tabs doesn't refire Claude.
+    const cached =
+      typeof sessionStorage !== "undefined"
+        ? sessionStorage.getItem("syncedin.twinBroadcastMsg")
+        : null;
+    if (cached) {
+      try {
+        const j = JSON.parse(cached);
+        if (j?.message) setInviteMessage(j.message);
+        if (j?.tweet) setInviteTweet(j.tweet);
+        if (j?.voice) setVoiceMode(j.voice);
+        return;
+      } catch {
+        /* fall through to fetch */
+      }
+    }
+    fetch("/api/twin-broadcast-message")
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        if (j?.message) setInviteMessage(j.message);
+        if (j?.tweet) setInviteTweet(j.tweet);
+        setVoiceMode(j?.voice === "twin" ? "twin" : "default");
+        try {
+          sessionStorage.setItem(
+            "syncedin.twinBroadcastMsg",
+            JSON.stringify(j)
+          );
+        } catch {
+          /* private mode */
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setVoiceMode("default");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const [copied, setCopied] = useState<string | null>(null);
   const [contactPickerSupported, setContactPickerSupported] = useState(false);
@@ -162,16 +214,29 @@ export function BulkReachToolkit({
     const typed = entryName.trim();
     const { email, phone, profile_url, derived_name } =
       classifyContact(entryContact);
-    // Prefer a typed name. If empty, fall back to a name derived from the
-    // profile URL handle (LinkedIn /in/jackson-jesionowski → "Jackson
-    // Jesionowski"). Still allow blank name — the server will fall back to
-    // email-local-part or handle when generating the slug.
+    // Name policy:
+    //   - Profile URL: name is optional. We auto-derive from the URL handle,
+    //     and the server scrapes the page for the rest of the context.
+    //   - Email or phone: name IS required, because we have no other way to
+    //     identify the person — we'll fall back to an Exa name-search to
+    //     gather context for the opener.
     const name = typed || derived_name || "";
-    if (!name && !email && !phone && !profile_url) return;
+    if (!email && !phone && !profile_url) return;
+    if ((email || phone) && !profile_url && !name) {
+      // refuse silently — the placeholder copy already tells the user
+      // a name is required when there's no profile URL to derive from.
+      return;
+    }
     setEntries((prev) => [...prev, { name, email, phone, profile_url }]);
     setEntryName("");
     setEntryContact("");
   }
+
+  // Live classification of whatever's currently typed in the contact field
+  // — drives the dynamic "Full name (optional)" / "Full name (required)"
+  // label on the name input.
+  const liveClassified = classifyContact(entryContact);
+  const nameIsOptional = !!liveClassified.profile_url;
 
   async function generatePersonalized() {
     // Prefer the rich entries list; fall back to plain email list for backward compat.
@@ -263,9 +328,12 @@ export function BulkReachToolkit({
       icon: "𝕏",
       label: "Tweet it",
       href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-        inviteMessage
+        inviteTweet
       )}`,
-      note: "broadcast to your X followers."
+      note:
+        voiceMode === "twin"
+          ? "tweet drafted in your twin's voice — broadcast to your X followers."
+          : "broadcast to your X followers."
     },
     {
       icon: "💼",
@@ -355,14 +423,20 @@ export function BulkReachToolkit({
           className="text-xs mt-1"
           style={{ color: "var(--text-dim)" }}
         >
-          Full name + whatever you have for them: email, phone, or a
-          LinkedIn / X / Instagram / Facebook profile URL. We scrape the
-          profile, pick the right person, and generate a custom landing page.
+          Drop a LinkedIn / X / Instagram / Facebook URL and we&apos;ll
+          scrape the rest — no name needed. For an email or phone, add the
+          name so we can look the person up.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
             type="text"
-            placeholder="Full name"
+            placeholder={
+              nameIsOptional
+                ? "Full name (optional — we'll derive it)"
+                : entryContact.trim()
+                ? "Full name (required for email / phone)"
+                : "Full name"
+            }
             value={entryName}
             onChange={(e) => setEntryName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addEntry()}
@@ -519,8 +593,163 @@ export function BulkReachToolkit({
         )}
       </div>
 
-      {/* Channel grid */}
-      <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {/* Personalized invite results — placed ABOVE the broadcast grid so the
+          high-fidelity path is what the user sees first. Each row is a custom
+          landing page generated with a twin-voice opener that references real
+          context scraped from the recipient's social profile. */}
+      {personalized.length > 0 && (
+        <div
+          className="mt-5 retro-panel"
+          style={{ padding: 16, borderColor: "var(--amber)" }}
+        >
+          <div
+            className="retro-label"
+            style={{ color: "var(--amber-bright)" }}
+          >
+            personalized invites · {personalized.length} custom landing page
+            {personalized.length === 1 ? "" : "s"}
+          </div>
+          <p
+            className="text-xs mt-1"
+            style={{ color: "var(--text-dim)" }}
+          >
+            Each contact has a unique URL with a twin-voice opener that
+            references their profile. Click-through is dramatically higher
+            than the broadcast options below.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              const all = personalized
+                .map(
+                  (p) =>
+                    `${p.contact.name}${p.contact.email ? " <" + p.contact.email + ">" : ""}: ${p.url}`
+                )
+                .join("\n");
+              copy(all, "all personalized links");
+            }}
+            className="retro-btn text-sm mt-3"
+          >
+            copy all as list
+          </button>
+          <ul className="mt-3 space-y-2">
+            {personalized.map((p) => (
+              <li
+                key={p.slug}
+                className="retro-panel"
+                style={{ padding: 10 }}
+              >
+                <div className="flex flex-wrap items-center gap-2 justify-between">
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      className="font-semibold text-sm"
+                      style={{ color: "var(--text)" }}
+                    >
+                      {p.contact.name}
+                      {p.contact.email && (
+                        <span
+                          className="text-xs ml-2"
+                          style={{ color: "var(--text-dim)" }}
+                        >
+                          {p.contact.email}
+                        </span>
+                      )}
+                    </div>
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs underline"
+                      style={{
+                        color: "var(--amber-bright)",
+                        wordBreak: "break-all"
+                      }}
+                    >
+                      {p.url}
+                    </a>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => copy(p.url, "link")}
+                      className="retro-btn text-xs"
+                      style={{ padding: "5px 10px" }}
+                    >
+                      copy link
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        copy(`${p.starter}\n\n${p.url}`, "message")
+                      }
+                      className="retro-btn text-xs"
+                      style={{ padding: "5px 10px" }}
+                    >
+                      copy msg
+                    </button>
+                    <a
+                      href={`sms:?&body=${encodeURIComponent(
+                        `${p.starter}\n\n${p.url}`
+                      )}`}
+                      className="retro-btn text-xs"
+                      style={{ padding: "5px 10px" }}
+                    >
+                      💬 SMS
+                    </a>
+                    <a
+                      href={`https://wa.me/?text=${encodeURIComponent(
+                        `${p.starter}\n\n${p.url}`
+                      )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="retro-btn text-xs"
+                      style={{ padding: "5px 10px" }}
+                    >
+                      🟢 WA
+                    </a>
+                    {p.contact.email && (
+                      <a
+                        href={`mailto:${p.contact.email}?subject=${encodeURIComponent(
+                          "An invite from " + appUrl
+                        )}&body=${encodeURIComponent(`${p.starter}\n\n${p.url}`)}`}
+                        className="retro-btn text-xs"
+                        style={{ padding: "5px 10px" }}
+                      >
+                        ✉️ Email
+                      </a>
+                    )}
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Channel grid — clearly framed as the LOWER-FIDELITY path now that
+          the personalized invites are above. Same message broadcast to many,
+          rendered in the user's twin voice rather than the platform default. */}
+      <div className="mt-6 flex items-end justify-between gap-3 flex-wrap">
+        <div>
+          <div
+            className="retro-label"
+            style={{ color: "var(--text-dim)" }}
+          >
+            or — broadcast the same message
+          </div>
+          <div
+            className="text-xs mt-1"
+            style={{ color: "var(--text-dim)" }}
+          >
+            {voiceMode === "twin"
+              ? "Drafted in your twin's voice. Same copy to everyone — fast, lower fidelity than personalized."
+              : voiceMode === "loading"
+              ? "Loading your twin's voice…"
+              : "Generic invite copy. Add more to your twin to get a voice-customized version."}
+          </div>
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
         {channels.map((c) => {
           const inner = (
             <>
@@ -575,57 +804,10 @@ export function BulkReachToolkit({
         </div>
       )}
 
-      {/* Personalized invite slugs — one custom landing page per contact */}
-      <div
-        className="mt-4 retro-panel"
-        style={{
-          padding: 16,
-          borderColor: "var(--amber)"
-        }}
-      >
-        <div
-          className="retro-label"
-          style={{ color: "var(--amber-bright)" }}
-        >
-          personalized invites · one custom landing page per contact
-        </div>
-        <p
-          className="text-xs mt-1"
-          style={{ color: "var(--text-dim)" }}
-        >
-          For each imported contact we generate a custom URL like
-          syncedin.org/their-name with a personalized opening message from
-          your twin. Much higher click-through than a generic invite.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2 items-center">
-          <button
-            type="button"
-            onClick={generatePersonalized}
-            disabled={generating || emails.length === 0}
-            className="retro-btn retro-btn-primary text-sm"
-          >
-            {generating
-              ? "generating…"
-              : `+ generate ${emails.length || ""} personalized invites`}
-          </button>
-          {emails.length === 0 && (
-            <span
-              className="text-xs"
-              style={{ color: "var(--text-dim)" }}
-            >
-              import emails above first
-            </span>
-          )}
-        </div>
-        {genError && (
-          <p
-            className="text-xs mt-2"
-            style={{ color: "var(--red)" }}
-          >
-            {genError}
-          </p>
-        )}
-
+      {/* Personalized invite results — moved up below the entries box, so
+          this duplicate block becomes a no-op. Kept here only to avoid
+          introducing a stale reference; results render via the panel above. */}
+      <div style={{ display: "none" }}>
         {personalized.length > 0 && (
           <div className="mt-4">
             <div

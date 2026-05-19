@@ -58,7 +58,7 @@ export default async function NewCommunityPage() {
           />
         </div>
 
-        <div className="mt-16 grid sm:grid-cols-3 gap-3">
+        <div className="mt-16 grid sm:grid-cols-3 gap-5">
           <Pillar
             k="01"
             t="One private community link"
@@ -143,10 +143,15 @@ export default async function NewCommunityPage() {
 
 function Pillar({ k, t, d }: { k: string; t: string; d: string }) {
   return (
-    <div className="retro-panel p-4">
+    <div className="retro-panel" style={{ padding: "20px 22px" }}>
       <div className="retro-amber text-xs font-bold">{k}</div>
-      <div className="mt-1 font-semibold text-sm">{t}</div>
-      <div className="mt-1 retro-dim text-xs leading-relaxed">{d}</div>
+      <div className="mt-2 font-semibold text-sm">{t}</div>
+      <div
+        className="mt-2 retro-dim text-xs"
+        style={{ lineHeight: 1.6 }}
+      >
+        {d}
+      </div>
     </div>
   );
 }

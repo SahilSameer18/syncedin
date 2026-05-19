@@ -294,9 +294,15 @@ export function OnboardingWizard({
       <input type="hidden" name="current_city" value={state.current_city} />
 
       {/* Progress strip — step pills LEFT, continue/back nav RIGHT, all in
-          a single row so the user never has to look around for "what next". */}
-      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
+          a single row so the user never has to look around for "what next".
+          We deliberately drop flex-wrap on the outer row + collapse the
+          back button to a single arrow on the inline strip, so the row
+          stays one line and Continue sits flush-right of the last pill. */}
+      <div className="flex items-center justify-between gap-3 mb-6">
+        <div
+          className="flex items-center gap-2 flex-wrap"
+          style={{ minWidth: 0, flex: "1 1 auto" }}
+        >
         {STEPS.map((s, i) => {
           const done = i < step;
           const current = i === step;
@@ -364,8 +370,45 @@ export function OnboardingWizard({
           );
         })}
         </div>
-        <div className="flex items-center gap-2">
-          <NavRow compact />
+        <div
+          className="flex items-center gap-2 shrink-0"
+          style={{ marginLeft: 8 }}
+        >
+          <button
+            type="button"
+            onClick={() => setStep((s) => Math.max(0, s - 1))}
+            disabled={step === 0}
+            className="retro-btn text-xs"
+            style={{
+              visibility: step === 0 ? "hidden" : "visible",
+              padding: "6px 10px"
+            }}
+            aria-label="Back"
+          >
+            ←
+          </button>
+          {step < STEPS.length - 1 ? (
+            <button
+              type="button"
+              onClick={() =>
+                setStep((s) => Math.min(STEPS.length - 1, s + 1))
+              }
+              disabled={!canAdvance}
+              className="retro-btn retro-btn-primary text-xs"
+              style={{ padding: "6px 14px" }}
+            >
+              continue →
+            </button>
+          ) : (
+            <button
+              type="submit"
+              disabled={!state.display_name.trim() || !state.goals.trim()}
+              className="retro-btn retro-btn-primary text-xs"
+              style={{ padding: "6px 14px" }}
+            >
+              save twin →
+            </button>
+          )}
         </div>
       </div>
 
@@ -518,16 +561,46 @@ export function OnboardingWizard({
               below. Skip if you already added enough from sources.
             </p>
 
-            <div className="mt-5">
-              <AiDumpHero />
-            </div>
+            {/* If they've already pasted something in a prior session, don't
+                blast them with the full "how to do this" hero on re-entry —
+                show a tiny "redo it" chip and put the textarea front-and-
+                center. New users (empty dump) still see the full hero. */}
+            {aiDump.trim().length > 0 ? (
+              <div className="mt-5">
+                <details>
+                  <summary
+                    className="text-xs cursor-pointer inline-flex items-center gap-2 retro-panel"
+                    style={{
+                      padding: "8px 12px",
+                      color: "var(--text-dim)",
+                      listStyle: "none"
+                    }}
+                  >
+                    <span style={{ color: "var(--green)" }}>✓</span>
+                    <span>
+                      AI memory saved ({aiDump.trim().length.toLocaleString()}{" "}
+                      chars). Click to redo with a fresh prompt.
+                    </span>
+                  </summary>
+                  <div className="mt-3">
+                    <AiDumpHero />
+                  </div>
+                </details>
+              </div>
+            ) : (
+              <div className="mt-5">
+                <AiDumpHero />
+              </div>
+            )}
 
             <label className="block mt-5">
               <div
                 className="text-sm font-semibold"
                 style={{ color: "var(--text)" }}
               >
-                Paste the AI&apos;s full answer
+                {aiDump.trim().length > 0
+                  ? "Your AI memory (edit anytime)"
+                  : "Paste the AI's full answer"}
               </div>
               <textarea
                 value={aiDump}

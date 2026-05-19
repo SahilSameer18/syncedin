@@ -107,28 +107,57 @@ async function scrapeXProfile(url: string): Promise<string> {
 async function scrapeInstagramProfile(url: string): Promise<string> {
   const handle = handleFromUrl(url);
   if (!handle) throw new Error("Could not parse Instagram handle from URL");
-  const items = await apifyRun("apify/instagram-profile-scraper", {
-    usernames: [handle]
+  // apify/instagram-scraper is on the FREE tier and accepts a directUrls
+  // input. It returns a flat array where each row is either a profile-shaped
+  // doc or a post-shaped doc depending on resultsType. We ask for "details"
+  // and resultsLimit=5 to get the profile + up to 5 recent posts in one shot.
+  //
+  // (We tried apify/instagram-profile-scraper first — it's gated behind the
+  // Creators-tier paid plan and silently returns no items on free tokens.)
+  const items = await apifyRun("apify/instagram-scraper", {
+    directUrls: [url],
+    resultsType: "details",
+    resultsLimit: 5,
+    addParentData: false
   });
   if (items.length === 0) {
     throw new Error("Apify returned no items for Instagram profile");
   }
-  const p = items[0] as Record<string, unknown>;
-  // Common fields: fullName, biography, followersCount, postsCount, latestPosts
+
+  // Heuristically locate the profile row (has biography or fullName) and
+  // any post rows (have caption or shortCode). Some actor revisions return
+  // a single profile object with latestPosts inline — handle both.
+  let profile: Record<string, unknown> | null = null;
+  const posts: Array<Record<string, unknown>> = [];
+  for (const it of items as Array<Record<string, unknown>>) {
+    if (it && (it.biography !== undefined || it.fullName !== undefined)) {
+      profile = it;
+      if (Array.isArray(it.latestPosts)) {
+        for (const lp of it.latestPosts as Array<Record<string, unknown>>) {
+          posts.push(lp);
+        }
+      }
+    } else if (it && (it.caption !== undefined || it.shortCode !== undefined)) {
+      posts.push(it);
+    }
+  }
+  if (!profile) {
+    profile = items[0] as Record<string, unknown>;
+  }
+  const captions = posts
+    .map((p) => (typeof p.caption === "string" ? p.caption : ""))
+    .filter(Boolean)
+    .slice(0, 8);
+
   return flatten(
     {
       handle: `@${handle}`,
-      fullName: p.fullName,
-      biography: p.biography,
-      external_url: p.externalUrl ?? p.external_url,
-      followers: p.followersCount,
-      posts: p.postsCount,
-      latestPosts: Array.isArray(p.latestPosts)
-        ? (p.latestPosts as any[])
-            .slice(0, 8)
-            .map((lp) => lp?.caption)
-            .filter(Boolean)
-        : []
+      fullName: profile.fullName,
+      biography: profile.biography,
+      external_url: profile.externalUrl ?? (profile as any).external_url,
+      followers: profile.followersCount,
+      posts: profile.postsCount,
+      latestPosts: captions
     },
     0
   );

@@ -43,7 +43,7 @@ export default async function NewConferencePage() {
         </div>
 
         {/* Three concrete pillars */}
-        <div className="mt-10 grid sm:grid-cols-3 gap-3">
+        <div className="mt-16 grid sm:grid-cols-3 gap-5">
           <Pillar
             k="01"
             t="Every attendee onboards a twin"
@@ -150,10 +150,15 @@ export default async function NewConferencePage() {
 
 function Pillar({ k, t, d }: { k: string; t: string; d: string }) {
   return (
-    <div className="retro-panel p-4">
+    <div className="retro-panel" style={{ padding: "20px 22px" }}>
       <div className="retro-amber text-xs font-bold">{k}</div>
-      <div className="mt-1 font-semibold text-sm">{t}</div>
-      <div className="mt-1 retro-dim text-xs leading-relaxed">{d}</div>
+      <div className="mt-2 font-semibold text-sm">{t}</div>
+      <div
+        className="mt-2 retro-dim text-xs"
+        style={{ lineHeight: 1.6 }}
+      >
+        {d}
+      </div>
     </div>
   );
 }
@@ -208,9 +213,9 @@ function NetworkComparison() {
   return (
     <div
       className="retro-panel"
-      style={{ padding: 16, background: "var(--panel-solid)" }}
+      style={{ padding: 24, background: "var(--panel-solid)" }}
     >
-      <div className="grid sm:grid-cols-2 gap-4 items-stretch">
+      <div className="grid sm:grid-cols-2 gap-6 items-stretch">
         {/* LEFT — disconnected */}
         <div>
           <div
@@ -248,8 +253,8 @@ function NetworkComparison() {
             ))}
           </svg>
           <p
-            className="retro-dim text-xs mt-2 text-center"
-            style={{ lineHeight: 1.5 }}
+            className="retro-dim text-xs mt-4 text-center"
+            style={{ lineHeight: 1.65, padding: "0 4px" }}
           >
             Hundreds of brilliant people in the same room. Most never find the
             counterpart they should have spent an hour with.
@@ -344,8 +349,8 @@ function NetworkComparison() {
             })}
           </svg>
           <p
-            className="retro-dim text-xs mt-2 text-center"
-            style={{ lineHeight: 1.5 }}
+            className="retro-dim text-xs mt-4 text-center"
+            style={{ lineHeight: 1.65, padding: "0 4px" }}
           >
             Twins find the high-leverage pairings before anyone arrives. Each
             human walks in with a ranked shortlist of who to talk to and what

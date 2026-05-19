@@ -107,8 +107,21 @@ export async function POST(req: Request) {
       if (!c.profile_url) return;
       try {
         const text = await scrapePublicProfile(c.profile_url);
-        if (text && text.trim().length > 60) {
+        // Used to gate at 60 chars — that threw away sparse-but-real profiles
+        // (private accounts, low-post handles) which is exactly when the
+        // opener needs the scrape most. Anything non-trivial is worth
+        // feeding to Claude.
+        if (text && text.trim().length > 15) {
           scrapes[c.name] = text.slice(0, 2000);
+          console.log(
+            `[bulk-invite] scrape ok for ${c.name}: ${text.length} chars`
+          );
+        } else {
+          console.warn(
+            `[bulk-invite] scrape empty for ${c.name} (${c.profile_url}): ${
+              text ? text.length : 0
+            } chars`
+          );
         }
       } catch (e) {
         // Non-fatal — opener falls back to name-only personalization.
