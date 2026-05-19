@@ -3,7 +3,8 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
 import {
   buildTwinSystemPrompt,
-  buildConversationHistory
+  buildConversationHistory,
+  scrubAiTells
 } from "@/lib/twin-prompt";
 import type { Profile, TwinProfile, Message, EditDelta } from "@/lib/types";
 
@@ -123,11 +124,13 @@ Use this correction as your strongest signal about how to write the next attempt
       system: systemPrompt,
       messages: history
     });
-    const text = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { text: string }).text)
-      .join("\n")
-      .trim();
+    const text = scrubAiTells(
+      response.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as { text: string }).text)
+        .join("\n")
+        .trim()
+    );
     return NextResponse.json({ draft: text });
   } catch (e: any) {
     console.error("anthropic regenerate error", e);

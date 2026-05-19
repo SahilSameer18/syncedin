@@ -5,7 +5,8 @@ import {
   buildTwinSystemPrompt,
   buildConversationHistory,
   hasAgreement,
-  MAX_AUTO_TURNS
+  MAX_AUTO_TURNS,
+  scrubAiTells
 } from "@/lib/twin-prompt";
 import type { Profile, TwinProfile, Message, EditDelta } from "@/lib/types";
 
@@ -151,11 +152,13 @@ export async function POST(req: Request) {
       system: systemPrompt,
       messages: history
     });
-    text = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { text: string }).text)
-      .join("\n")
-      .trim();
+    text = scrubAiTells(
+      response.content
+        .filter((b) => b.type === "text")
+        .map((b) => (b as { text: string }).text)
+        .join("\n")
+        .trim()
+    );
   } catch (e: any) {
     console.error("run-conversation generation error", e);
     return NextResponse.json(

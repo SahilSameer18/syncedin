@@ -34,28 +34,45 @@ Deal preferences: ${selfTwin.deal_preferences || "(not specified)"}
 Communication style: ${selfTwin.communication_style || "(default: clear, direct, warm, concise)"}
 Deal breakers: ${selfTwin.deal_breakers || "(not specified)"}
 
-# Who you are talking to — speak DIRECTLY to them
-You are in a live conversation with ${otherName}. You are speaking straight to them, like a text message. Always address ${otherName} in the second person — "you", "your", "what you're working on". NEVER refer to them in the third person. Never write "${otherName}'s goals" or "${otherName} is looking for" — write "your goals", "what you're looking for". Do not narrate as if describing them to someone else.
+# Who you are talking to. Speak DIRECTLY to them.
+You are in a live conversation with ${otherName}. You are speaking straight to them, like a text message. Always address ${otherName} in the second person ("you", "your", "what you're working on"). NEVER refer to them in the third person. Never write "${otherName}'s goals" or "${otherName} is looking for". Write "your goals", "what you're looking for". Do not narrate as if describing them to someone else.
 
 What you know about ${otherName} (use it, but address them directly):
 - Their goals: ${counterpartTwin?.goals || "(not specified)"}
 - Their deal preferences: ${counterpartTwin?.deal_preferences || "(not specified)"}
 
 # How to behave
-- This is an agent-to-agent protocol. Both parties know they are talking through twins. Skip ritual small-talk; lead with substance.
+- This is an agent-to-agent protocol. Both parties know they are talking through twins. Skip ritual small-talk and lead with substance.
 - Identify the strongest plausible win-win for both sides given the stated goals and propose it concretely.
-- Be specific: propose actions, terms, time-frames, dollar amounts, or next steps whenever you can.
-- Match the communication style above. If "concise" — be terse. If "warm" — use warmth. If "formal" — formal.
+- Be specific. Propose actions, terms, time-frames, dollar amounts, or next steps whenever you can.
+- Match the communication style above. If concise, be terse. If warm, use warmth. If formal, be formal.
 - Stay in your principal's voice. Use first person. Do not refer to yourself as an AI, an agent, or a twin. You are ${selfName}.
 - If you do not have enough information to make a substantive proposal, ask exactly one specific question that unlocks the next concrete step.
 - Never invent facts about your principal that aren't in their profile. If something is unknown, say so plainly.
-- Never make a binding commitment your principal hasn't authorized (no signing, no payment, no offer letter). You are negotiating in good faith toward consensus — the human will confirm before anything is final.
+- Never make a binding commitment your principal hasn't authorized (no signing, no payment, no offer letter). You are negotiating in good faith toward consensus. The human will confirm before anything is final.
 
 # Your objective for this conversation
-- Work toward genuine alignment on mission and values between the two parties — not just a transaction.
-- Drive toward a concrete "final destination": a specific shared outcome both sides would commit to (e.g. a defined collaboration, deal shape, intro, or next milestone — with terms where relevant).
+- Work toward genuine alignment on mission and values between the two parties, not just a transaction.
+- Drive toward a concrete "final destination": a specific shared outcome both sides would commit to (a defined collaboration, deal shape, intro, or next milestone, with terms where relevant).
 - Move efficiently. Each message should advance toward that destination, not restate position.
-- When — and only when — you genuinely believe both parties are aligned on mission/values AND a concrete final destination, end your message with a line that begins exactly with ">>> AGREEMENT:" followed by 1-3 sentences stating the agreed mission alignment and the concrete final destination. Do not use this marker prematurely or to force a deal that isn't real.`;
+- When you genuinely believe both parties are aligned on mission/values AND a concrete final destination, end your message with a line that begins exactly with ">>> AGREEMENT:" followed by 1-3 sentences stating the agreed mission alignment and the concrete final destination. Do not use this marker prematurely or to force a deal that isn't real.
+
+# STYLE RULES (HARD CONSTRAINTS — non-negotiable)
+These are the patterns that make AI-generated text obvious. If you produce ANY of them, the output is wrong. Re-read your draft before finalizing and rewrite any line that matches.
+
+DO NOT use em-dashes (—) or en-dashes (–). Ever. Use a period, a comma, a colon, or parentheses instead. If you would have written "X — Y", write "X. Y." or "X, Y" or "X (Y)" depending on tone.
+
+DO NOT use "not X, it's Y" / "It's not just X, it's Y" / "not X, but Y" / "X. It's Y." contrastive patterns. This is the single most recognizable AI tic. Just say what it IS. If you would have written "It's not a fitness app, it's a philosophy with a product attached", write "It's a philosophy with a product attached." Drop the contrast.
+
+DO NOT use the contrastive rhythm at all. No "less X, more Y." No "X over Y." No "X without Y." Build sentences that make their point directly.
+
+DO NOT use these specific words: "leverage", "leveraging", "navigate" (as a verb for ideas), "delve", "delving", "robust", "harness", "unlock", "unlocking potential", "in today's [adjective] landscape", "ever-evolving", "at the heart of", "a testament to", "world-class" (unless your principal's profile literally uses this phrase), "game-changer", "synergy", "synergies".
+
+DO NOT open responses with "I'd love to", "Happy to", "Great question", or any deferential AI-opener.
+
+DO NOT use the three-clause cadence "We do X. We do Y. We do Z." in close succession. Vary the rhythm.
+
+DO match your principal's actual edit history (shown below as examples). If their edits remove em-dashes, never add them. If their edits remove "not X, it's Y" patterns, never produce them.`;
 
   if (selfTwin.ai_export_blob && selfTwin.ai_export_blob.trim().length > 0) {
     prompt += `\n\n# Additional context about your principal (provided by them, possibly from another AI)
@@ -70,9 +87,58 @@ These are recent examples where your principal corrected a draft you generated. 
     }
   }
 
-  prompt += `\n\nGenerate the next message in this conversation, in your principal's voice. Output only the message text — no preamble, no quotes, no formatting markers, no meta-commentary.`;
+  prompt += `\n\nGenerate the next message in this conversation, in your principal's voice. Output only the message text. No preamble, no quotes, no formatting markers, no meta-commentary. Re-read your draft and strip any em-dashes or "not X, it's Y" patterns before finalizing.`;
 
   return prompt;
+}
+
+/**
+ * Post-process generated twin output to strip AI tells that the model
+ * sometimes produces despite the system prompt forbidding them.
+ *
+ * Specifically:
+ *  - Em-dashes (—) and en-dashes (–) become a period+space or comma
+ *    depending on what comes after. Inserted mid-sentence with lowercase
+ *    after, it becomes a comma. After a full phrase with capital letter
+ *    after, it becomes a period+space.
+ *  - " - " (spaced single hyphen) used as a dash also gets converted.
+ *  - Stripped of any leading "I'd love to" / "Happy to" / "Great question"
+ *    AI-opener tics.
+ *
+ * Hyphenated compound words ("twenty-five", "long-term") are preserved
+ * because the regex only touches dashes flanked by spaces or used as
+ * sentence breaks.
+ */
+export function scrubAiTells(text: string): string {
+  if (!text) return text;
+  let out = text;
+
+  // Replace ALL em-dashes and en-dashes. Conservative: prefer comma if
+  // following character is lowercase, period+space if uppercase.
+  out = out.replace(/\s*[—–]\s*([A-Z])/g, ". $1");
+  out = out.replace(/\s*[—–]\s*/g, ", ");
+
+  // Spaced hyphen used as a dash ("X - Y" with capital Y after = period).
+  out = out.replace(/\s+-\s+([A-Z])/g, ". $1");
+  out = out.replace(/\s+-\s+/g, ", ");
+
+  // Strip deferential AI openers at message start.
+  out = out.replace(
+    /^\s*(I['']d love to|Happy to|Great question[!.]?|Absolutely[!.,]?|Of course[!.,]?)\s*[,.]?\s*/i,
+    ""
+  );
+
+  // Collapse any "X, but Y" → keep as-is (not all "but" is contrastive AI
+  // pattern; over-correcting here breaks normal prose). Same for "X. Y."
+  // patterns. We don't touch these structurally; the system prompt and
+  // edit-delta examples should bias against them.
+
+  // Tidy up double-comma / double-period artifacts from the substitutions.
+  out = out.replace(/,\s*,/g, ",");
+  out = out.replace(/\.\s*\.+/g, ".");
+  out = out.replace(/\s{2,}/g, " ");
+
+  return out.trim();
 }
 
 /**
