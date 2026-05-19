@@ -84,22 +84,26 @@ export default async function InviteGatePage() {
       </div>
 
       <div className="mt-8 text-center">
-        <Link
-          href="/dashboard"
-          className={
-            drafted >= 2
-              ? "retro-btn retro-btn-primary"
-              : "retro-btn retro-btn-primary opacity-40 cursor-not-allowed"
-          }
-          aria-disabled={drafted < 2}
-          onClick={(e) => {
-            if (drafted < 2) e.preventDefault();
-          }}
-        >
-          {drafted >= 2
-            ? "→ enter dashboard"
-            : `${remaining} more invite${remaining === 1 ? "" : "s"} to unlock`}
-        </Link>
+        {drafted >= 2 ? (
+          <Link href="/dashboard" className="retro-btn retro-btn-primary">
+            → enter dashboard
+          </Link>
+        ) : (
+          // Server-component-safe: a plain disabled button, no onClick.
+          // (The previous version passed `onClick` to a Link inside a server
+          // component, which Next.js 14 hard-errors on with "Event handlers
+          // cannot be passed to Client Component props" — that was 500ing
+          // every brand-new signup that landed here.)
+          <button
+            type="button"
+            disabled
+            className="retro-btn retro-btn-primary"
+            style={{ opacity: 0.4, cursor: "not-allowed" }}
+            aria-disabled
+          >
+            {remaining} more invite{remaining === 1 ? "" : "s"} to unlock
+          </button>
+        )}
       </div>
     </main>
   );
