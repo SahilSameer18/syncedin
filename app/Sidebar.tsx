@@ -61,23 +61,23 @@ export function Sidebar({
         background: "var(--panel-solid)",
         border: "1px solid var(--border)",
         borderRadius: 14,
-        padding: 14,
+        padding: "10px 14px 14px",
         display: "flex",
         flexDirection: "column",
-        gap: 10,
+        gap: 6,
         minHeight: 480
       }}
     >
       {/* Wordmark — fills the sidebar width. Width:100% forces it to spread
           to the full available column instead of rendering at the PNG's
-          natural pixel size (which was the bug: maxWidth + objectFit was
-          letterboxing it to ~30px tall). */}
+          natural pixel size. Tight top + bottom padding so the wordmark
+          sits flush against the profile block below it. */}
       <Link
         href="/"
         aria-label="SyncedIn — home"
         style={{
           display: "block",
-          padding: "4px 4px 10px",
+          padding: "0 2px 2px",
           textDecoration: "none",
           width: "100%"
         }}
