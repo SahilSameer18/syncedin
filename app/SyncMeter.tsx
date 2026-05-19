@@ -211,15 +211,11 @@ export function SyncMeter({
           </clipPath>
         </defs>
 
-        {/* Empty fill background (subtle wash inside the silhouette) */}
+        {/* Fill rises from the feet up to fillY. The unfilled portion above
+            is left TRANSPARENT (no background rect) so the page surface
+            shows through — important for dark mode, where the previous
+            light-grey wash looked like a glaring opaque chest. */}
         <g clipPath="url(#syncBodyClip)">
-          <rect
-            x="0"
-            y="0"
-            width={VB_W}
-            height={VB_H}
-            fill="#eceef5"
-          />
           <rect
             x="0"
             y={fillY}

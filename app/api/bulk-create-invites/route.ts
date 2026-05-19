@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
+import { scrapePublicProfile } from "@/lib/scrape";
 import type { Profile, TwinProfile } from "@/lib/types";
 
 /**
@@ -38,7 +39,16 @@ function nameFromEmail(email: string): string {
     .join(" ");
 }
 
-type Contact = { name?: string; email?: string; handle?: string; note?: string };
+type Contact = {
+  name?: string;
+  email?: string;
+  phone?: string;
+  handle?: string;
+  note?: string;
+  /** LinkedIn / X / Instagram / Facebook profile URL — scraped to
+   *  personalize the conversation_starter. */
+  profile_url?: string;
+};
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -58,16 +68,54 @@ export async function POST(req: Request) {
 
   const rawContacts = (body.contacts ?? []).slice(0, 100);
   // Normalize: derive a name for each
+  function nameFromProfileUrl(url: string): string {
+    try {
+      const u = new URL(url);
+      const seg = u.pathname
+        .split("/")
+        .filter(Boolean)
+        .filter((s) => s !== "in")
+        .pop();
+      if (!seg) return "";
+      return seg
+        .replace(/[-_]+/g, " ")
+        .replace(/\d+$/, "")
+        .replace(/\b\w/g, (c) => c.toUpperCase())
+        .trim();
+    } catch {
+      return "";
+    }
+  }
   const contacts = rawContacts
     .map((c) => {
       const name =
         (c.name && c.name.trim()) ||
         (c.email && nameFromEmail(c.email)) ||
         (c.handle && c.handle.replace(/^@/, "")) ||
+        (c.profile_url && nameFromProfileUrl(c.profile_url)) ||
         "";
       return { ...c, name };
     })
     .filter((c) => c.name);
+
+  // For any contact with a profile_url, scrape it (parallel). The scrape
+  // becomes part of the personalization context fed to Claude when writing
+  // the opener for THAT specific person.
+  const scrapes: Record<string, string> = {};
+  await Promise.all(
+    contacts.map(async (c) => {
+      if (!c.profile_url) return;
+      try {
+        const text = await scrapePublicProfile(c.profile_url);
+        if (text && text.trim().length > 60) {
+          scrapes[c.name] = text.slice(0, 2000);
+        }
+      } catch (e) {
+        // Non-fatal — opener falls back to name-only personalization.
+        console.warn("[bulk-invite] scrape failed", c.profile_url, e);
+      }
+    })
+  );
 
   if (contacts.length === 0) {
     return NextResponse.json({ error: "no_contacts" }, { status: 400 });
@@ -109,8 +157,19 @@ Each opener:
 - NO markdown, no headers, no bullets`;
     const userContent = `${selfName}'s goals: ${t?.goals || "(not specified)"}
 
-Recipients (write one opener per recipient, keyed by the exact name):
-${contacts.map((c) => `- ${c.name}${c.note ? ` (note: ${c.note})` : ""}`).join("\n")}
+Recipients (write one opener per recipient, keyed by the exact name).
+Where a "Profile" block is provided, reference at least one specific detail
+from it so the opener reads like ${selfName}'s twin actually looked at the
+recipient's profile before writing.
+
+${contacts
+  .map((c) => {
+    const parts: string[] = [`- ${c.name}`];
+    if (c.note) parts.push(`  note: ${c.note}`);
+    if (scrapes[c.name]) parts.push(`  Profile: ${scrapes[c.name]}`);
+    return parts.join("\n");
+  })
+  .join("\n\n")}
 
 Return the JSON object now.`;
     const r = await anthropic.messages.create({
@@ -159,12 +218,19 @@ Return the JSON object now.`;
     const starter =
       starters[c.name] ||
       `Hey ${c.name.split(" ")[0]}, ${selfName}'s twin would love to talk to yours. There's likely a real win-win between us. Sign up at the link and your clone can pick this up.`;
+    // Stash the scraped profile as a highlight so the public landing page
+    // can render a "we know who you are" preview.
+    const highlights: string[] = [];
+    if (c.note) highlights.push(c.note);
+    if (scrapes[c.name]) {
+      highlights.push(scrapes[c.name].slice(0, 600));
+    }
     await service.from("pending_invites").insert({
       slug,
       inviter_user_id: user.id,
       person_title: c.name,
-      person_url: null,
-      person_highlights: c.note ? [c.note] : [],
+      person_url: c.profile_url ?? null,
+      person_highlights: highlights,
       conversation_starter: starter
     });
     results.push({

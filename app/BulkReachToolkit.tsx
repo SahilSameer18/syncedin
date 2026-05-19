@@ -19,27 +19,75 @@ export function BulkReachToolkit({
   const [copied, setCopied] = useState<string | null>(null);
   const [contactPickerSupported, setContactPickerSupported] = useState(false);
   const [emails, setEmails] = useState<string[]>([]);
-  // Richer contact entries: (name, email OR phone) so Exa can find the
-  // person and the slug + opener can be properly personalized. The contact
-  // field accepts either an email or a phone number — whichever the user
-  // happens to have. Channels adapt automatically per row.
+  // Richer contact entries: name + ANY of {email, phone, profile URL}.
+  // The contact field auto-classifies the input so the user can paste
+  // whatever they have for that person — even a LinkedIn / X / IG / FB
+  // profile URL. When a profile URL is provided, the server scrapes it
+  // and uses the result to personalize the invite opener.
   const [entries, setEntries] = useState<
-    Array<{ name: string; email?: string; phone?: string }>
+    Array<{
+      name: string;
+      email?: string;
+      phone?: string;
+      profile_url?: string;
+    }>
   >([]);
   const [entryName, setEntryName] = useState("");
   const [entryContact, setEntryContact] = useState("");
 
+  // Recognize handles / URLs for LinkedIn, X / Twitter, Instagram, Facebook.
+  const SOCIAL_HOSTS_RE =
+    /(?:linkedin\.com|x\.com|twitter\.com|instagram\.com|facebook\.com|fb\.com)\b/i;
+
   function classifyContact(s: string): {
     email?: string;
     phone?: string;
+    profile_url?: string;
+    derived_name?: string;
   } {
     const t = s.trim();
     if (!t) return {};
+
+    // Profile URL (handles bare domains too — e.g. "linkedin.com/in/foo")
+    if (SOCIAL_HOSTS_RE.test(t)) {
+      let url = t;
+      if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
+      // Try to derive a friendly name from the handle path
+      let derived = "";
+      try {
+        const parsed = new URL(url);
+        const seg = parsed.pathname
+          .split("/")
+          .filter(Boolean)
+          .filter((s) => s !== "in") // linkedin uses /in/handle
+          .pop();
+        if (seg) {
+          derived = seg
+            .replace(/[-_]+/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+            .replace(/\d+$/, "")
+            .trim();
+        }
+      } catch {
+        /* malformed URL */
+      }
+      return { profile_url: url, derived_name: derived || undefined };
+    }
+    // Email
     if (/@/.test(t)) return { email: t.toLowerCase() };
-    // Phone: keep digits + leading + only.
+    // Phone (digits + leading + only).
     const digits = t.replace(/[^\d+]/g, "");
     if (digits.replace(/\D/g, "").length >= 7) return { phone: digits };
     return {};
+  }
+
+  function profileLabel(url?: string): string {
+    if (!url) return "";
+    if (/linkedin\.com/i.test(url)) return "LinkedIn";
+    if (/(x|twitter)\.com/i.test(url)) return "X";
+    if (/instagram\.com/i.test(url)) return "Instagram";
+    if (/(facebook|fb)\.com/i.test(url)) return "Facebook";
+    return "Profile";
   }
   const [csvError, setCsvError] = useState<string | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
@@ -111,10 +159,16 @@ export function BulkReachToolkit({
   }
 
   function addEntry() {
-    const name = entryName.trim();
-    const { email, phone } = classifyContact(entryContact);
-    if (!name && !email && !phone) return;
-    setEntries((prev) => [...prev, { name, email, phone }]);
+    const typed = entryName.trim();
+    const { email, phone, profile_url, derived_name } =
+      classifyContact(entryContact);
+    // Prefer a typed name. If empty, fall back to a name derived from the
+    // profile URL handle (LinkedIn /in/jackson-jesionowski → "Jackson
+    // Jesionowski"). Still allow blank name — the server will fall back to
+    // email-local-part or handle when generating the slug.
+    const name = typed || derived_name || "";
+    if (!name && !email && !phone && !profile_url) return;
+    setEntries((prev) => [...prev, { name, email, phone, profile_url }]);
     setEntryName("");
     setEntryContact("");
   }
@@ -301,8 +355,9 @@ export function BulkReachToolkit({
           className="text-xs mt-1"
           style={{ color: "var(--text-dim)" }}
         >
-          Full name + email or phone — whichever you have for them. We pick
-          the right person on the web and generate a custom landing page.
+          Full name + whatever you have for them: email, phone, or a
+          LinkedIn / X / Instagram / Facebook profile URL. We scrape the
+          profile, pick the right person, and generate a custom landing page.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <input
@@ -316,12 +371,12 @@ export function BulkReachToolkit({
           />
           <input
             type="text"
-            placeholder="email@domain.com or +1 555-…"
+            placeholder="email, phone, or linkedin.com/in/…"
             value={entryContact}
             onChange={(e) => setEntryContact(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addEntry()}
             className="retro-input text-sm"
-            style={{ flex: "3 1 220px", minWidth: 0 }}
+            style={{ flex: "3 1 240px", minWidth: 0 }}
           />
           <button
             type="button"
@@ -364,6 +419,20 @@ export function BulkReachToolkit({
                 )}
                 {c.phone && !c.email && (
                   <span style={{ color: "var(--text-dim)" }}>{c.phone}</span>
+                )}
+                {c.profile_url && !c.email && !c.phone && (
+                  <a
+                    href={c.profile_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      color: "var(--amber-bright)",
+                      textDecoration: "underline",
+                      fontSize: 11
+                    }}
+                  >
+                    {profileLabel(c.profile_url)}
+                  </a>
                 )}
                 <button
                   type="button"

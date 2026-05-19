@@ -80,6 +80,7 @@ export function Sidebar({
         <img
           src="/syncedin-wordmark.png"
           alt="SyncedIn"
+          className="wordmark-themed"
           style={{
             width: "100%",
             height: "auto",

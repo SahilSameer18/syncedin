@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── Wordmark theming ────────────────────────────────────────
+   The shipped wordmark PNG has dark text + a colored icon. In dark
+   mode the dark text disappears against the dark surface. Until we
+   have a proper light-on-dark variant asset, invert the whole image
+   so it reads as white-on-dark. Light mode is untouched.
+   ───────────────────────────────────────────────────────────── */
+:root[data-theme="dark"] .wordmark-themed {
+  filter: brightness(0) invert(1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .wordmark-themed {
+    filter: brightness(0) invert(1);
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────
    SyncedIn — "cassette futurism"
    Future + past blended: a clean modern dark UI (sans body type,
