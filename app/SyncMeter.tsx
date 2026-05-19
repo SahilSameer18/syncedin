@@ -191,20 +191,20 @@ export function SyncMeter({
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
+          {/* SCI-FI UPLOAD gradient — SyncedIn brand blue → violet, not the
+              old rainbow. Reads as a clone being uploaded into the body. */}
           <linearGradient
-            id="syncRainbow"
+            id="syncUpload"
             x1="0"
             y1={FILL_BOTTOM}
             x2="0"
             y2={FILL_TOP - 40}
             gradientUnits="userSpaceOnUse"
           >
-            <stop offset="0%" stopColor="#7c3aed" />
-            <stop offset="22%" stopColor="#3b82f6" />
-            <stop offset="44%" stopColor="#22c55e" />
-            <stop offset="66%" stopColor="#facc15" />
-            <stop offset="86%" stopColor="#f97316" />
-            <stop offset="100%" stopColor="#ec4899" />
+            <stop offset="0%" stopColor="#1f3bce" />
+            <stop offset="40%" stopColor="#3a4dff" />
+            <stop offset="75%" stopColor="#6b2dc9" />
+            <stop offset="100%" stopColor="#a060ff" />
           </linearGradient>
           <clipPath id="syncBodyClip" clipPathUnits="userSpaceOnUse">
             <path d={bodyPath} />
@@ -212,17 +212,85 @@ export function SyncMeter({
         </defs>
 
         {/* Fill rises from the feet up to fillY. The unfilled portion above
-            is left TRANSPARENT (no background rect) so the page surface
-            shows through — important for dark mode, where the previous
-            light-grey wash looked like a glaring opaque chest. */}
+            is left TRANSPARENT (no background rect). On top of the gradient
+            fill we paint a bright "surface" bar riding the fill line + a few
+            thin scan lines drifting up through the fill — evoking a data-
+            upload progress display from a sci-fi UI. */}
         <g clipPath="url(#syncBodyClip)">
           <rect
             x="0"
             y={fillY}
             width={VB_W}
             height={VB_H - fillY}
-            fill="url(#syncRainbow)"
+            fill="url(#syncUpload)"
           />
+          {/* Surface line — breathes slightly to feel alive */}
+          <rect
+            x="0"
+            y={fillY - 2}
+            width={VB_W}
+            height={4}
+            fill="#ffffff"
+            opacity={0.78}
+          >
+            <animate
+              attributeName="opacity"
+              values="0.6;0.95;0.6"
+              dur="1.6s"
+              repeatCount="indefinite"
+            />
+          </rect>
+          {/* Scan lines drifting up through the filled portion */}
+          <rect
+            x="0"
+            y={FILL_BOTTOM}
+            width={VB_W}
+            height={1.5}
+            fill="#ffffff"
+            opacity={0.5}
+          >
+            <animate
+              attributeName="y"
+              from={FILL_BOTTOM}
+              to={fillY}
+              dur="2.4s"
+              repeatCount="indefinite"
+            />
+          </rect>
+          <rect
+            x="0"
+            y={FILL_BOTTOM}
+            width={VB_W}
+            height={1}
+            fill="#ffffff"
+            opacity={0.4}
+          >
+            <animate
+              attributeName="y"
+              from={FILL_BOTTOM}
+              to={fillY}
+              dur="3s"
+              begin="0.6s"
+              repeatCount="indefinite"
+            />
+          </rect>
+          <rect
+            x="0"
+            y={FILL_BOTTOM}
+            width={VB_W}
+            height={1}
+            fill="#ffffff"
+            opacity={0.3}
+          >
+            <animate
+              attributeName="y"
+              from={FILL_BOTTOM}
+              to={fillY}
+              dur="3.6s"
+              begin="1.2s"
+              repeatCount="indefinite"
+            />
+          </rect>
         </g>
 
         {/* Head: simple outlined circle */}

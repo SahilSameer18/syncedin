@@ -387,8 +387,20 @@ export function OnboardingWizard({
           >
             ←
           </button>
-          {step < STEPS.length - 1 ? (
+          {/* Forward button. CRITICAL: on the LAST step (Refine) we DO NOT
+              render a submit button up here. Why: React was reconciling the
+              continue→ button and the save-twin→ submit button as the SAME
+              DOM node (same parent, same tag, same className). After
+              clicking "continue" from step 3 to 4, focus stayed on the
+              button — which was now type="submit" — and any stray Enter or
+              accidental re-click auto-submitted the form before the user
+              had even read the Refine step. That bug shipped multiple
+              times. Real save lives at the bottom of the Refine step
+              content, in a dedicated section, with a key prop that
+              guarantees a fresh DOM node. */}
+          {step < STEPS.length - 1 && (
             <button
+              key="continue-top"
               type="button"
               onClick={() =>
                 setStep((s) => Math.min(STEPS.length - 1, s + 1))
@@ -398,15 +410,6 @@ export function OnboardingWizard({
               style={{ padding: "6px 14px" }}
             >
               continue →
-            </button>
-          ) : (
-            <button
-              type="submit"
-              disabled={!state.display_name.trim() || !state.goals.trim()}
-              className="retro-btn retro-btn-primary text-xs"
-              style={{ padding: "6px 14px" }}
-            >
-              save twin →
             </button>
           )}
         </div>
@@ -673,14 +676,51 @@ export function OnboardingWizard({
                 onChange={(v) => set("deal_breakers", v)}
               />
             </div>
+
+            {/* Save button — RENDERED ONLY on the Refine step, ONLY at the
+                bottom, ONLY as a deliberate submit. Padded away from inputs
+                with a divider so an accidental misclick can't reach it.
+                Unique key forces a fresh DOM node so React reconciliation
+                can never swap a "continue" button into this position. */}
+            <div
+              style={{
+                marginTop: 32,
+                paddingTop: 24,
+                borderTop: "1px solid var(--border)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "flex-start",
+                gap: 8
+              }}
+            >
+              <div
+                className="retro-label"
+                style={{ color: "var(--amber-bright)" }}
+              >
+                ready to ship?
+              </div>
+              <p
+                className="text-sm"
+                style={{ color: "var(--text-dim)", maxWidth: 540 }}
+              >
+                Everything above gets saved as your twin&apos;s playbook.
+                You can edit any of it later from this same page.
+              </p>
+              <button
+                key="save-twin-final"
+                type="submit"
+                disabled={
+                  !state.display_name.trim() || !state.goals.trim()
+                }
+                className="retro-btn retro-btn-primary"
+                style={{ padding: "10px 18px", marginTop: 6 }}
+              >
+                save twin & go to dashboard →
+              </button>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Bottom nav row was removed — having a second submit button at the
-          bottom of the Refine step was the root cause of the form
-          auto-submitting before the user clicked Save. The inline compact
-          nav at the top of the wizard handles back/continue/save. */}
     </form>
   );
 }
