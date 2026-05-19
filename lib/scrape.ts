@@ -94,14 +94,61 @@ async function scrapeXProfile(url: string): Promise<string> {
   if (items.length === 0) {
     throw new Error("Apify returned no items for X profile");
   }
-  // Each item is a tweet object. Pull text + author bio if available.
-  const bio = (items[0] as any)?.author?.description ?? "";
-  const tweets = items
-    .map((t) => (t as any)?.text ?? "")
-    .filter(Boolean)
-    .slice(0, 25)
-    .join("\n• ");
-  return `@${handle} on X\n\nBio: ${bio}\n\nRecent posts:\n• ${tweets}`;
+  // Field shapes drift between actor revisions: tweets may live under
+  // text / fullText / full_text / tweet, author/user under author / user /
+  // tweetBy. Read them all defensively and fall back to flattening the
+  // raw item if structured extraction whiffs entirely.
+  const tweets: string[] = [];
+  for (const t of items as Array<Record<string, unknown>>) {
+    const txt =
+      (t?.text as string) ??
+      (t?.fullText as string) ??
+      (t?.full_text as string) ??
+      (t?.tweet as string) ??
+      "";
+    if (typeof txt === "string" && txt.trim()) tweets.push(txt.trim());
+  }
+  const a0 =
+    ((items[0] as any)?.author as Record<string, unknown>) ||
+    ((items[0] as any)?.user as Record<string, unknown>) ||
+    ((items[0] as any)?.tweetBy as Record<string, unknown>) ||
+    {};
+  const bio =
+    (a0.description as string) ||
+    (a0.bio as string) ||
+    (a0.profile_description as string) ||
+    "";
+  const name =
+    (a0.name as string) ||
+    (a0.fullName as string) ||
+    (a0.displayName as string) ||
+    handle;
+  const followers =
+    (a0.followersCount as number) ||
+    (a0.followers_count as number) ||
+    (a0.followers as number) ||
+    0;
+
+  // If structured extraction failed, dump the first item's raw flattened
+  // shape — better signal for the LLM than an empty scaffold ("Bio: \n
+  // Recent posts: •").
+  if (tweets.length === 0 && !bio) {
+    const raw = flatten(items[0]).slice(0, 2000);
+    if (raw.trim().length > 40) return raw;
+    throw new Error(
+      "Apify returned items with no usable text — handle may be private or scrape was blocked."
+    );
+  }
+
+  const lines: string[] = [];
+  lines.push(`${name} (@${handle}) on X`);
+  if (followers) lines.push(`Followers: ${followers.toLocaleString()}`);
+  if (bio) lines.push(`Bio: ${bio}`);
+  if (tweets.length > 0) {
+    lines.push("Recent posts:");
+    lines.push("• " + tweets.slice(0, 15).join("\n• "));
+  }
+  return lines.join("\n\n");
 }
 
 async function scrapeInstagramProfile(url: string): Promise<string> {

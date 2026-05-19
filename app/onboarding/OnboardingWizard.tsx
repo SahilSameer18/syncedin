@@ -360,7 +360,7 @@ export function OnboardingWizard({
               {i < STEPS.length - 1 && (
                 <span
                   style={{
-                    width: 28,
+                    width: 14,
                     height: 1,
                     background: "var(--border-bright)"
                   }}
@@ -677,8 +677,10 @@ export function OnboardingWizard({
         )}
       </div>
 
-      {/* Bottom nav row */}
-      <NavRow />
+      {/* Bottom nav row was removed — having a second submit button at the
+          bottom of the Refine step was the root cause of the form
+          auto-submitting before the user clicked Save. The inline compact
+          nav at the top of the wizard handles back/continue/save. */}
     </form>
   );
 }

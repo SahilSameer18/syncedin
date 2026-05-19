@@ -35,6 +35,7 @@ export function Sidebar({
   const items: Array<{ href: string; label: string; icon: string }> = [
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "💬" },
+    { href: "/invite", label: "Invite", icon: "💌" },
     { href: "/hypernetwork", label: "Hypernetwork", icon: "🌐" },
     { href: "/conferences/new", label: "Sync a conference", icon: "🎤" },
     { href: "/communities/new", label: "Sync a community", icon: "👥" },
