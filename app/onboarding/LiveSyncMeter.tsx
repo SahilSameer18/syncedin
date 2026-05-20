@@ -13,12 +13,28 @@ import type { SyncInputs } from "@/lib/sync-score";
  */
 export function LiveSyncMeter({
   formSelector = "form",
-  size = 220
+  size = 220,
+  // Activity counts come from the server (passed as props from the
+  // onboarding page that fetches them). Without these, the LiveSyncMeter
+  // would only see form fields — name, goals, blob — and would always
+  // show a LOWER sync % than the dashboard (which counts conversations,
+  // agreements, and edit-deltas). User-reported bug: "dashboard and edit
+  // twin page have different % sync amounts". This closes that gap.
+  completedConversations = 0,
+  acceptedAgreements = 0,
+  editCount = 0
 }: {
   formSelector?: string;
   size?: number;
+  completedConversations?: number;
+  acceptedAgreements?: number;
+  editCount?: number;
 }) {
-  const [inputs, setInputs] = useState<SyncInputs>({});
+  const [inputs, setInputs] = useState<SyncInputs>({
+    completed_conversations: completedConversations,
+    accepted_agreements: acceptedAgreements,
+    edit_count: editCount
+  });
 
   useEffect(() => {
     function readForm(): SyncInputs {
@@ -41,7 +57,11 @@ export function LiveSyncMeter({
         deal_breakers: get("deal_breakers"),
         ai_export_blob: get("ai_export_blob"),
         hometown: get("hometown"),
-        current_city: get("current_city")
+        current_city: get("current_city"),
+        // Keep the activity counts so the live total matches dashboard.
+        completed_conversations: completedConversations,
+        accepted_agreements: acceptedAgreements,
+        edit_count: editCount
       };
     }
 

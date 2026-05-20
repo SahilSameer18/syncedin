@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { SelfGraph } from "./SelfGraph";
@@ -28,6 +28,27 @@ export default async function OnboardingPage({
     .select("*")
     .eq("id", user.id)
     .maybeSingle();
+
+  // Activity counts for the live sync meter — same fetches the dashboard
+  // runs, so the % shown here matches the % shown on /dashboard exactly.
+  // Without these the meter only saw form fields and was always lower.
+  const service = createServiceClient();
+  const { data: myConvs } = await service
+    .from("conversations")
+    .select("id, status, participant_a, participant_b")
+    .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`);
+  const completedConversations = (myConvs ?? []).filter(
+    (c: any) => c.status === "closed"
+  ).length;
+  const { count: acceptedAgreementsCount } = await service
+    .from("agreement_responses")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("response", "accepted");
+  const { count: editCount } = await service
+    .from("edit_deltas")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id);
 
   const initial = {
     display_name: profile?.display_name ?? "",
@@ -69,7 +90,13 @@ export default async function OnboardingPage({
             SelfGraph here; the topographic visual now lives at the
             bottom of the page where it can render full-width. */}
         <div>
-          <LiveSyncMeter formSelector="#onboarding-form" size={220} />
+          <LiveSyncMeter
+            formSelector="#onboarding-form"
+            size={220}
+            completedConversations={completedConversations}
+            acceptedAgreements={acceptedAgreementsCount ?? 0}
+            editCount={editCount ?? 0}
+          />
         </div>
       </div>
 

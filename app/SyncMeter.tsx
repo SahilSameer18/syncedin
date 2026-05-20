@@ -40,7 +40,11 @@ function SyncInfoBadge({
         className="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
         style={{
           position: "absolute",
-          top: "calc(100% + 8px)",
+          // Open ABOVE the badge so the bottom of the page doesn't clip
+          // the tooltip. The badge always lives near the bottom of the
+          // SyncMeter, so there's plenty of clearance going up but
+          // often almost none going down.
+          bottom: "calc(100% + 8px)",
           left: "50%",
           transform: "translateX(-50%)",
           width: 280,
@@ -170,7 +174,10 @@ export function SyncMeter({
 
   // viewBox: 200 wide × 340 tall (300 for body + 40 for caption underneath).
   const VB_W = 200;
-  const VB_H = 340;
+  // Was 340 to make room for the in-SVG % SYNC caption. Caption now
+  // lives as an HTML flex row below the SVG, so we tighten the viewBox
+  // to just the body (300 = body bottom + a small breathing margin).
+  const VB_H = 300;
 
   // Outer container preserves aspect ratio at any `size`.
   const aspect = VB_H / VB_W;
@@ -368,41 +375,45 @@ export function SyncMeter({
           strokeLinecap="round"
         />
 
-        {/* Caption — % SYNC, clean type below the body, never overlays */}
-        <text
-          x="100"
-          y="325"
-          textAnchor="middle"
-          fill="var(--text, #0a0d18)"
-          fontFamily='"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace'
-          fontWeight={700}
-          fontSize={20}
-          letterSpacing="0.04em"
-        >
-          {total}%
-          <tspan
-            fill="var(--text-dim, #6c7385)"
-            fontWeight={500}
-            fontSize={13}
-            dx="6"
-            letterSpacing="0.24em"
-          >
-            SYNC
-          </tspan>
-        </text>
+        {/* Caption removed from the SVG — now rendered as an HTML flex
+            row below so the (i) badge can sit inline with the % SYNC
+            text, properly baseline-aligned. The old SVG-text-plus-
+            absolute-positioned-div approach made the (i) drift to the
+            right and slightly off the % baseline. */}
       </svg>
 
-      {/* (i) hover badge — pinned to bottom-right of the meter box, next
-          to the "% SYNC" caption. CSS-only tooltip with the full breakdown. */}
+      {/* Caption row — flex-aligned, (i) sits inline with the percentage. */}
       <div
         style={{
-          position: "absolute",
-          right: "8%",
-          bottom: 4,
           display: "flex",
-          alignItems: "center"
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          marginTop: -10,
+          fontFamily:
+            '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace'
         }}
       >
+        <span
+          style={{
+            fontSize: 20,
+            fontWeight: 700,
+            letterSpacing: "0.04em",
+            color: "var(--text)"
+          }}
+        >
+          {total}%
+        </span>
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            letterSpacing: "0.24em",
+            color: "var(--text-dim)"
+          }}
+        >
+          SYNC
+        </span>
         <SyncInfoBadge breakdown={parts} nextStep={nextStep} />
       </div>
     </div>
