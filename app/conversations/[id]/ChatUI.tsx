@@ -768,57 +768,85 @@ export function ChatUI({
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-screen">
-      <header className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
-        <div className="flex items-center gap-3 min-w-0">
-          <TwinLink
-            self={{
-              id: selfUserId,
-              name: selfName,
-              avatarUrl: selfAvatarUrl ?? null
-            }}
-            other={{
-              id: other.id,
-              name: other.name,
-              avatarUrl: other.avatarUrl ?? null
-            }}
-            active={running}
-          />
-          <div className="min-w-0">
-            <Link href="/dashboard" className="retro-dim text-xs">
-              &lt; back
-            </Link>
-            <div className="text-lg font-bold mt-0.5 flex items-center gap-2 truncate">
-              <span className="truncate">{selfName}</span>
-              <span className="retro-dim text-sm">×</span>
-              <span className="truncate">{other.name}</span>
-              {other.isTestPersona && (
-                <span className="retro-label retro-panel px-1.5 py-0.5">
-                  sample
-                </span>
-              )}
+      {(() => {
+        // Short label helpers — emails crammed into a single row with two
+        // spans and a "×" between them produced the mess Jack flagged
+        // ("cksonjezion@…  ×  Jackson Jes…"). Derive a clean first name
+        // (or local-part of email) so the header reads "Jack × Mack" on
+        // mobile instead of half-truncated email addresses.
+        const shortName = (full: string): string => {
+          const f = (full || "").trim();
+          if (!f) return "you";
+          if (f.includes("@")) return f.split("@")[0]!.split(/[._\-+]/)[0]!;
+          return f.split(/\s+/)[0]!;
+        };
+        const selfShort = shortName(selfName);
+        const otherShort = shortName(other.name);
+        return (
+          <header className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <TwinLink
+                self={{
+                  id: selfUserId,
+                  name: selfName,
+                  avatarUrl: selfAvatarUrl ?? null
+                }}
+                other={{
+                  id: other.id,
+                  name: other.name,
+                  avatarUrl: other.avatarUrl ?? null
+                }}
+                active={running}
+              />
+              <div className="min-w-0 flex-1">
+                <Link
+                  href="/dashboard"
+                  className="retro-dim text-xs"
+                  style={{ display: "inline-block", marginBottom: 2 }}
+                >
+                  &lt; back
+                </Link>
+                <div className="text-base sm:text-lg font-bold flex items-center gap-1.5 min-w-0">
+                  <span className="truncate" style={{ maxWidth: "8em" }}>
+                    {selfShort}
+                  </span>
+                  <span className="retro-dim text-xs">×</span>
+                  <span className="truncate" style={{ maxWidth: "8em" }}>
+                    {otherShort}
+                  </span>
+                  {other.isTestPersona && (
+                    <span
+                      className="retro-label retro-panel"
+                      style={{ padding: "1px 6px", fontSize: 9 }}
+                    >
+                      sample
+                    </span>
+                  )}
+                </div>
+                <div className="retro-dim text-xs flex items-center gap-1.5 mt-0.5">
+                  <span>
+                    {running
+                      ? "twins are talking…"
+                      : done
+                      ? "conversation complete"
+                      : "twins ready"}
+                  </span>
+                  <EditInfoBadge />
+                </div>
+              </div>
             </div>
-            <div className="retro-dim text-xs flex items-center gap-1.5">
-              <span>
-                {running
-                  ? "twins are talking…"
-                  : done
-                  ? "conversation complete"
-                  : "agent-to-agent conversation"}
-              </span>
-              <EditInfoBadge />
-            </div>
-          </div>
-        </div>
-        {!running && (
-          <button
-            onClick={runLoop}
-            className="retro-btn text-xs"
-            title="Continue / re-run"
-          >
-            {messages.length === 0 ? "start" : done ? "re-run" : "continue"}
-          </button>
-        )}
-      </header>
+            {!running && (
+              <button
+                onClick={runLoop}
+                className="retro-btn text-xs shrink-0"
+                title="Continue / re-run"
+              >
+                {messages.length === 0 ? "start" : done ? "re-run" : "continue"}
+              </button>
+            )}
+          </header>
+        );
+      })()}
 
       <div ref={scrollerRef} className="flex-1 overflow-y-auto py-4 space-y-2">
         {messages.length === 0 && !running && (

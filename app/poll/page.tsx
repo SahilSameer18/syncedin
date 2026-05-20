@@ -134,15 +134,44 @@ export default async function PollListPage() {
               <li key={p.id}>
                 <Link
                   href={`/poll/${p.id}`}
-                  className="retro-panel block"
+                  className="retro-panel retro-panel-hover block group"
                   style={{
                     padding: "16px 18px",
+                    paddingRight: 44,
+                    position: "relative",
+                    cursor: "pointer",
                     borderColor:
                       p.status === "running"
                         ? "var(--amber)"
-                        : "var(--border)"
+                        : "var(--border-bright)"
                   }}
                 >
+                  {/* Right-edge chevron — visible at rest so it's obvious
+                      this card is tappable, not a static label. Saturates
+                      on hover via the group class. */}
+                  <span
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      right: 14,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      width: 24,
+                      height: 24,
+                      borderRadius: 12,
+                      border: "1px solid var(--border-bright)",
+                      background: "var(--panel-2)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--text-dim)",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      transition: "color 120ms, border-color 120ms"
+                    }}
+                  >
+                    →
+                  </span>
                   <div
                     className="text-xs"
                     style={{

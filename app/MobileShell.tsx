@@ -47,7 +47,10 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      {/* Top mobile bar */}
+      {/* Top mobile bar — kept thin. Padding + button height + wordmark
+          height all sized so the bar lands at ~44px total. Earlier
+          version ate ~30% of phone viewport height because the wordmark
+          rendered at natural ~60px tall. */}
       <div
         className="lg:hidden"
         style={{
@@ -56,10 +59,11 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           zIndex: 40,
           background: "var(--panel-solid)",
           borderBottom: "1px solid var(--border)",
-          padding: "10px 14px",
+          padding: "5px 10px",
           display: "flex",
           alignItems: "center",
-          gap: 12
+          gap: 8,
+          minHeight: 44
         }}
       >
         <button
@@ -67,9 +71,9 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           onClick={() => setOpen((v) => !v)}
           aria-label="Open menu"
           style={{
-            width: 36,
-            height: 36,
-            borderRadius: 8,
+            width: 30,
+            height: 30,
+            borderRadius: 7,
             border: "1px solid var(--border-bright)",
             background: "transparent",
             display: "inline-flex",
@@ -77,7 +81,8 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             justifyContent: "center",
             cursor: "pointer",
             color: "var(--text)",
-            fontSize: 18
+            fontSize: 16,
+            flexShrink: 0
           }}
         >
           {open ? "✕" : "☰"}
@@ -86,13 +91,23 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           href="/"
           aria-label="SyncedIn — home"
           style={{
-            flex: 1,
-            display: "block",
+            display: "inline-flex",
+            alignItems: "center",
+            height: 28,
             textDecoration: "none",
-            maxWidth: 140
+            flexShrink: 0
           }}
         >
-          <Wordmark />
+          {/* Bypass the Wordmark component's size prop (smallest preset is
+              40px, too tall for the mobile bar) and render the PNG directly
+              at 22px. wordmark-themed class handles dark-mode invert. */}
+          <img
+            src="/syncedin-wordmark.png"
+            alt="SyncedIn"
+            className="wordmark-themed"
+            height={22}
+            style={{ height: 22, width: "auto", display: "block" }}
+          />
         </Link>
       </div>
 

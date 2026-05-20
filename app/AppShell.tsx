@@ -83,8 +83,12 @@ export async function AppShell({
           full sidebar. Hidden on lg+. */}
       <MobileShell>{sidebar}</MobileShell>
 
+      {/* pt-0 on mobile because MobileShell already gives us a top bar.
+          Stacking another pt-3 below it created the huge empty band Jack
+          flagged. lg+ keeps the standard pt-3 since there's no mobile bar
+          eating vertical real estate up top. */}
       <main
-        className={`${maxWidth} mx-auto px-4 lg:px-5 pt-3 pb-6 grid lg:grid-cols-[220px_1fr] gap-6 items-start`}
+        className={`${maxWidth} mx-auto px-4 lg:px-5 pt-0 lg:pt-3 pb-6 grid lg:grid-cols-[220px_1fr] gap-4 lg:gap-6 items-start`}
       >
         {/* Desktop sidebar — hidden on mobile, replaced by MobileShell drawer */}
         <div className="hidden lg:block">{sidebar}</div>
