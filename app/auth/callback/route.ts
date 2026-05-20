@@ -4,21 +4,64 @@ import { createClient } from "@/lib/supabase/server";
 // Supabase magic-link / OAuth callback.
 // Handles both PKCE (?code=...) and OTP token_hash (?token_hash=...&type=...).
 // Surfaces the real error to /login so failures aren't a black box.
+
+/**
+ * Resolve where to send a user after successful auth.
+ *  - If `?next=...` was passed (claim flow, deep links, etc.), honor it.
+ *  - Otherwise, if the user has no twin_profile yet, treat them as a
+ *    brand-new signup and send them DIRECTLY to /onboarding — the welcome
+ *    splash + prefilled fields are the highest-leverage first impression.
+ *  - Otherwise send them to /dashboard.
+ */
+async function resolveLanding(
+  origin: string,
+  explicitNext: string | null
+): Promise<string> {
+  if (explicitNext && explicitNext !== "/dashboard") {
+    return `${origin}${explicitNext}`;
+  }
+  try {
+    const sb = createClient();
+    const {
+      data: { user }
+    } = await sb.auth.getUser();
+    if (!user) return `${origin}${explicitNext || "/dashboard"}`;
+    const { data: twin } = await sb
+      .from("twin_profiles")
+      .select("user_id, goals, ai_export_blob")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    // Treat the user as "needs onboarding" if there's no row OR the row
+    // is essentially empty. The latter happens when /claim seeded an
+    // ai_export_blob from scrape highlights — that's a half-built twin
+    // that still needs the welcome splash before /dashboard.
+    const finishedSetup =
+      twin &&
+      ((twin.goals && twin.goals.trim().length > 5) ||
+        (twin.ai_export_blob && twin.ai_export_blob.trim().length > 200));
+    return finishedSetup
+      ? `${origin}/dashboard`
+      : `${origin}/onboarding?welcome=1`;
+  } catch {
+    return `${origin}${explicitNext || "/dashboard"}`;
+  }
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type");
-  // Land signed-in users straight on the dashboard. The dashboard itself
-  // nudges anyone who hasn't finished their twin over to /onboarding.
-  const next = searchParams.get("next") ?? "/dashboard";
+  const explicitNext = searchParams.get("next");
 
   const supabase = createClient();
   let errMsg = "";
 
   if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (!error) return NextResponse.redirect(`${origin}${next}`);
+    if (!error) {
+      return NextResponse.redirect(await resolveLanding(origin, explicitNext));
+    }
     errMsg = error.message;
   } else if (token_hash) {
     // token_hash links work in ANY browser (no PKCE verifier needed).
@@ -31,7 +74,11 @@ export async function GET(request: Request) {
         token_hash,
         type: t as any
       });
-      if (!error) return NextResponse.redirect(`${origin}${next}`);
+      if (!error) {
+        return NextResponse.redirect(
+          await resolveLanding(origin, explicitNext)
+        );
+      }
       errMsg = error.message;
     }
   } else {

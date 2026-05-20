@@ -5,11 +5,17 @@ import { Wordmark } from "../Wordmark";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { SelfGraph } from "./SelfGraph";
 import { LiveSyncMeter } from "./LiveSyncMeter";
+import { WelcomeSplash } from "./WelcomeSplash";
 
 export default async function OnboardingPage({
   searchParams
 }: {
-  searchParams: { saved?: string };
+  searchParams: {
+    saved?: string;
+    welcome?: string;
+    fromInvite?: string;
+    conv?: string;
+  };
 }) {
   const supabase = createClient();
   const {
@@ -62,16 +68,54 @@ export default async function OnboardingPage({
     current_city: (twin as any)?.current_city ?? ""
   };
 
+  // Welcome-splash data — only used when ?welcome=1 is in the URL (set
+  // either by /auth/callback for brand-new signups or by /claim/<slug>
+  // for invite-claimed users). Pulls the inviter display name from the
+  // pending_invite if a slug was passed so we can show "Jack already has
+  // a conversation waiting for you."
+  const showWelcome = searchParams.welcome === "1";
+  let inviterName: string | null = null;
+  if (showWelcome && searchParams.fromInvite) {
+    const { data: invite } = await service
+      .from("pending_invites")
+      .select("inviter_user_id")
+      .eq("slug", searchParams.fromInvite)
+      .maybeSingle();
+    if (invite?.inviter_user_id) {
+      const { data: ip } = await service
+        .from("profiles")
+        .select("display_name, email")
+        .eq("id", invite.inviter_user_id)
+        .maybeSingle();
+      inviterName =
+        (ip as any)?.display_name ||
+        ((ip as any)?.email ? (ip as any).email.split("@")[0] : null);
+    }
+  }
+  const firstNameForWelcome = (initial.display_name || "").trim().split(/\s+/)[0] || "";
+
   return (
-    <main className="max-w-6xl mx-auto px-6 pt-3 pb-8">
-      <div className="flex items-center justify-between">
+    <main className="max-w-6xl mx-auto px-6 pt-2 pb-8">
+      {/* Top nav row — kept tight. The empty vertical band the user
+          flagged was the Wordmark's natural baseline gap + the mt-6 on
+          the H1 below; reduced both so step 1 ships above the fold. */}
+      <div className="flex items-center justify-between" style={{ minHeight: 32 }}>
         <Wordmark />
         <Link href="/dashboard" className="retro-dim text-xs">
           dashboard &gt;
         </Link>
       </div>
 
-      <h1 className="retro-h1 text-2xl mt-6">Build your twin</h1>
+      {showWelcome && (
+        <WelcomeSplash
+          firstName={firstNameForWelcome}
+          avatarUrl={initial.avatar_url || null}
+          inviterName={inviterName}
+          conversationId={searchParams.conv || null}
+        />
+      )}
+
+      <h1 className="retro-h1 text-2xl mt-3">Build your twin</h1>
       <p className="mt-1 retro-dim text-sm">
         Five quick steps. Each one sharpens how your clone shows up for you.
       </p>

@@ -40,13 +40,19 @@ function SyncInfoBadge({
         className="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
         style={{
           position: "absolute",
-          // Open ABOVE the badge so the bottom of the page doesn't clip
-          // the tooltip. The badge always lives near the bottom of the
-          // SyncMeter, so there's plenty of clearance going up but
-          // often almost none going down.
-          bottom: "calc(100% + 8px)",
-          left: "50%",
-          transform: "translateX(-50%)",
+          // Open to the RIGHT of the badge. Previous versions opened
+          // downward (got clipped by page bottom) and upward (got
+          // clipped at top of viewport when SyncMeter sits near the top
+          // of the dashboard, as Jack flagged). The right side has more
+          // breathing room on every page that includes the meter — the
+          // content column always extends far to the right of where the
+          // meter lives in the layout.
+          //
+          // Vertically center on the badge so it reads like a callout
+          // anchored to the (i) circle.
+          top: "50%",
+          left: "calc(100% + 12px)",
+          transform: "translateY(-50%)",
           width: 280,
           padding: "12px 14px",
           background: "var(--panel-solid)",

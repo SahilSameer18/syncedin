@@ -171,19 +171,19 @@ export async function GET(
     );
   }
 
-  // VARIANT A (current default): drop the new user STRAIGHT into the
-  // conversation. The inviter's opener is already there waiting. They see
-  // a real, populated thread on first paint — no form, no interrogation.
-  // The conversation UI itself pushes them to edit/reply, which is the
-  // single highest-leverage action they can take.
+  // Jack's latest call (May 2026): claimed users go to /onboarding first,
+  // not straight to the conversation. The conversation IS created and
+  // seeded, but the user lands on the welcome splash where we show
+  // "Welcome <Name> — prepare for a synchronous future..." and the
+  // pre-filled fields (name, avatar, scraped highlights) make it clear we
+  // already know who they are. After onboarding the user reaches the
+  // dashboard and finds the conversation waiting.
   //
-  // Future A/B/C variants we should test (see docs/onboarding-variants.md):
-  //   - VARIANT B: route through /welcome first (built, parked here)
-  //   - VARIANT C: minimal one-question modal ("what do you do?") before
-  //     conversation
-  //   - VARIANT D: progressive — drop into convo, surface a coachmark
-  //     after their first reply offering to refine the twin
+  // We pass the inviter slug + convId in the URL so /onboarding can:
+  //   1. Look up the inviter's display name for the welcome line.
+  //   2. Show a "your first conversation is ready" CTA at the end of
+  //      onboarding so the user knows exactly where to go next.
   return NextResponse.redirect(
-    `${url.origin}/conversations/${conversationId}?seeded=1`
+    `${url.origin}/onboarding?welcome=1&fromInvite=${encodeURIComponent(slug)}&conv=${conversationId}`
   );
 }

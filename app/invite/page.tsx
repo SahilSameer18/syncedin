@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { BulkReachToolkit } from "../BulkReachToolkit";
 
@@ -28,9 +28,53 @@ export default async function InvitePage() {
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";
 
+  // Stats — pulled from this inviter's pending_invites rows. Wrapped in
+  // try/catch so a missing column (e.g. visit_count before the migration
+  // runs in prod) silently degrades rather than 500'ing the whole page.
+  const service = createServiceClient();
+  let drafted = 0;
+  let claimed = 0;
+  let visited = 0;
+  let visitTotal = 0;
+  try {
+    const { count: draftedCount } = await service
+      .from("pending_invites")
+      .select("slug", { count: "exact", head: true })
+      .eq("inviter_user_id", user.id);
+    drafted = draftedCount ?? 0;
+    const { count: claimedCount } = await service
+      .from("pending_invites")
+      .select("slug", { count: "exact", head: true })
+      .eq("inviter_user_id", user.id)
+      .not("claimed_by_user_id", "is", null);
+    claimed = claimedCount ?? 0;
+    // visit_count + first_visit_at may not exist yet in prod (schema
+    // migration pending). Use a defensive try.
+    try {
+      const { data: visitRows } = await service
+        .from("pending_invites")
+        .select("visit_count, first_visit_at")
+        .eq("inviter_user_id", user.id);
+      for (const row of (visitRows ?? []) as any[]) {
+        if ((row?.visit_count ?? 0) > 0) visited += 1;
+        visitTotal += row?.visit_count ?? 0;
+      }
+    } catch {
+      /* migration not applied yet — fall back to zeros */
+    }
+  } catch {
+    /* totally offline / RLS issue — leave zeros */
+  }
+  const ctr = drafted > 0 ? Math.round((visited / drafted) * 100) : 0;
+  const claimRate =
+    drafted > 0 ? Math.round((claimed / drafted) * 100) : 0;
+
   return (
     <AppShell>
-      {/* MANIFESTO */}
+      {/* MANIFESTO — Jack's call: the manifesto leads, then the toolkit
+          fires IMMEDIATELY underneath. The "how the context grab works"
+          explainer now lives below the toolkit so users who already
+          understand can act first and skip the explanation. */}
       <section className="mt-4">
         <div className="retro-label">invite humans</div>
         <h1 className="retro-h1 text-4xl sm:text-5xl mt-3 leading-tight">
@@ -48,8 +92,32 @@ export default async function InvitePage() {
         </p>
       </section>
 
-      {/* THE THREE-STEP CONTEXT GRAB */}
-      <section className="mt-10">
+      {/* THE TOOLKIT — surface the action FIRST. */}
+      <section className="mt-8">
+        <div className="retro-label">send invites now</div>
+        <h2 className="retro-h1 text-2xl mt-2">
+          Add who you want to invite.
+        </h2>
+        <p
+          className="mt-3 text-sm leading-relaxed"
+          style={{ color: "var(--text-dim)", maxWidth: 680 }}
+        >
+          Each entry becomes a custom landing page at
+          <code style={{ color: "var(--amber-bright)", margin: "0 4px" }}>
+            syncedin.org/their-name
+          </code>
+          with a twin-voice opener. Then send via iMessage, Email, WhatsApp,
+          or copy the link anywhere.
+        </p>
+
+        <div className="mt-6">
+          <BulkReachToolkit appUrl={appUrl} variant="card" />
+        </div>
+      </section>
+
+      {/* THE THREE-STEP CONTEXT GRAB — explainer moved below the toolkit
+          so the action surface is what users hit first. */}
+      <section className="mt-12">
         <div className="retro-label">how the context grab works</div>
         <h2 className="retro-h1 text-2xl mt-2">
           One profile URL becomes a personalized landing page.
@@ -72,7 +140,7 @@ export default async function InvitePage() {
           <Pillar
             k="02"
             t="We scrape their public footprint"
-            d="Bio, recent posts, follower count, captions, headlines. Whatever they've already put on the public internet becomes context for the opener — no guessing."
+            d="Bio, recent posts, captions, headlines. Whatever they've already put on the public internet becomes context for the opener — no guessing."
           />
           <Pillar
             k="03"
@@ -104,26 +172,77 @@ export default async function InvitePage() {
         </div>
       </section>
 
-      {/* THE TOOLKIT — full BulkReach widget */}
+      {/* INVITER STATS — your own scoreboard. Drafted / Visited / Onboarded
+          plus the early-inviter rewards promise. Sits ABOVE the closing
+          "the math" block so users see their own numbers before the
+          abstract pitch. */}
       <section className="mt-14">
-        <div className="retro-label">send invites now</div>
+        <div className="retro-label">your inviter scoreboard</div>
         <h2 className="retro-h1 text-2xl mt-2">
-          Add who you want to invite.
+          Every link is a seed. Here are yours, growing.
         </h2>
         <p
-          className="mt-3 text-sm leading-relaxed"
-          style={{ color: "var(--text-dim)", maxWidth: 680 }}
+          className="mt-2 text-sm leading-relaxed"
+          style={{ color: "var(--text-dim)", maxWidth: 700 }}
         >
-          Each entry becomes a custom landing page at
-          <code style={{ color: "var(--amber-bright)", margin: "0 4px" }}>
-            syncedin.org/their-name
-          </code>
-          with a twin-voice opener. Then send via iMessage, Email, WhatsApp,
-          or copy the link anywhere.
+          We track the entire funnel from drafted to onboarded twin.
+          Inviters who bring real people in early help define the network
+          — we&apos;re reserving recognition + rewards for the first
+          hundred who do.
         </p>
-
-        <div className="mt-6">
-          <BulkReachToolkit appUrl={appUrl} variant="card" />
+        <div
+          className="mt-5 grid sm:grid-cols-4 gap-4"
+          style={{ minWidth: 0 }}
+        >
+          <StatTile
+            label="invites drafted"
+            value={drafted}
+            hint="every personalized landing page you've created"
+          />
+          <StatTile
+            label="recipients who clicked"
+            value={visited}
+            sub={drafted > 0 ? `${ctr}% click-through` : "no data yet"}
+            hint="visits to your /<slug> pages — the moment the recipient lands"
+          />
+          <StatTile
+            label="twins onboarded"
+            value={claimed}
+            sub={drafted > 0 ? `${claimRate}% claim rate` : "no data yet"}
+            hint="recipients who signed up and seeded their own twin from your invite"
+          />
+          <StatTile
+            label="total page visits"
+            value={visitTotal}
+            hint="reach across every invite, including return visits"
+          />
+        </div>
+        <div
+          className="mt-5 retro-panel"
+          style={{
+            padding: "14px 16px",
+            background:
+              "radial-gradient(600px 300px at 0% 0%, rgba(94,110,255,0.10), transparent 60%), var(--panel-solid)",
+            borderColor: "var(--amber)"
+          }}
+        >
+          <div
+            className="retro-label"
+            style={{ color: "var(--amber-bright)" }}
+          >
+            early inviter rewards
+          </div>
+          <p
+            className="mt-2 text-sm leading-relaxed"
+            style={{ color: "var(--text)", maxWidth: 760 }}
+          >
+            We&apos;re reserving recognition for the inviters who brought
+            this network to life. The earliest people whose links bring
+            new twins onboard get permanent early-builder credit,
+            visibility on the hypernetwork, and first access to whatever
+            we build next on top of this graph. Bring your people in
+            before everyone else does.
+          </p>
         </div>
       </section>
 
@@ -172,6 +291,58 @@ export default async function InvitePage() {
         </div>
       </section>
     </AppShell>
+  );
+}
+
+function StatTile({
+  label,
+  value,
+  sub,
+  hint
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+  hint?: string;
+}) {
+  return (
+    <div
+      className="retro-panel"
+      style={{
+        padding: "16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        minHeight: 124
+      }}
+      title={hint}
+    >
+      <div className="retro-label" style={{ color: "var(--text-dim)" }}>
+        {label}
+      </div>
+      <div
+        className="retro-h1"
+        style={{ fontSize: 32, lineHeight: 1, marginTop: 2 }}
+      >
+        {value.toLocaleString()}
+      </div>
+      {sub && (
+        <div
+          className="text-xs"
+          style={{ color: "var(--amber-bright)", marginTop: 2 }}
+        >
+          {sub}
+        </div>
+      )}
+      {hint && (
+        <div
+          className="text-xs"
+          style={{ color: "var(--text-dim)", lineHeight: 1.4 }}
+        >
+          {hint}
+        </div>
+      )}
+    </div>
   );
 }
 

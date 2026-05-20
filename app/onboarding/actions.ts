@@ -48,5 +48,8 @@ export async function saveTwin(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/onboarding");
-  redirect("/dashboard");
+  // ?saved=1 lets the dashboard scroll to top + show a confirmation.
+  // Without it, browser scroll-restoration kept the page anchored to
+  // wherever the user last was, landing them at the bottom.
+  redirect("/dashboard?saved=1");
 }

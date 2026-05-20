@@ -98,6 +98,71 @@ export function OnboardingWizard({
     }));
   }, [snippets, aiDump]);
 
+  // Smart prefill for the Refine step. The first time the user lands on
+  // step 4 AND any of the three refine fields is empty, hit
+  // /api/suggest-refine which uses Claude to draft answers from the
+  // user's goals + ai_export_blob. The textareas then arrive populated
+  // so the user is editing — not writing from blank. Far higher
+  // completion rate.
+  const refineSuggestTried = useRef(false);
+  const [refineLoading, setRefineLoading] = useState(false);
+  useEffect(() => {
+    if (STEPS[step].key !== "refine") return;
+    if (refineSuggestTried.current) return;
+    const anyEmpty =
+      !state.deal_preferences.trim() ||
+      !state.communication_style.trim() ||
+      !state.deal_breakers.trim();
+    if (!anyEmpty) {
+      refineSuggestTried.current = true;
+      return;
+    }
+    // Don't bother if the user has zero signal yet.
+    if (
+      state.goals.trim().length < 8 &&
+      state.ai_export_blob.trim().length < 80
+    ) {
+      refineSuggestTried.current = true;
+      return;
+    }
+    refineSuggestTried.current = true;
+    setRefineLoading(true);
+    (async () => {
+      try {
+        const r = await fetch("/api/suggest-refine", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            display_name: state.display_name,
+            goals: state.goals,
+            ai_export_blob: state.ai_export_blob,
+            current_city: state.current_city,
+            hometown: state.hometown,
+            existing: {
+              deal_preferences: state.deal_preferences,
+              communication_style: state.communication_style,
+              deal_breakers: state.deal_breakers
+            }
+          })
+        });
+        const j = await r.json();
+        setState((s) => ({
+          ...s,
+          deal_preferences:
+            s.deal_preferences.trim() || j.deal_preferences || "",
+          communication_style:
+            s.communication_style.trim() || j.communication_style || "",
+          deal_breakers: s.deal_breakers.trim() || j.deal_breakers || ""
+        }));
+      } catch {
+        /* leave empty — user can write from scratch */
+      } finally {
+        setRefineLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
+
   // Persistent draft save.
   //
   // Two layers so paste-and-navigate never drops the AI memory blob:
@@ -198,6 +263,36 @@ export function OnboardingWizard({
         return state.goals.trim().length > 0;
       default:
         return true;
+    }
+  })();
+
+  // Per-step "has the user added any real signal yet?" — drives the
+  // skip / continue label swap on the top nav button. Required-field
+  // gates still live in canAdvance; this is purely cosmetic.
+  const stepHasContent = (() => {
+    switch (STEPS[step].key) {
+      case "you":
+        return (
+          state.display_name.trim().length > 0 ||
+          !!state.avatar_url ||
+          state.current_city.trim().length > 0 ||
+          state.hometown.trim().length > 0
+        );
+      case "sources":
+        return (
+          state.goals.trim().length > 0 ||
+          snippets.length > 0
+        );
+      case "ai_dump":
+        return aiDump.trim().length > 0;
+      case "refine":
+        return (
+          state.deal_preferences.trim().length > 0 ||
+          state.communication_style.trim().length > 0 ||
+          state.deal_breakers.trim().length > 0
+        );
+      default:
+        return false;
     }
   })();
 
@@ -387,29 +482,55 @@ export function OnboardingWizard({
           >
             ←
           </button>
-          {/* Forward button. CRITICAL: on the LAST step (Refine) we DO NOT
-              render a submit button up here. Why: React was reconciling the
-              continue→ button and the save-twin→ submit button as the SAME
-              DOM node (same parent, same tag, same className). After
-              clicking "continue" from step 3 to 4, focus stayed on the
-              button — which was now type="submit" — and any stray Enter or
-              accidental re-click auto-submitted the form before the user
-              had even read the Refine step. That bug shipped multiple
-              times. Real save lives at the bottom of the Refine step
-              content, in a dedicated section, with a key prop that
-              guarantees a fresh DOM node. */}
-          {step < STEPS.length - 1 && (
+          {/* Forward button. Three states, all rendered with unique
+              key props so React always builds a fresh DOM node — this
+              is what historically blocked the "continue auto-submits"
+              bug from re-appearing. Never reuse the same key across
+              type=button and type=submit.
+
+                1. step has user content + not last → "continue →" (button)
+                2. step empty + not last → "skip →" (button, dim)
+                3. last step → "Save Twin And Start Connecting" (submit) */}
+          {step < STEPS.length - 1 ? (
+            stepHasContent ? (
+              <button
+                key="continue-top-filled"
+                type="button"
+                onClick={() =>
+                  setStep((s) => Math.min(STEPS.length - 1, s + 1))
+                }
+                disabled={!canAdvance}
+                className="retro-btn retro-btn-primary text-xs"
+                style={{ padding: "6px 14px" }}
+              >
+                continue →
+              </button>
+            ) : (
+              <button
+                key="skip-top-empty"
+                type="button"
+                onClick={() =>
+                  setStep((s) => Math.min(STEPS.length - 1, s + 1))
+                }
+                disabled={!canAdvance}
+                className="retro-btn text-xs"
+                style={{ padding: "6px 14px" }}
+                title="Skip this step — you can come back any time"
+              >
+                skip →
+              </button>
+            )
+          ) : (
             <button
-              key="continue-top"
-              type="button"
-              onClick={() =>
-                setStep((s) => Math.min(STEPS.length - 1, s + 1))
+              key="save-twin-top"
+              type="submit"
+              disabled={
+                !state.display_name.trim() || !state.goals.trim()
               }
-              disabled={!canAdvance}
               className="retro-btn retro-btn-primary text-xs"
               style={{ padding: "6px 14px" }}
             >
-              continue →
+              Save Twin And Start Connecting →
             </button>
           )}
         </div>
@@ -422,32 +543,45 @@ export function OnboardingWizard({
             <div className="retro-label">step 1 of 3</div>
             <h2 className="retro-h1 text-2xl mt-2">Let&apos;s start with you.</h2>
             <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
-              Two fields. Both used to make your twin recognizable to other
-              people on SyncedIn.
+              Photo on the left, where you live and where you&apos;re from
+              on the right. All quick.
             </p>
 
-            <div className="mt-6 space-y-5">
-              <label className="block">
-                <div
-                  className="text-sm font-semibold"
-                  style={{ color: "var(--text)" }}
-                >
-                  Your name
-                </div>
-                <input
-                  autoFocus
-                  value={state.display_name}
-                  onChange={(e) => set("display_name", e.target.value)}
-                  placeholder="Jane Doe"
-                  className="retro-input mt-1"
-                />
-              </label>
+            <label className="block mt-5">
+              <div
+                className="text-sm font-semibold"
+                style={{ color: "var(--text)" }}
+              >
+                Your name
+              </div>
+              <input
+                autoFocus
+                value={state.display_name}
+                onChange={(e) => set("display_name", e.target.value)}
+                placeholder="Jane Doe"
+                className="retro-input mt-1"
+              />
+            </label>
+
+            {/* Photo + locations row — Jack's call: kill the "Choose Photo"
+                button and the standalone "where you live / where you're
+                from" block. The avatar (clickable / drag-drop) sits on the
+                left, the two city inputs stack vertically next to it. */}
+            <div
+              className="mt-5"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 18,
+                flexWrap: "wrap"
+              }}
+            >
               <div>
                 <div
-                  className="text-sm font-semibold mb-2"
-                  style={{ color: "var(--text)" }}
+                  className="text-xs font-semibold mb-2"
+                  style={{ color: "var(--text-dim)" }}
                 >
-                  Your photo (optional)
+                  Your photo
                 </div>
                 <AvatarUpload
                   id={userId}
@@ -456,45 +590,36 @@ export function OnboardingWizard({
                   onChange={(next) => set("avatar_url", next)}
                 />
               </div>
-            </div>
-
-            {/* Location signals — used to bias web search toward people in
-                your geographic orbit (hometown roots + current city). */}
-            <div className="grid sm:grid-cols-2 gap-3 mt-4">
-              <label className="block">
-                <div
-                  className="text-sm font-semibold"
-                  style={{ color: "var(--text)" }}
-                >
-                  Where do you live now?
-                </div>
-                <input
-                  value={state.current_city}
-                  onChange={(e) => set("current_city", e.target.value)}
-                  placeholder="San Francisco, CA"
-                  className="retro-input mt-1"
-                />
-                <p className="text-xs mt-1 retro-dim">
-                  We&apos;ll prioritize people near you in discovery.
-                </p>
-              </label>
-              <label className="block">
-                <div
-                  className="text-sm font-semibold"
-                  style={{ color: "var(--text)" }}
-                >
-                  Where are you from?
-                </div>
-                <input
-                  value={state.hometown}
-                  onChange={(e) => set("hometown", e.target.value)}
-                  placeholder="Detroit, MI"
-                  className="retro-input mt-1"
-                />
-                <p className="text-xs mt-1 retro-dim">
-                  Hometown context for finding people from your roots.
-                </p>
-              </label>
+              <div style={{ flex: "1 1 240px", minWidth: 240 }}>
+                <label className="block">
+                  <div
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--text)" }}
+                  >
+                    Where do you live now?
+                  </div>
+                  <input
+                    value={state.current_city}
+                    onChange={(e) => set("current_city", e.target.value)}
+                    placeholder="San Francisco, CA"
+                    className="retro-input mt-1"
+                  />
+                </label>
+                <label className="block mt-3">
+                  <div
+                    className="text-sm font-semibold"
+                    style={{ color: "var(--text)" }}
+                  >
+                    Where are you from?
+                  </div>
+                  <input
+                    value={state.hometown}
+                    onChange={(e) => set("hometown", e.target.value)}
+                    placeholder="Detroit, MI"
+                    className="retro-input mt-1"
+                  />
+                </label>
+              </div>
             </div>
 
             {/* Intelligent auto-discovery — finds you on the web and pulls
@@ -519,11 +644,10 @@ export function OnboardingWizard({
             <h2 className="retro-h1 text-2xl mt-2">
               Where can your twin learn about you?
             </h2>
-            <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
-              Your goals are required. Add LinkedIn, X, Instagram, or any
-              URL that describes you — paste a handle or full link, we&apos;ll
-              normalize it.
-            </p>
+            {/* Jack's call: drop the 'add LinkedIn / X / Instagram' helper
+                line. ContextSources already shows those affordances inside
+                its own UI, so the line was duplicating what's already
+                visible below. */}
 
             <div className="mt-6 space-y-6">
               <label className="block">
@@ -531,14 +655,21 @@ export function OnboardingWizard({
                   className="text-sm font-semibold"
                   style={{ color: "var(--text)" }}
                 >
-                  Goals — what are you trying to accomplish right now? *
+                  What&apos;s your main goal in life right now?
                 </div>
+                <p
+                  className="text-xs mt-1"
+                  style={{ color: "var(--text-dim)" }}
+                >
+                  I&apos;ll find the perfect person to make it happen.
+                  Feel free to list multiple.
+                </p>
                 <textarea
                   value={state.goals}
                   onChange={(e) => set("goals", e.target.value)}
                   rows={4}
                   placeholder="e.g. Raising my Series A. Hiring a Head of Design. Finding builders to take over my open-source projects."
-                  className="retro-input mt-1"
+                  className="retro-input mt-2"
                   style={{ minHeight: 110 }}
                 />
               </label>
@@ -637,40 +768,52 @@ export function OnboardingWizard({
           </div>
         )}
 
-        {/* STEP 4 — Refine: deeper questions for twin-to-twin negotiation */}
+        {/* STEP 4 — Refine: high-signal seeds for twin-to-twin conversations.
+            Questions rewritten to surface CONCRETE asks + offers that
+            twin conversations can actually trade on. The smart prefill
+            (useEffect above) drafts answers from the user's existing
+            goals + ai_export_blob so they edit instead of write blank. */}
         {STEPS[step].key === "refine" && (
           <div>
             <div className="retro-label">step 4 of 4</div>
             <h2 className="retro-h1 text-2xl mt-2">
-              Calibrate the negotiator inside your twin.
+              The three lines your twin actually negotiates on.
             </h2>
             <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
-              All optional, all extremely useful. The more honest you are
-              here, the better your twin filters opportunities you&apos;ll
-              actually say yes to, and protects you from the ones you
-              won&apos;t. Write as much or as little as you want.
+              These three answers seed every twin-to-twin conversation —
+              the ask, the offer, and the line you won&apos;t cross. We
+              drafted suggestions from what you already told us. Edit them
+              so they sound like you.
             </p>
+            {refineLoading && (
+              <p
+                className="text-xs mt-2"
+                style={{ color: "var(--amber-bright)" }}
+              >
+                drafting answers from your goals + AI memory…
+              </p>
+            )}
             <div className="mt-5 space-y-5">
               <DeepField
-                label="What kind of person, opportunity, or conversation makes you say YES instantly?"
-                helper="Past collaborations that worked, founders or builders you admire, the texture of an intro that feels right. What's the kindest signal someone can send that they're worth your time?"
-                placeholder={`e.g. Operators who've already shipped something hard. People who lead with a specific problem they're stuck on rather than a generic intro request. Anyone working in [your domain] who actually built rather than just opined.`}
+                label="What can you OFFER the network right now?"
+                helper="Concrete things you can introduce, fund, build, advise on, host, or open doors for. The more specific the offer, the more matches your twin can make. Treat this as the bait other people can grab."
+                placeholder={`e.g. Warm intros to ~40 enterprise CTOs from my prior role. Two hours/week to advise pre-seed founders in dev tooling. A short loom critique of any landing page in B2B SaaS.`}
                 rows={5}
                 value={state.deal_preferences}
                 onChange={(v) => set("deal_preferences", v)}
               />
               <DeepField
-                label="How do you want to be approached, talked to, and pushed back on?"
-                helper="Length, tone, formality, frequency. Do you want your twin to be sharp or warm, fast or considered? When someone disagrees with you, what's the version of pushback that lands? What's the version that makes you withdraw?"
-                placeholder={`e.g. Short and direct. Lead with the point, not the warm-up. Push back hard if my reasoning is weak; don't be polite about it. Avoid em-dashes and corporate hedging.`}
+                label="How should your twin SHOW UP for you?"
+                helper="The voice, the speed, the level of pushback. Should it ask the hard question or smooth things over? Use first names or full names? Mention specific deals you've done or stay vague? This is your twin's operating posture."
+                placeholder={`e.g. Direct, low-hedge. Lead with the point. Push hard if someone is being vague — I'd rather lose a soft fit than waste a 30-minute call. Never use 'just' or em-dashes. Use first names always.`}
                 rows={4}
                 value={state.communication_style}
                 onChange={(v) => set("communication_style", v)}
               />
               <DeepField
-                label="What makes you walk away from a conversation? What lines won't you cross?"
-                helper="The categorical no-gos AND the soft no-gos. Topics, behaviors, value mismatches, time-wasters. What does a 'great' bad-fit person look like, so your twin can decline gracefully?"
-                placeholder={`e.g. Anyone trying to sell me their service in the first message. Pitch decks before a conversation. People who can't name a specific thing they're working on. Long Zoom asks from strangers.`}
+                label="What makes you instantly walk away?"
+                helper="The hard no-gos your twin should detect and decline before they reach you. Categories of asks, behaviors, value mismatches. Listing them here means your inbox stays for the conversations that actually matter."
+                placeholder={`e.g. Anyone trying to sell me their service in the first message. Pitch decks before a real conversation. People who can't name a specific thing they're working on. Anything that smells like an MLM.`}
                 rows={4}
                 value={state.deal_breakers}
                 onChange={(v) => set("deal_breakers", v)}

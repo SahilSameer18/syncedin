@@ -97,8 +97,23 @@ export async function AppShell({
       <main
         className={`${maxWidth} mx-auto px-4 lg:px-5 pt-0 lg:pt-3 pb-6 grid lg:grid-cols-[220px_1fr] gap-4 lg:gap-6 items-start`}
       >
-        {/* Desktop sidebar — hidden on mobile, replaced by MobileShell drawer */}
-        <div className="hidden lg:block">{sidebar}</div>
+        {/* Desktop sidebar — hidden on mobile, replaced by MobileShell drawer.
+            Sticky on lg+ so it stays in view as the main content scrolls.
+            top:12 leaves a hair of breathing room below the viewport top;
+            maxHeight + overflow keep tall sidebars (lots of conferences)
+            from going off the bottom of the screen. */}
+        <div
+          className="hidden lg:block"
+          style={{
+            position: "sticky",
+            top: 12,
+            alignSelf: "start",
+            maxHeight: "calc(100vh - 24px)",
+            overflowY: "auto"
+          }}
+        >
+          {sidebar}
+        </div>
 
         <div className="min-w-0">{children}</div>
       </main>

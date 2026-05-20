@@ -50,13 +50,12 @@ export function AiDumpHero() {
   return (
     <div className="retro-panel retro-shadow p-5">
       <div className="retro-label">fastest path — about 30 seconds</div>
-      <h2 className="retro-h1 text-xl mt-2">
-        Let the AI you already use describe you
-      </h2>
-      <p className="mt-1.5 retro-dim text-sm leading-relaxed">
-        It already knows your goals, your voice, how you think. Copy the
-        prompt, open your AI, paste its answer into the box below — that&apos;s
-        a real twin in one step.
+      {/* Headline removed: the parent OnboardingWizard step header
+          already shows 'Let the AI you already use describe you.' Showing
+          it again here just made the page look duplicated. */}
+      <p className="mt-2 retro-dim text-sm leading-relaxed">
+        Copy the prompt, open your AI, paste its answer into the box
+        below — that&apos;s a real twin in one step.
       </p>
 
       <button

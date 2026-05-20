@@ -142,7 +142,9 @@ ${inviteUrl}
 - Match ${selfName}'s communication style.`;
 
   // Short message system prompt — for LinkedIn connection-request notes which
-  // are capped at 200 characters. The link won't fit, so we don't include it.
+  // are capped at ~300 characters. The note positions WHY this connect is
+  // happening AND what SyncedIn is so the recipient knows to expect a
+  // follow-up DM with the invite link.
   const shortSystemPrompt = `You are the digital twin of ${selfName}, writing a LinkedIn connection-request note to someone you don't know yet.
 
 # Who you are representing
@@ -154,12 +156,13 @@ ${personTitle}
 What's known about them: ${highlights || "(only the name/role above)"}
 
 # Hard rules
-- MAX 195 CHARACTERS. Count them. LinkedIn cuts off anything past 200.
-- 1 to 2 sentences only.
+- MAX 290 CHARACTERS. Count them. LinkedIn caps connection notes at 300.
+- 2 to 3 sentences only.
 - NO em-dashes or en-dashes. NO markdown. NO subject line, NO signature.
-- One specific reason ${selfName} wants to connect, drawn from what's known about them. NEVER mention follower count, connection count, or audience size.
-- End on a light invitation to chat. Do NOT include a URL (it eats characters and triggers spam filters in connection notes).
-- First person, plain text.`;
+- Open with ONE specific reason ${selfName} wants to connect, drawn from what's known about them. NEVER mention follower count, connection count, or audience size.
+- Then position the ask: ${selfName} is using SyncedIn (a digital-twin networking platform) to find people like them, because it can speed up surfacing whether there's a real win-win between you both before any meeting time gets burned. Use that POSITIONING — paraphrase, don't quote.
+- Close with a clear "would love to connect and send you the personalized invite link" or equivalent — make clear an invite is incoming once accepted.
+- First person, plain text. Do NOT include a URL (LinkedIn flags notes containing URLs as spam).`;
 
   let outreach = "";
   let shortNote = "";
@@ -205,12 +208,12 @@ ${highlights || "(only the name/role above)"}
       }),
       anthropic.messages.create({
         model: TWIN_MODEL,
-        max_tokens: 200,
+        max_tokens: 300,
         system: shortSystemPrompt,
         messages: [
           {
             role: "user",
-            content: `Write the LinkedIn connection-request note. STRICT 195 character cap. No URL. No follower count mention.`
+            content: `Write the LinkedIn connection-request note. STRICT 290 character cap. No URL. No follower count mention. Open with the specific reason. Position SyncedIn as the platform speeding up the connection. Close with "would love to connect and send the invite link."`
           }
         ]
       }),
@@ -243,9 +246,11 @@ ${highlights || "(only the name/role above)"}
       .join(" ")
       .trim();
     shortNote = stripDashes(shortNote);
-    // Hard cap to 200 chars regardless of what the model returned.
-    if (shortNote.length > 200) {
-      shortNote = shortNote.slice(0, 197).trimEnd() + "...";
+    // Hard cap to 300 chars (LinkedIn connection-note limit). The note
+    // no longer needs to make room for a trailing URL (the link is sent
+    // in the follow-up message after connection acceptance).
+    if (shortNote.length > 300) {
+      shortNote = shortNote.slice(0, 297).trimEnd() + "...";
     }
 
     convStarter = r3.content

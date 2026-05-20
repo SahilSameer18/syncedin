@@ -20,6 +20,33 @@ type FindResponse = {
 const isEmail = (s: string) => /\S+@\S+\.\S+/.test(s);
 
 /**
+ * Heuristic for detecting placeholder / in-progress / clearly-not-a-bio
+ * goals strings so we don't ship cringey card text like "Trying to get
+ * through the sign up page" once a user has actually finished setup.
+ *
+ * Returns true if the string is OK to display.
+ */
+function looksLikeRealBio(s: string | null | undefined): boolean {
+  if (!s) return false;
+  const t = s.trim();
+  if (t.length < 15) return false;
+  // Common placeholder/draft markers — case-insensitive.
+  if (
+    /^(trying|testing|test\b|asdf|qwert|placeholder|tbd|wip|in progress|getting through|getting started|just signed up|signing up|setting up|setup|onboarding|loading|todo|coming soon|fill .* later|update .* later)/i.test(
+      t
+    )
+  )
+    return false;
+  // Obvious self-references to the platform's own UI.
+  if (/sign\s*up\s*page|sign\s*in\s*page|onboarding\s*page|magic\s*link/i.test(t))
+    return false;
+  // Pure punctuation / repetition / single-word filler.
+  if (!/[A-Za-z]/.test(t)) return false;
+  if (/^(.)\1+$/.test(t)) return false;
+  return true;
+}
+
+/**
  * Top-of-dashboard Discover.
  * - Empty input → renders the existing-user directory (finished twins).
  * - Typed input → searches SyncedIn AND the open web (Exa) via
@@ -37,13 +64,41 @@ export function DiscoverSearch({
     sync_users: [],
     exa_people: []
   });
-  const [drafting, setDrafting] = useState<string | null>(null);
-  const [draftFor, setDraftFor] = useState<ExaPerson | null>(null);
-  const [draftText, setDraftText] = useState("");
-  const [shortText, setShortText] = useState("");
-  const [inviteUrl, setInviteUrl] = useState("");
+  /**
+   * Per-person draft state. The Discover panel previously held ONE
+   * `draftFor` / `draftText` / `shortText` / `inviteUrl` state at a time,
+   * which meant clicking "Draft invite" on a second person silently
+   * cancelled the first person's drafts. The user wants to be able to
+   * have multiple drafts in flight at once and tab between them — so we
+   * key everything by person.url.
+   */
+  type DraftState = {
+    draftText: string;
+    shortText: string;
+    inviteUrl: string;
+    generating: boolean;
+  };
+  const [drafts, setDrafts] = useState<Map<string, DraftState>>(new Map());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function getDraft(url: string): DraftState | undefined {
+    return drafts.get(url);
+  }
+  function setDraft(url: string, patch: Partial<DraftState>) {
+    setDrafts((prev) => {
+      const next = new Map(prev);
+      const current =
+        prev.get(url) ?? {
+          draftText: "",
+          shortText: "",
+          inviteUrl: "",
+          generating: false
+        };
+      next.set(url, { ...current, ...patch });
+      return next;
+    });
+  }
 
   function toggleExpand(url: string) {
     setExpanded((prev) => {
@@ -85,11 +140,16 @@ export function DiscoverSearch({
   }, [q]);
 
   async function draftOutreach(p: ExaPerson) {
-    setDraftFor(p);
-    setDrafting(p.url);
-    setDraftText("");
-    setShortText("");
-    setInviteUrl("");
+    // Seed the draft state for THIS person without disturbing any other
+    // in-flight draft. The LinkedIn connection note no longer needs the
+    // invite URL inline (LinkedIn flags notes containing URLs as spam +
+    // the URL goes in the follow-up DM after connection accept anyway).
+    setDraft(p.url, {
+      draftText: "",
+      shortText: "",
+      inviteUrl: "",
+      generating: true
+    });
     try {
       const r = await fetch("/api/exa-draft-outreach", {
         method: "POST",
@@ -102,30 +162,44 @@ export function DiscoverSearch({
       });
       const j = await r.json();
       const url = (j.invite_url ?? "") as string;
-      setDraftText(j.message ?? "");
-      setInviteUrl(url);
-      // Always append the personalized URL to the short connection note —
-      // LinkedIn DMs / texts read better with the link inline. We trim the
-      // note text to leave room for "\n\n{url}" inside the 200-char cap.
       let short = (j.short_message ?? "") as string;
-      if (url) {
-        const suffix = `\n\n${url}`;
-        const budget = 200 - suffix.length;
-        if (short.length > budget) {
-          short = short.slice(0, Math.max(0, budget - 1)).trimEnd() + "…";
-        }
-        short = `${short}${suffix}`;
+      if (short.length > 300) {
+        short = short.slice(0, 297).trimEnd() + "…";
       }
-      setShortText(short);
+      setDraft(p.url, {
+        draftText: j.message ?? "",
+        shortText: short,
+        inviteUrl: url,
+        generating: false
+      });
     } catch {
-      setDraftText("");
-    } finally {
-      setDrafting(null);
+      setDraft(p.url, { generating: false });
     }
   }
 
   const copy = (text: string) => navigator.clipboard?.writeText(text);
   const searching = q.trim().length > 0;
+
+  /**
+   * Open the recipient's LinkedIn profile in a new tab with the
+   * connection note copied to clipboard. LinkedIn deliberately doesn't
+   * expose a public URL scheme that pre-fills the connect-with-note
+   * modal (would be too easy to abuse), so the best we can do is:
+   *   1. Copy the note to clipboard.
+   *   2. Open the profile so the user clicks Connect → Add a note → Paste.
+   * That's still a single keyboard shortcut for the actual send.
+   */
+  function openLinkedInWithNote(profileUrl: string, note: string) {
+    if (!profileUrl) return;
+    try {
+      navigator.clipboard?.writeText(note);
+    } catch {
+      /* clipboard may be blocked — user can still paste their last copy */
+    }
+    window.open(profileUrl, "_blank", "noopener,noreferrer");
+  }
+  const isLinkedInUrl = (url: string) =>
+    /linkedin\.com\/(?:in|pub)\//i.test(url || "");
 
   // Twin-suggested connections.
   type Suggestion = {
@@ -178,6 +252,20 @@ export function DiscoverSearch({
       setSuggesting(false);
     }
   }
+
+  // Auto-fire Find People the first time the dashboard mounts so the
+  // user lands on a populated set of suggestions — the primary CTA we
+  // want them clicking. Skip if suggestions already loaded (HMR reload)
+  // or the user is actively searching by name.
+  const autoFired = useRef(false);
+  useEffect(() => {
+    if (autoFired.current) return;
+    if (suggestions !== null) return;
+    if (searching) return;
+    autoFired.current = true;
+    askTwin("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <section>
@@ -341,11 +429,13 @@ export function DiscoverSearch({
                                     e.stopPropagation();
                                     draftOutreach(p);
                                   }}
-                                  disabled={drafting === p.url}
+                                  disabled={!!getDraft(p.url)?.generating}
                                   className="retro-btn text-sm"
                                 >
-                                  {drafting === p.url ? (
+                                  {getDraft(p.url)?.generating ? (
                                     <DotsLoader label="Drafting" />
+                                  ) : getDraft(p.url)?.draftText ? (
+                                    "Redraft"
                                   ) : (
                                     "Draft invite"
                                   )}
@@ -359,9 +449,81 @@ export function DiscoverSearch({
                                 ))}
                               </div>
                             )}
-                            {draftFor?.url === p.url && draftText && (
-                              <div className="mt-3 space-y-3">
-                                {shortText && (
+                            {(() => {
+                              const d = getDraft(p.url);
+                              if (!d || !d.draftText) return null;
+                              return (
+                                <div
+                                  className="mt-3 space-y-3"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {d.shortText && (
+                                    <div>
+                                      <div
+                                        className="retro-label"
+                                        style={{
+                                          color: "var(--amber-bright)"
+                                        }}
+                                      >
+                                        connection note · {d.shortText.length}/300
+                                      </div>
+                                      <textarea
+                                        value={d.shortText}
+                                        onChange={(e) =>
+                                          setDraft(p.url, {
+                                            shortText: e.target.value.slice(
+                                              0,
+                                              300
+                                            )
+                                          })
+                                        }
+                                        rows={3}
+                                        className="retro-input mt-1 text-sm"
+                                        maxLength={300}
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                      <div className="flex flex-wrap gap-2 mt-2">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            copy(d.shortText);
+                                          }}
+                                          className="retro-btn text-sm"
+                                        >
+                                          Copy connection note
+                                        </button>
+                                        {isLinkedInUrl(p.url) && (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              openLinkedInWithNote(
+                                                p.url,
+                                                d.shortText
+                                              );
+                                            }}
+                                            className="retro-btn retro-btn-primary text-sm"
+                                            title="Note copied. LinkedIn opens — click Connect → Add a note → Paste"
+                                          >
+                                            Open LinkedIn (note copied)
+                                          </button>
+                                        )}
+                                      </div>
+                                      {isLinkedInUrl(p.url) && (
+                                        <p
+                                          className="text-xs mt-1.5"
+                                          style={{ color: "var(--text-dim)" }}
+                                        >
+                                          LinkedIn doesn&apos;t allow apps to
+                                          pre-fill the connect modal. Click
+                                          the button: note is copied, profile
+                                          opens, hit Connect → Add a note →
+                                          paste.
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
                                   <div>
                                     <div
                                       className="retro-label"
@@ -369,86 +531,72 @@ export function DiscoverSearch({
                                         color: "var(--amber-bright)"
                                       }}
                                     >
-                                      connection note · {shortText.length}/200
+                                      direct message (with invite link)
                                     </div>
                                     <textarea
-                                      value={shortText}
+                                      value={d.draftText}
                                       onChange={(e) =>
-                                        setShortText(
-                                          e.target.value.slice(0, 200)
-                                        )
+                                        setDraft(p.url, {
+                                          draftText: e.target.value
+                                        })
                                       }
-                                      rows={2}
+                                      rows={6}
                                       className="retro-input mt-1 text-sm"
-                                      maxLength={200}
+                                      onClick={(e) => e.stopPropagation()}
                                     />
-                                    <button
-                                      type="button"
-                                      onClick={() => copy(shortText)}
-                                      className="retro-btn text-sm mt-2"
-                                    >
-                                      Copy connection note
-                                    </button>
-                                  </div>
-                                )}
-                                <div>
-                                  <div
-                                    className="retro-label"
-                                    style={{ color: "var(--amber-bright)" }}
-                                  >
-                                    direct message (with invite link)
-                                  </div>
-                                  <textarea
-                                    value={draftText}
-                                    onChange={(e) =>
-                                      setDraftText(e.target.value)
-                                    }
-                                    rows={6}
-                                    className="retro-input mt-1 text-sm"
-                                  />
-                                  <div className="flex flex-wrap gap-2 mt-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => copy(draftText)}
-                                      className="retro-btn text-sm"
-                                    >
-                                      Copy DM
-                                    </button>
-                                    {inviteUrl && (
-                                      <>
-                                        <button
-                                          type="button"
-                                          onClick={() => copy(inviteUrl)}
-                                          className="retro-btn retro-btn-primary text-sm"
-                                          title={inviteUrl}
-                                        >
-                                          🔗 Copy invite URL
-                                        </button>
-                                        <a
-                                          href={inviteUrl}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="retro-btn text-sm"
-                                        >
-                                          Preview →
-                                        </a>
-                                      </>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          copy(d.draftText);
+                                        }}
+                                        className="retro-btn text-sm"
+                                      >
+                                        Copy DM
+                                      </button>
+                                      {d.inviteUrl && (
+                                        <>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              copy(d.inviteUrl);
+                                            }}
+                                            className="retro-btn retro-btn-primary text-sm"
+                                            title={d.inviteUrl}
+                                          >
+                                            🔗 Copy invite URL
+                                          </button>
+                                          <a
+                                            href={d.inviteUrl}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            onClick={(e) =>
+                                              e.stopPropagation()
+                                            }
+                                            className="retro-btn text-sm"
+                                          >
+                                            Preview →
+                                          </a>
+                                        </>
+                                      )}
+                                    </div>
+                                    {d.inviteUrl && (
+                                      <div
+                                        className="text-xs mt-1.5"
+                                        style={{
+                                          color: "var(--text-dim)",
+                                          wordBreak: "break-all"
+                                        }}
+                                      >
+                                        {d.inviteUrl}
+                                      </div>
                                     )}
                                   </div>
-                                  {inviteUrl && (
-                                    <div
-                                      className="text-xs mt-1.5"
-                                      style={{
-                                        color: "var(--text-dim)",
-                                        wordBreak: "break-all"
-                                      }}
-                                    >
-                                      {inviteUrl}
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-                            )}
+                              );
+                            })()}
                           </li>
                         );
                       })}
@@ -483,7 +631,7 @@ export function DiscoverSearch({
                   <div className="font-semibold text-sm">
                     {p.display_name || p.email}
                   </div>
-                  {p.goals && (
+                  {looksLikeRealBio(p.goals) && (
                     <div className="retro-dim text-xs mt-1 line-clamp-2">
                       {p.goals}
                     </div>

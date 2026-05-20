@@ -10,6 +10,7 @@ import { ExcitementControl } from "./ExcitementControl";
 import { SyncMeter } from "../SyncMeter";
 import { SummaryBackfill } from "./SummaryBackfill";
 import { DiscoverSearch } from "./DiscoverSearch";
+import { ScrollTopOnSaved } from "./ScrollTopOnSaved";
 import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
 
@@ -265,6 +266,8 @@ export default async function DashboardPage() {
     <AppShell>
       {/* Fire-and-forget backfill for missing summaries/scores */}
       <SummaryBackfill conversationIds={needsBackfillIds} />
+      {/* Scrolls to top when arriving with ?saved=1 (post-onboarding). */}
+      <ScrollTopOnSaved />
 
       <>
         {!twinComplete && (

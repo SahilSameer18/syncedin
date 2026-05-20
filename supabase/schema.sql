@@ -443,6 +443,22 @@ alter table public.pending_invites
 alter table public.pending_invites
   add column if not exists outbound_message text;
 
+-- Analytics columns — let us measure invite CTR + A/B test variants of
+-- the outbound message + landing opener over time.
+--   sent_at        : set when the inviter marks-as-sent in BulkReach
+--   visit_count    : incremented every time the /<slug> landing page renders
+--   first_visit_at : timestamp of the first /<slug> render
+--   message_variant: e.g. "v1-recipient-first" so we can compare CTR per
+--                    template across cohorts.
+alter table public.pending_invites
+  add column if not exists sent_at timestamptz;
+alter table public.pending_invites
+  add column if not exists visit_count integer not null default 0;
+alter table public.pending_invites
+  add column if not exists first_visit_at timestamptz;
+alter table public.pending_invites
+  add column if not exists message_variant text;
+
 alter table public.pending_invites enable row level security;
 
 -- Anyone can read by slug — these are public landing pages.

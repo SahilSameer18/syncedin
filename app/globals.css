@@ -169,12 +169,16 @@ select {
     color: var(--text);
   }
 
-  /* Section label — uppercase tracked-out mono, bright. */
+  /* Section label — uppercase tracked-out mono, bright.
+     Bumped weight 700→800 and size 11→12 per Jack's call: labels like
+     "DISCOVER", "YOUR TWIN SAYS", "WHO DO YOU WANT TO INVITE" were
+     reading too thin on light backgrounds. Still small enough to feel
+     like a label rather than a heading. */
   .retro-label {
     text-transform: uppercase;
-    letter-spacing: 0.18em;
-    font-size: 11px;
-    font-weight: 700;
+    letter-spacing: 0.16em;
+    font-size: 12px;
+    font-weight: 800;
     color: var(--amber-bright);
   }
 

@@ -58,8 +58,16 @@ export function AvatarUpload({
     e.target.value = "";
   }
 
+  // Hide the URL paste field once a picture is set — once there's an
+  // image, the URL row reads as an "unfilled" gap. Show a tiny "Remove"
+  // affordance instead. Without an image, expose the URL input as a
+  // small inline fallback (no big "Choose file" button — clicking the
+  // circle does that job).
+  const hasImage = !!value;
+  const showUrlInput = !hasImage;
+
   return (
-    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+    <div style={{ display: "inline-block" }}>
       <div
         onClick={() => fileRef.current?.click()}
         onDragOver={(e) => {
@@ -80,7 +88,9 @@ export function AvatarUpload({
           padding: 4,
           border: `2px dashed ${dragging ? "var(--amber)" : "var(--border-bright)"}`,
           background: dragging ? "var(--panel-2)" : "transparent",
-          transition: "border-color 0.15s ease, background 0.15s ease"
+          transition: "border-color 0.15s ease, background 0.15s ease",
+          width: 120,
+          height: 120
         }}
         title="Click or drag an image here"
       >
@@ -119,63 +129,56 @@ export function AvatarUpload({
           </span>
         </div>
       </div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif"
+        onChange={onPick}
+        style={{ display: "none" }}
+      />
 
-      <div className="flex-1 w-full">
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          onChange={onPick}
-          style={{ display: "none" }}
-        />
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => fileRef.current?.click()}
-            className="retro-btn text-sm"
-          >
-            Choose file
-          </button>
-          {value && (
-            <button
-              type="button"
-              onClick={() => onChange("")}
-              className="retro-btn text-sm"
-            >
-              Remove
-            </button>
-          )}
-        </div>
-        <div className="mt-3">
-          <div
-            className="text-xs mb-1"
-            style={{ color: "var(--text-dim)" }}
-          >
-            …or paste a public image URL
-          </div>
+      {/* Hidden URL-paste fallback. Only renders when no image is set so
+          the form doesn't look unfilled when there IS already a photo. */}
+      {showUrlInput && (
+        <div style={{ marginTop: 8, width: 140 }}>
           <input
             value={value.startsWith("data:") ? "" : value}
             onChange={(e) => onChange(e.target.value)}
-            placeholder="https://..."
-            className="retro-input text-sm"
+            placeholder="or paste image URL"
+            className="retro-input"
+            style={{ fontSize: 11, padding: "5px 8px" }}
           />
         </div>
-        {error && (
-          <p
-            className="text-xs mt-2"
-            style={{ color: "var(--red)" }}
-          >
-            {error}
-          </p>
-        )}
-        <p
-          className="text-xs mt-3"
-          style={{ color: "var(--text-dim)" }}
+      )}
+
+      {hasImage && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          className="retro-dim"
+          style={{
+            display: "block",
+            marginTop: 6,
+            fontSize: 11,
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            textDecoration: "underline",
+            color: "var(--text-dim)"
+          }}
         >
-          Drag-drop an image onto the circle, click to choose a file, or
-          paste a URL. We resize to 256×256 so it stays snappy.
+          remove
+        </button>
+      )}
+
+      {error && (
+        <p
+          className="text-xs mt-2"
+          style={{ color: "var(--red)", maxWidth: 140 }}
+        >
+          {error}
         </p>
-      </div>
+      )}
     </div>
   );
 }
