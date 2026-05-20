@@ -109,13 +109,19 @@ export function InviteReveal({
               }}
             />
           )}
-          {phase === "dotting" && (
+          {/* Trailing dots — present during the brief "dotting" phase
+              AND after reveal if the message is truncated, so the user
+              sees an ongoing-conversation cue at the end of the cut
+              opener instead of a hard stop mid-sentence. */}
+          {(phase === "dotting" ||
+            (phase === "revealed" && remainingSentences > 0)) && (
             <span
               style={{
                 marginLeft: 6,
                 color: "var(--text-dim)",
                 fontFamily:
-                  '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace'
+                  '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace',
+                verticalAlign: "baseline"
               }}
             >
               <DotsLoader />

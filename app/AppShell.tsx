@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "./Sidebar";
 import { MobileShell } from "./MobileShell";
+import { SitewidePrefetch } from "./SitewidePrefetch";
 import { signOut } from "./login/actions";
 
 /**
@@ -82,6 +83,12 @@ export async function AppShell({
       {/* Mobile chrome — hamburger top bar + slide-in drawer holding the
           full sidebar. Hidden on lg+. */}
       <MobileShell>{sidebar}</MobileShell>
+
+      {/* Warm the router cache for every primary nav destination so
+          clicks anywhere in the app feel instant. Mounted ONCE per
+          authed page via AppShell so the prefetch only fires for
+          signed-in users (where the routes are reachable). */}
+      <SitewidePrefetch />
 
       {/* pt-0 on mobile because MobileShell already gives us a top bar.
           Stacking another pt-3 below it created the huge empty band Jack

@@ -175,6 +175,11 @@ export default async function InviteLandingPage({
         remainingSentences={remainingSentences}
       />
 
+      {/* Supplementary explainer — kept as context, no CTAs. The
+          InviteReveal panel above already owns the primary "sign up to
+          unlock" + "I already have an account" actions. Showing two
+          sets of buttons made the page feel pushy and gave the
+          recipient two competing paths. */}
       <section className="mt-8 retro-panel p-5">
         <div className="font-semibold text-base">
           Reply with your own clone in two minutes.
@@ -183,21 +188,10 @@ export default async function InviteLandingPage({
           className="mt-2 text-sm"
           style={{ color: "var(--text-dim)" }}
         >
-          Paste a paragraph about what you&apos;re working on. Your clone takes
-          it from there, replies on your behalf, and you stay in control of every
-          message it sends.
+          Paste a paragraph about what you&apos;re working on. Your clone
+          takes it from there, replies on your behalf, and you stay in
+          control of every message it sends.
         </p>
-        <div className="mt-4 flex gap-3 flex-wrap">
-          <Link
-            href={`/login?invite=${slug}`}
-            className="retro-btn retro-btn-primary"
-          >
-            + sign up &amp; reply
-          </Link>
-          <Link href="/login" className="retro-btn">
-            I already have an account
-          </Link>
-        </div>
       </section>
 
       <p
