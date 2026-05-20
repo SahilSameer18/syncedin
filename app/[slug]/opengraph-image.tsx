@@ -192,11 +192,15 @@ export default async function InviteOgImage({
 
         <div
           style={{
-            fontSize: 72,
+            // Headline scaled down: long names (e.g., URL-slug-derived
+            // "Denisehontiveros") used to push the 72px size onto two
+            // lines and crowd the body text below. 54px keeps it
+            // single-line for most names AND leaves room for the body.
+            fontSize: 54,
             fontWeight: 800,
             color: "#0a0c14",
-            lineHeight: 1.12,
-            letterSpacing: "-0.025em",
+            lineHeight: 1.15,
+            letterSpacing: "-0.02em",
             maxWidth: 1000,
             display: "flex"
           }}
@@ -205,10 +209,10 @@ export default async function InviteOgImage({
         </div>
         <div
           style={{
-            marginTop: 26,
-            fontSize: 30,
+            marginTop: 32,
+            fontSize: 28,
             color: "#434a5e",
-            lineHeight: 1.35,
+            lineHeight: 1.4,
             maxWidth: 1000,
             display: "flex"
           }}
