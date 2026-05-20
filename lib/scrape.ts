@@ -87,11 +87,8 @@ async function scrapingDogInstagram(handle: string): Promise<string> {
   const fullName =
     (p.full_name as string) || (p.fullName as string) || handle;
   const biography = (p.biography as string) || (p.bio as string) || "";
-  const followers =
-    (p.followers as number) ||
-    (p.followers_count as number) ||
-    (p.followersCount as number) ||
-    0;
+  // Follower counts are intentionally NOT extracted — Jack's instruction
+  // is that openers should never reference follower count.
   const externalUrl =
     (p.external_url as string) ||
     (p.externalUrl as string) ||
@@ -131,7 +128,6 @@ async function scrapingDogInstagram(handle: string): Promise<string> {
       handle: `@${handle}`,
       fullName,
       biography,
-      followers,
       external_url: externalUrl,
       bio_links: bioLinks,
       profile_image: profilePic,
@@ -197,8 +193,8 @@ async function scrapingDogLinkedIn(handle: string): Promise<string> {
     (p.avatar as string) ||
     (p.picture as string) ||
     "";
-  const followers =
-    (p.followers as number) || (p.connections as number) || 0;
+  // Follower / connection counts intentionally NOT extracted — openers
+  // must never reference them.
 
   // Positions can be in `experience`, `positions`, or `current_company` shapes.
   const expRows = Array.isArray((p as any).experience)
@@ -263,7 +259,6 @@ async function scrapingDogLinkedIn(handle: string): Promise<string> {
       name,
       headline,
       location,
-      followers,
       about: about ? about.slice(0, 1500) : "",
       // Use the canonical `profile_image` key the bulk-invite extractor
       // already looks for, so LinkedIn photos flow into the OG card
@@ -296,10 +291,7 @@ async function scrapingDogX(handle: string): Promise<string> {
     j;
   const name = (p.name as string) || (p.fullName as string) || handle;
   const bio = (p.description as string) || (p.bio as string) || "";
-  const followers =
-    (p.followers_count as number) ||
-    (p.followers as number) ||
-    0;
+  // Follower count intentionally NOT extracted.
   const tweets =
     (j.tweets as any[]) ||
     (p.tweets as any[]) ||
@@ -318,7 +310,6 @@ async function scrapingDogX(handle: string): Promise<string> {
       handle: `@${handle}`,
       name,
       bio,
-      followers,
       recent_tweets: tweetTexts
     },
     0
@@ -457,11 +448,7 @@ async function scrapeXProfile(url: string): Promise<string> {
     (a0.fullName as string) ||
     (a0.displayName as string) ||
     handle;
-  const followers =
-    (a0.followersCount as number) ||
-    (a0.followers_count as number) ||
-    (a0.followers as number) ||
-    0;
+  // Follower count intentionally NOT extracted.
 
   // SUBSTANCE CHECK — same idea as the IG version. If we only have a
   // handle (no real name, no bio, fewer than 2 substantive tweets), we
@@ -496,7 +483,6 @@ async function scrapeXProfile(url: string): Promise<string> {
 
   const lines: string[] = [];
   lines.push(`${name} (@${handle}) on X`);
-  if (followers) lines.push(`Followers: ${followers.toLocaleString()}`);
   if (bio) lines.push(`Bio: ${bio}`);
   if (substantiveTweets.length > 0) {
     lines.push("Recent posts:");
@@ -650,7 +636,6 @@ async function scrapeInstagramProfile(url: string): Promise<string> {
       external_url: profile.externalUrl ?? (profile as any).external_url,
       bio_links: bioLinks,
       profile_image: profilePic,
-      followers: profile.followersCount,
       posts: profile.postsCount,
       latestPosts: captions
     },

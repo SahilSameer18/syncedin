@@ -430,6 +430,19 @@ create index if not exists pending_invites_inviter_idx
 alter table public.pending_invites
   add column if not exists recipient_avatar_url text;
 
+-- Outbound DM (sent over SMS / email / WhatsApp / LinkedIn) — this is the
+-- personalized role-aware cold message the inviter copies and sends. It
+-- talks about THE RECIPIENT'S work and why a sync is interesting.
+--
+-- `conversation_starter` is now the LANDING-PAGE opener — what the
+-- recipient sees inside /<slug> after they click through. That message is
+-- platform-context: "Hey, I'm on a new platform where twins connect to
+-- surface win-wins between us." The two messages serve different audiences
+-- (the recipient before vs. after the click) and used to be identical,
+-- which felt redundant.
+alter table public.pending_invites
+  add column if not exists outbound_message text;
+
 alter table public.pending_invites enable row level security;
 
 -- Anyone can read by slug — these are public landing pages.
