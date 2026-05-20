@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "./Sidebar";
+import { MobileShell } from "./MobileShell";
 import { signOut } from "./login/actions";
 
 /**
@@ -63,19 +64,33 @@ export async function AppShell({
     console.warn("[AppShell] conferences sidebar fetch failed", e);
   }
 
-  return (
-    <main
-      className={`${maxWidth} mx-auto px-5 pt-3 pb-6 grid lg:grid-cols-[220px_1fr] gap-6 items-start`}
-    >
-      <Sidebar
-        userId={user.id}
-        displayName={displayName}
-        avatarUrl={(profile as any)?.avatar_url ?? null}
-        signOutAction={signOut}
-        conferences={conferences}
-      />
+  // Render the Sidebar ONCE — it gets handed both to the desktop slot
+  // (hidden < lg) and to the MobileShell drawer (hidden ≥ lg) so the same
+  // server-fetched data backs both surfaces.
+  const sidebar = (
+    <Sidebar
+      userId={user.id}
+      displayName={displayName}
+      avatarUrl={(profile as any)?.avatar_url ?? null}
+      signOutAction={signOut}
+      conferences={conferences}
+    />
+  );
 
-      <div className="min-w-0">{children}</div>
-    </main>
+  return (
+    <>
+      {/* Mobile chrome — hamburger top bar + slide-in drawer holding the
+          full sidebar. Hidden on lg+. */}
+      <MobileShell>{sidebar}</MobileShell>
+
+      <main
+        className={`${maxWidth} mx-auto px-4 lg:px-5 pt-3 pb-6 grid lg:grid-cols-[220px_1fr] gap-6 items-start`}
+      >
+        {/* Desktop sidebar — hidden on mobile, replaced by MobileShell drawer */}
+        <div className="hidden lg:block">{sidebar}</div>
+
+        <div className="min-w-0">{children}</div>
+      </main>
+    </>
   );
 }

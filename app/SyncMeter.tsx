@@ -187,8 +187,13 @@ export function SyncMeter({
     <div
       style={{
         position: "relative",
-        width: size,
-        height: size * aspect,
+        // Mobile-safe sizing: never exceed the parent container's width,
+        // and never blow out narrow viewports. The desktop size prop is
+        // still the upper bound — on mobile we clamp to the viewport.
+        width: `min(${size}px, 70vw)`,
+        maxWidth: size,
+        aspectRatio: `${VB_W} / ${VB_H}`,
+        height: "auto",
         filter: `drop-shadow(0 0 ${glowStrength * 0.5}px ${innerGlow}) drop-shadow(0 0 ${glowStrength}px ${glowColor})`
       }}
     >
