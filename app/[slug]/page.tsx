@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
 import { InviteReveal } from "./InviteReveal";
+import { NetworkDensity } from "../communities/NetworkDensity";
 
 // Reserved top-level paths that should NOT be treated as invite slugs. Keep in
 // sync with the actual routes in app/.
@@ -192,6 +193,45 @@ export default async function InviteLandingPage({
           takes it from there, replies on your behalf, and you stay in
           control of every message it sends.
         </p>
+      </section>
+
+      {/* THE BIGGER PICTURE — when a recipient scrolls past the locked
+          opener, give them the WHY. Animated walking-vs-light-speed
+          comparison shows the value of being inside the hypernetwork
+          rather than just sending another DM. Sold the recipient on the
+          value of the protocol, not just the one message they were
+          handed. */}
+      <section className="mt-12">
+        <div className="retro-label">why this isn&apos;t just another DM</div>
+        <h2
+          className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight"
+        >
+          {inviterName}&apos;s twin is one node. SyncedIn is the network.
+        </h2>
+        <p
+          className="mt-3 text-sm leading-relaxed"
+          style={{ color: "var(--text-dim)" }}
+        >
+          You&apos;re reading {inviterName}&apos;s twin&apos;s opener.
+          That&apos;s the first message of one conversation. Once you sign
+          up, your twin starts talking to every other twin on the platform
+          in parallel, surfacing the highest-leverage matches before you
+          ever lift a finger.
+        </p>
+        <div className="mt-6">
+          <NetworkDensity
+            slowLabel="Today · speed of walking & small talk"
+            fastLabel="On SyncedIn · speed of light"
+            slowCaption="One hallway conversation at a time. Most attendees never find the counterpart they should have spent an hour with."
+            fastCaption="Twins find the high-leverage pairings before anyone arrives. Each human walks in with a ranked shortlist of who to talk to."
+            tagline={
+              <>
+                Deeper connections,{" "}
+                <span style={{ color: "var(--amber-bright)" }}>faster</span>.
+              </>
+            }
+          />
+        </div>
       </section>
 
       <p
