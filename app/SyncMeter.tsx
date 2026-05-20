@@ -197,9 +197,14 @@ export function SyncMeter({
         // Mobile-safe sizing: never exceed the parent container's width,
         // and never blow out narrow viewports. The desktop size prop is
         // still the upper bound — on mobile we clamp to the viewport.
+        //
+        // No fixed aspectRatio on the outer div anymore: the SVG sets
+        // its own proportions via viewBox, and the caption flex row
+        // sits BELOW it in normal flow. Previous version locked the
+        // container to width × 1.5 (viewBox aspect) so the caption row
+        // overflowed and overlapped whatever rendered after the meter.
         width: `min(${size}px, 70vw)`,
         maxWidth: size,
-        aspectRatio: `${VB_W} / ${VB_H}`,
         height: "auto",
         filter: `drop-shadow(0 0 ${glowStrength * 0.5}px ${innerGlow}) drop-shadow(0 0 ${glowStrength}px ${glowColor})`
       }}
@@ -207,7 +212,11 @@ export function SyncMeter({
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
         width="100%"
-        height="100%"
+        // SVG holds its own aspect via viewBox + preserveAspectRatio
+        // (default = "xMidYMid meet"). height=auto = computed so the SVG
+        // takes only what it needs, leaving room for the caption row
+        // below in normal flow.
+        style={{ height: "auto", display: "block" }}
         xmlns="http://www.w3.org/2000/svg"
       >
         <defs>
