@@ -187,6 +187,16 @@ async function scrapingDogLinkedIn(handle: string): Promise<string> {
     (p.location as string) ||
     (p.geo_location as string) ||
     "";
+  // Profile photo — ScrapingDog LinkedIn typically returns `profile_photo`;
+  // some response shapes use `image`, `avatar`, or `picture`. Try all so
+  // we can embed the recipient's face in the OG card.
+  const profilePhoto =
+    (p.profile_photo as string) ||
+    (p.profilePhoto as string) ||
+    (p.image as string) ||
+    (p.avatar as string) ||
+    (p.picture as string) ||
+    "";
   const followers =
     (p.followers as number) || (p.connections as number) || 0;
 
@@ -255,6 +265,10 @@ async function scrapingDogLinkedIn(handle: string): Promise<string> {
       location,
       followers,
       about: about ? about.slice(0, 1500) : "",
+      // Use the canonical `profile_image` key the bulk-invite extractor
+      // already looks for, so LinkedIn photos flow into the OG card
+      // recipient avatar slot the same way IG photos do.
+      profile_image: profilePhoto,
       experience: experiences,
       education,
       skills

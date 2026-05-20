@@ -394,8 +394,13 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     let avatar_url: string | null = null;
     const scrape = scrapes[c.name] || "";
     if (scrape) {
+      // Match the most common avatar field names across scrapers:
+      //   IG via Apify: profile_pic_url_hd, profile_pic_url, profilePicUrl
+      //   IG via ScrapingDog: profile_image
+      //   X via Apify: avatar / profile_image_url
+      //   LinkedIn via ScrapingDog: profile_image / profile_photo
       const m = scrape.match(
-        /(?:^|\n)\s*(?:profile_image|profile_pic_url_hd|profile_pic_url|profilePicUrl)\s*:\s*(https?:\/\/\S+)/i
+        /(?:^|\n)\s*(?:profile_image|profile_photo|profilePhoto|profile_pic_url_hd|profile_pic_url|profilePicUrl|profile_image_url|profileImageUrl|avatar|image|picture)\s*:\s*(https?:\/\/\S+)/i
       );
       if (m && m[1]) avatar_url = m[1].trim();
     }
