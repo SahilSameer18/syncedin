@@ -610,6 +610,31 @@ export function ChatUI({
     setMenu({ id, x: e.clientX, y: e.clientY, canEdit });
   }
 
+  // Mobile equivalent of right-click: press-and-hold a bubble for ~500ms
+  // to open the same menu. A single ref-keyed timer per gesture so a fast
+  // tap (touchend before threshold) doesn't open the menu.
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function startLongPress(
+    e: React.TouchEvent,
+    id: string,
+    canEdit: boolean
+  ) {
+    if (longPressTimer.current) clearTimeout(longPressTimer.current);
+    const t = e.touches[0];
+    if (!t) return;
+    const x = t.clientX;
+    const y = t.clientY;
+    longPressTimer.current = setTimeout(() => {
+      setMenu({ id, x, y, canEdit });
+    }, 500);
+  }
+  function cancelLongPress() {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }
+
   async function copyMessage(id: string) {
     const m = messages.find((x) => x.id === id);
     if (!m) return;
@@ -913,6 +938,10 @@ export function ChatUI({
                     onDoubleClick={
                       mine ? () => startEdit(m.id) : undefined
                     }
+                    onTouchStart={(e) => startLongPress(e, m.id, mine)}
+                    onTouchEnd={cancelLongPress}
+                    onTouchMove={cancelLongPress}
+                    onTouchCancel={cancelLongPress}
                     className="inline-block max-w-[80%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap cursor-default select-text"
                     style={{
                       fontFamily: MSG_FONT,
@@ -920,12 +949,16 @@ export function ChatUI({
                       background: mine ? "#0b84ff" : "var(--bubble-them, #e5e5ea)",
                       color: mine ? "#ffffff" : "var(--bubble-them-text, #1c1c1e)",
                       borderBottomRightRadius: mine ? 5 : 18,
-                      borderBottomLeftRadius: mine ? 18 : 5
+                      borderBottomLeftRadius: mine ? 18 : 5,
+                      // iOS / Android long-press selects text by default;
+                      // suppress that so our 500ms timer wins instead.
+                      WebkitTouchCallout: "none",
+                      WebkitUserSelect: "text"
                     }}
                     title={
                       mine
-                        ? "Double-click or right-click to edit"
-                        : "Right-click to copy"
+                        ? "Double-click, right-click, or long-press to edit"
+                        : "Right-click or long-press to copy"
                     }
                   >
                     {/* linkify() wraps URLs, bare domains, and emails in
@@ -1042,7 +1075,25 @@ export function ChatUI({
             borderColor: bothAccepted ? "var(--green)" : "var(--amber)"
           }}
         >
-          <div className="flex items-center justify-between gap-2">
+          {/* Header is the full-width collapse target — clicking anywhere
+              in the strip (not just the small "− collapse" button) folds
+              the panel. The accept/reject buttons below still work
+              because their own onClick handlers stopPropagation. */}
+          <div
+            className="flex items-center justify-between gap-2"
+            onClick={() => setAgreementCollapsed(true)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setAgreementCollapsed(true);
+              }
+            }}
+            style={{ cursor: "pointer", userSelect: "none" }}
+            aria-label="Collapse deal panel"
+            title="Click anywhere on this row to collapse"
+          >
             <div
               className="retro-label"
               style={{
@@ -1051,21 +1102,12 @@ export function ChatUI({
             >
               // {bothAccepted ? "deal sealed" : "proposed final destination"}
             </div>
-            <button
-              type="button"
-              onClick={() => setAgreementCollapsed(true)}
-              className="retro-dim hover:text-white"
-              style={{
-                fontSize: 11,
-                background: "transparent",
-                border: 0,
-                cursor: "pointer",
-                padding: "2px 6px"
-              }}
-              aria-label="Collapse deal panel"
+            <span
+              className="retro-dim"
+              style={{ fontSize: 11 }}
             >
               − collapse
-            </button>
+            </span>
           </div>
           <div
             className="mt-1.5 text-sm"
@@ -1135,23 +1177,44 @@ export function ChatUI({
               )}
             </div>
           ) : (
-            <div className="flex gap-2 mt-2.5">
+            <div
+              className="flex gap-2 mt-3"
+              onClick={(e) => e.stopPropagation()}
+            >
               <button
-                onClick={acceptAgreement}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  acceptAgreement();
+                }}
                 disabled={running}
-                className="retro-btn flex-1 text-sm"
+                className="retro-btn retro-btn-primary flex-1 text-sm"
                 style={{
-                  borderColor: "var(--green)",
-                  color: "var(--green)"
+                  // Primary CTA styling — filled background, white text,
+                  // green-tinted glow so it reads as THE button to press.
+                  background:
+                    "linear-gradient(135deg, var(--green, #3cd870) 0%, #2bb95a 100%)",
+                  borderColor: "transparent",
+                  color: "#ffffff",
+                  fontWeight: 700,
+                  padding: "10px 14px",
+                  boxShadow: "0 4px 14px -4px rgba(60, 216, 112, 0.55)"
                 }}
               >
-                ✓ Accept
+                ✓ Accept this deal
               </button>
               <button
-                onClick={() => setRejecting(true)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setRejecting(true);
+                }}
                 disabled={running}
-                className="retro-btn flex-1 text-sm"
-                style={{ borderColor: "var(--red)", color: "var(--red)" }}
+                className="retro-btn text-sm"
+                style={{
+                  borderColor: "var(--red)",
+                  color: "var(--red)",
+                  flex: "0 0 auto",
+                  padding: "10px 14px"
+                }}
               >
                 ✗ Reject
               </button>

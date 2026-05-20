@@ -5,6 +5,7 @@ import { ExcitementControl } from "../dashboard/ExcitementControl";
 import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
 import { ConversationPrefetch } from "./ConversationPrefetch";
+import { startConversationWithUser } from "../dashboard/actions";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -49,6 +50,114 @@ export default async function MessagesPage() {
   const sorted = (conversations ?? []).sort(
     (a, b) => (b.excitement_score ?? -1) - (a.excitement_score ?? -1)
   );
+
+  // Platform-users directory — fetched here so we can render a "talk to
+  // someone now" list instead of the dead-end "go to dashboard" empty
+  // state. Excludes the current user + anyone already in a conversation
+  // with them. Same shape we use on /dashboard.
+  const { data: platformUsers } = await service
+    .from("profiles")
+    .select("id, display_name, email, avatar_url")
+    .eq("is_test_persona", false)
+    .neq("id", user.id);
+  const platformIds = (platformUsers ?? []).map((p: any) => p.id);
+  const { data: platformTwins } = platformIds.length
+    ? await service
+        .from("twin_profiles")
+        .select(
+          "user_id, goals, deal_preferences, communication_style, ai_export_blob"
+        )
+        .in("user_id", platformIds)
+    : { data: [] as any[] };
+  const twinByUserMsg = new Map(
+    (platformTwins ?? []).map((t: any) => [t.user_id, t] as const)
+  );
+  const existingConvIds = new Set(otherIds);
+
+  // Use the SAME tiny token-overlap heuristic as dashboard so the score
+  // shown here is comparable. Inline rather than imported to keep this
+  // page server-component-pure.
+  const { data: myTwinForScore } = await service
+    .from("twin_profiles")
+    .select("goals, deal_preferences, communication_style, ai_export_blob")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  function score(a: string, b: string): number {
+    const norm = (s: string) =>
+      (s || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 3);
+    const STOP = new Set([
+      "with",
+      "from",
+      "that",
+      "this",
+      "have",
+      "your",
+      "they",
+      "them",
+      "about",
+      "their",
+      "would",
+      "could",
+      "should",
+      "people",
+      "looking",
+      "really",
+      "still",
+      "going"
+    ]);
+    const arrA = Array.from(new Set(norm(a).filter((w) => !STOP.has(w))));
+    const arrB = Array.from(new Set(norm(b).filter((w) => !STOP.has(w))));
+    if (arrA.length === 0 || arrB.length === 0) return 0;
+    const setB = new Set(arrB);
+    let overlap = 0;
+    for (const w of arrA) if (setB.has(w)) overlap += 1;
+    const union = arrA.length + arrB.length - overlap;
+    return Math.round((overlap / union) * 100);
+  }
+  const myBlob = [
+    myTwinForScore?.goals ?? "",
+    (myTwinForScore as any)?.deal_preferences ?? "",
+    (myTwinForScore as any)?.communication_style ?? "",
+    (myTwinForScore as any)?.ai_export_blob ?? ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const platformDirectory = (platformUsers ?? [])
+    .filter((p: any) => !existingConvIds.has(p.id))
+    .map((p: any) => {
+      const t = twinByUserMsg.get(p.id);
+      const theirBlob = [
+        t?.goals ?? "",
+        (t as any)?.deal_preferences ?? "",
+        (t as any)?.communication_style ?? "",
+        (t as any)?.ai_export_blob ?? ""
+      ]
+        .filter(Boolean)
+        .join(" ");
+      const raw = score(myBlob, theirBlob);
+      const blob = (t as any)?.ai_export_blob || "";
+      const headlineFromBlob =
+        blob && typeof blob === "string"
+          ? blob
+              .split(/[\n\r]/)
+              .map((l: string) => l.trim())
+              .find((l: string) => l.length > 20 && l.length < 200) || ""
+          : "";
+      return {
+        id: p.id,
+        display_name: p.display_name as string | null,
+        email: p.email as string,
+        avatar_url: p.avatar_url as string | null,
+        goals: (t?.goals as string | null) ?? null,
+        headline_fallback: headlineFromBlob,
+        connection_score: Math.max(raw, theirBlob.length > 40 ? 12 : 0)
+      };
+    })
+    .sort((a, b) => b.connection_score - a.connection_score);
 
   // Status badges — same logic as dashboard so the two surfaces stay
   // consistent: sealed / your turn / waiting on {first} / negotiating.
@@ -118,18 +227,96 @@ export default async function MessagesPage() {
       </p>
 
       {sorted.length === 0 ? (
-        <div className="mt-8 retro-panel p-6 text-sm">
-          <div className="font-semibold">No messages yet.</div>
-          <div className="retro-dim mt-1">
-            Start your first conversation from the dashboard. Your twin will
-            pick up the back-and-forth for you.
+        // Empty state — replace the dead-end "go to dashboard" CTA with
+        // the same platform-users directory the dashboard shows. Users
+        // with no conversations land on a populated list with connection
+        // scores, ready to click connect. The most actionable empty
+        // state we can build without leaving the page.
+        <div className="mt-8">
+          <div className="retro-panel p-5 text-sm">
+            <div className="font-semibold">
+              No conversations yet. Pick someone on SyncedIn to start.
+            </div>
+            <div className="retro-dim mt-1">
+              Your twin handles the back-and-forth. You pick who. Sorted by
+              connection score — twins with the most overlap with yours
+              surface first.
+            </div>
           </div>
-          <Link
-            href="/dashboard"
-            className="retro-btn retro-btn-primary mt-4 inline-flex"
-          >
-            Go to dashboard
-          </Link>
+          {platformDirectory.length === 0 ? (
+            <div className="retro-panel p-4 text-sm mt-4">
+              <div className="font-semibold">
+                You&apos;ve already met everyone on the platform.
+              </div>
+              <div className="retro-dim mt-1">
+                Head to{" "}
+                <Link href="/invite" className="underline">
+                  /invite
+                </Link>{" "}
+                and send a custom invite. Each invite becomes a one-of-one
+                landing page that already knows who they are.
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 space-y-2">
+              {platformDirectory.slice(0, 20).map((p) => {
+                const blurb = p.goals || p.headline_fallback || "";
+                const sc = p.connection_score;
+                const scoreColor =
+                  sc >= 50
+                    ? "var(--amber-bright)"
+                    : sc >= 25
+                      ? "var(--text)"
+                      : "var(--text-dim)";
+                return (
+                  <form
+                    action={startConversationWithUser}
+                    key={p.id}
+                    className="retro-panel retro-panel-hover p-4 flex items-start justify-between gap-4"
+                  >
+                    <div className="flex items-start gap-3 min-w-0">
+                      <Avatar
+                        id={p.id}
+                        name={p.display_name || p.email}
+                        avatarUrl={p.avatar_url}
+                        size={36}
+                      />
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm">
+                          {p.display_name || p.email}
+                        </div>
+                        {blurb && (
+                          <div className="retro-dim text-xs mt-1 line-clamp-2">
+                            {blurb}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <input type="hidden" name="userId" value={p.id} />
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <div
+                        className="text-xs font-mono"
+                        style={{
+                          color: scoreColor,
+                          letterSpacing: "0.04em",
+                          fontWeight: 700
+                        }}
+                        title="Connection score: how much your twin's profile overlaps with theirs."
+                      >
+                        {sc}% sync
+                      </div>
+                      <button
+                        type="submit"
+                        className="retro-btn retro-btn-primary text-xs"
+                      >
+                        connect &gt;
+                      </button>
+                    </div>
+                  </form>
+                );
+              })}
+            </div>
+          )}
         </div>
       ) : (
         <div className="mt-6 space-y-2">

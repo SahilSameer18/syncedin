@@ -1102,7 +1102,7 @@ export function BulkReachToolkit({
           the personalized invites are above. Same message broadcast to many,
           rendered in the user's twin voice rather than the platform default. */}
       <div className="mt-6 flex items-end justify-between gap-3 flex-wrap">
-        <div>
+        <div className="min-w-0">
           <div
             className="retro-label"
             style={{ color: "var(--text-dim)" }}
@@ -1120,6 +1120,50 @@ export function BulkReachToolkit({
               : "Generic invite copy. Add more to your twin to get a voice-customized version."}
           </div>
         </div>
+        {voiceMode === "default" && (
+          <button
+            type="button"
+            onClick={async () => {
+              setVoiceMode("loading");
+              try {
+                const r = await fetch(
+                  "/api/twin-broadcast-message?refresh=1"
+                );
+                const j = await r.json();
+                if (j?.message) setInviteMessage(j.message);
+                if (j?.tweet) setInviteTweet(j.tweet);
+                setVoiceMode(j?.voice === "twin" ? "twin" : "default");
+                try {
+                  sessionStorage.setItem(
+                    "syncedin.twinBroadcastMsg",
+                    JSON.stringify(j)
+                  );
+                } catch {
+                  /* ignore */
+                }
+              } catch {
+                setVoiceMode("default");
+              }
+            }}
+            className="retro-btn retro-btn-primary text-xs"
+            title="Use your twin's saved voice to rewrite the generic broadcast copy"
+          >
+            ✨ rewrite this in my voice
+          </button>
+        )}
+      </div>
+
+      {/* Editable invite message — moved above the channel grid (was a
+          collapsed <details> below). Users edit here once and every
+          channel button picks up the change. */}
+      <div className="mt-3">
+        <textarea
+          value={inviteMessage}
+          onChange={(e) => setInviteMessage(e.target.value)}
+          rows={3}
+          className="retro-input text-sm"
+          placeholder="Your broadcast invite copy. Edits flow into every channel below."
+        />
       </div>
       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
         {channels.map((c) => {
@@ -1307,29 +1351,11 @@ export function BulkReachToolkit({
         </div>
       )}
 
-      {/* Editable invite text */}
-      <details className="mt-4">
-        <summary
-          className="text-xs cursor-pointer"
-          style={{ color: "var(--text-dim)" }}
-        >
-          edit the default invite message
-        </summary>
-        <textarea
-          readOnly
-          value={inviteMessage}
-          rows={4}
-          className="retro-input mt-2 text-sm"
-          onFocus={(e) => e.currentTarget.select()}
-        />
-        <button
-          type="button"
-          onClick={() => copy(inviteMessage, "message")}
-          className="retro-btn text-sm mt-2"
-        >
-          copy this message
-        </button>
-      </details>
+      {/* The editable broadcast textarea lives ABOVE the channel grid
+          now — see the `or — broadcast the same message` block. The
+          old <details> at this position was Jack's call to retire:
+          collapsing the editable copy beneath the channel buttons made
+          it feel hidden, when it's actually the source of truth. */}
     </div>
   );
 }

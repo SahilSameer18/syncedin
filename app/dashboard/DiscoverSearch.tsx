@@ -481,14 +481,36 @@ export function DiscoverSearch({
             <div className="mt-4 space-y-5">
               {suggestions.map((s, idx) => (
                 <div key={idx}>
-                  <div
-                    className="retro-label"
-                    style={{ color: "var(--amber-bright)" }}
-                  >
-                    your twin says: {s.rationale}
-                  </div>
-                  <div className="retro-dim text-xs mt-1">
-                    searched: {s.search_query}
+                  {/* Cleaner suggestion header: rationale only, search
+                      query collapsed behind a tooltip. The old layout had
+                      'your twin says' + 'searched: long-query-string' on
+                      two stacked rows which felt cluttered. Now: one
+                      compact row + a small 'find more like this' button
+                      that re-runs the query for fresh matches. */}
+                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                    <div
+                      className="retro-label"
+                      style={{ color: "var(--amber-bright)" }}
+                      title={`searched: ${s.search_query}`}
+                    >
+                      {s.rationale}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => askTwin(s.search_query)}
+                      disabled={suggesting}
+                      className="retro-dim text-xs hover:text-white"
+                      style={{
+                        background: "transparent",
+                        border: "none",
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        padding: 0
+                      }}
+                      title="Run the same intent again to surface fresh matches"
+                    >
+                      find more like this →
+                    </button>
                   </div>
                   {s.people.length === 0 ? (
                     <p className="retro-dim text-sm mt-2">
