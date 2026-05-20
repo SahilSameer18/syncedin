@@ -382,14 +382,18 @@ export function SyncMeter({
             right and slightly off the % baseline. */}
       </svg>
 
-      {/* Caption row — flex-aligned, (i) sits inline with the percentage. */}
+      {/* Caption row — flex-aligned, (i) sits inline with the percentage.
+          Positive marginTop instead of the old -10 pull-up so there's
+          breathing room between the silhouette's feet and the "% SYNC"
+          line. The body silhouette is already tightly cropped by the
+          viewBox; this is the gap that visually rests the eye. */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
           gap: 8,
-          marginTop: -10,
+          marginTop: 14,
           fontFamily:
             '"IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace'
         }}
