@@ -1028,22 +1028,25 @@ export function BulkReachToolkit({
                         ✉️ Email
                       </a>
                     )}
-                    {/* "✓ invite sent" — the explicit dismiss. Removes
-                        this row from the personalized list + localStorage
-                        so the user can track what they've actually sent
-                        without losing the result panel between sessions. */}
+                    {/* Mark-as-sent confirm. Earlier version was green
+                        with a checkmark and read like a status badge
+                        ("this is already sent") instead of an action
+                        ("click to mark sent"). Neutral dim text + a
+                        question mark makes it clearly a prompt. Removes
+                        the row from the personalized list + localStorage
+                        when clicked. */}
                     <button
                       type="button"
                       onClick={() => markInviteSent(p.slug)}
                       className="retro-btn text-xs"
                       style={{
                         padding: "5px 10px",
-                        borderColor: "var(--green, #3cd870)",
-                        color: "var(--green, #3cd870)"
+                        borderColor: "var(--border)",
+                        color: "var(--text-dim)"
                       }}
-                      title="Mark this invite as sent and remove from the list"
+                      title="Click to mark this invite as sent and remove it from the list"
                     >
-                      ✓ invite sent
+                      mark as sent?
                     </button>
                   </div>
                 </div>
