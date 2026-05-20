@@ -148,31 +148,36 @@ export default async function MessagesPage() {
                 style={{ position: "relative", paddingRight: 44 }}
               >
                 {/* Always-visible chevron — same affordance as poll list
-                    cards so it's obvious every row is tappable, not a
-                    static read-only summary. */}
-                <span
-                  aria-hidden
+                    cards. Previous version had pointer-events:none and
+                    the parent <div> wasn't a link, so clicks on the
+                    chevron landed on dead space. Now the chevron IS a
+                    Link with prefetch so tapping it navigates straight
+                    into the conversation. */}
+                <Link
+                  href={`/conversations/${c.id}`}
+                  prefetch={true}
+                  aria-label={`Open conversation with ${nameById.get(otherId) ?? "this person"}`}
                   style={{
                     position: "absolute",
                     right: 14,
                     top: "50%",
                     transform: "translateY(-50%)",
-                    width: 24,
-                    height: 24,
-                    borderRadius: 12,
+                    width: 28,
+                    height: 28,
+                    borderRadius: 14,
                     border: "1px solid var(--border-bright)",
                     background: "var(--panel-2)",
                     display: "inline-flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: "var(--text-dim)",
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: 700,
-                    pointerEvents: "none"
+                    textDecoration: "none"
                   }}
                 >
                   →
-                </span>
+                </Link>
                 <div className="flex items-start gap-3">
                   <Link
                     href={`/conversations/${c.id}`}

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { hasAgreement, MAX_AUTO_TURNS } from "@/lib/twin-prompt";
 import { ChatUI } from "./ChatUI";
+import { ConversationRail } from "./ConversationRail";
 import type { Message, AgreementResponse } from "@/lib/types";
 
 export default async function ConversationPage({
@@ -64,7 +65,13 @@ export default async function ConversationPage({
   const otherResponse = resps.find((r) => r.user_id === otherId) ?? null;
 
   return (
-    <ChatUI
+    <>
+      {/* Left rail — desktop only. Lets the user hop between active
+          conversations without leaving the chat view. Fixed-position so
+          it doesn't fight ChatUI's h-screen layout. Each link is
+          prefetched so swaps feel instant. */}
+      <ConversationRail activeId={params.id} />
+      <ChatUI
       conversationId={params.id}
       selfUserId={user.id}
       selfName={selfProfile!.display_name ?? selfProfile!.email}
@@ -88,5 +95,6 @@ export default async function ConversationPage({
           : null
       }
     />
+    </>
   );
 }

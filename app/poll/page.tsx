@@ -149,6 +149,8 @@ export default async function PollListPage() {
                   {/* Right-edge chevron — visible at rest so it's obvious
                       this card is tappable, not a static label. Saturates
                       on hover via the group class. */}
+                  {/* Chevron sits visually inside the card; the whole
+                      card is already a Link, so this is decorative. */}
                   <span
                     aria-hidden
                     style={{
@@ -156,18 +158,19 @@ export default async function PollListPage() {
                       right: 14,
                       top: "50%",
                       transform: "translateY(-50%)",
-                      width: 24,
-                      height: 24,
-                      borderRadius: 12,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 14,
                       border: "1px solid var(--border-bright)",
                       background: "var(--panel-2)",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
                       color: "var(--text-dim)",
-                      fontSize: 12,
+                      fontSize: 13,
                       fontWeight: 700,
-                      transition: "color 120ms, border-color 120ms"
+                      transition: "color 120ms, border-color 120ms",
+                      pointerEvents: "none"
                     }}
                   >
                     →
