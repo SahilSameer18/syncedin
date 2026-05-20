@@ -444,7 +444,10 @@ export function BulkReachToolkit({
         setGenError(j.detail || j.error);
         return;
       }
-      setPersonalized((prev) => [...prev, ...(j.results ?? [])]);
+      // New results PREPEND to the list — the entry the user just added
+      // should be the first thing they see (right under the generating
+      // placeholder, which is also at the top). Older results stay below.
+      setPersonalized((prev) => [...(j.results ?? []), ...prev]);
     } catch {
       setGenError("Couldn't reach the server.");
     } finally {
