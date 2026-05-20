@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { ExcitementControl } from "../dashboard/ExcitementControl";
 import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
+import { ConversationPrefetch } from "./ConversationPrefetch";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -132,6 +133,10 @@ export default async function MessagesPage() {
         </div>
       ) : (
         <div className="mt-6 space-y-2">
+          {/* Warm the Next.js route bundle cache for every visible
+              conversation so clicks land on the loading.tsx skeleton
+              in <50ms, then stream the real page in. */}
+          <ConversationPrefetch ids={sorted.map((c) => c.id)} />
           {sorted.map((c) => {
             const otherId =
               c.participant_a === user.id ? c.participant_b : c.participant_a;
@@ -171,6 +176,7 @@ export default async function MessagesPage() {
                 <div className="flex items-start gap-3">
                   <Link
                     href={`/conversations/${c.id}`}
+                    prefetch={true}
                     className="shrink-0"
                   >
                     <Avatar
@@ -182,6 +188,7 @@ export default async function MessagesPage() {
                   </Link>
                   <Link
                     href={`/conversations/${c.id}`}
+                    prefetch={true}
                     className="min-w-0 flex-1"
                   >
                     <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">

@@ -478,9 +478,40 @@ export function BulkReachToolkit({
 
   // Live classification of whatever's currently typed in the contact field
   // — drives the dynamic "Full name (optional)" / "Full name (required)"
-  // label on the name input.
+  // label on the name input, AND triggers the instant-fire path below.
   const liveClassified = classifyContact(entryContact);
   const nameIsOptional = !!liveClassified.profile_url;
+
+  // INSTANT FIRE — when the user pastes a profile URL into the contact
+  // field, debounce ~450ms, then auto-add + generate without requiring
+  // the "+ add" click. Name comes from the URL handle (derived_name),
+  // so there's nothing for the user to type. Field clears after firing
+  // so they can immediately paste the next URL.
+  //
+  // Only triggers for profile URLs — email and phone still need a name,
+  // which means they still need the manual + add path so the user can
+  // type the name first.
+  useEffect(() => {
+    const c = liveClassified;
+    if (!c.profile_url) return;
+    const url = c.profile_url;
+    const derivedName = c.derived_name || "";
+    // Don't double-fire if the same URL is already pending or done.
+    const sigName = derivedName || url;
+    if (pendingNames.includes(sigName)) return;
+    if (personalized.some((p) => p.contact.name === derivedName)) return;
+    const t = setTimeout(() => {
+      // Re-check the field hasn't changed under us (user kept typing).
+      if (!entryContact.includes(url.replace(/^https?:\/\//i, ""))) return;
+      const entry = { name: derivedName, profile_url: url };
+      setEntries((prev) => [...prev, entry]);
+      setEntryName("");
+      setEntryContact("");
+      generateForContacts([entry]);
+    }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryContact]);
 
   // Kept as a manual retry / batch path (e.g., after CSV import or a
   // failed auto-generate). The primary flow is auto-fire from addEntry.
@@ -659,21 +690,25 @@ export function BulkReachToolkit({
           phone, add the name so we can look the person up.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <input
-            type="text"
-            placeholder={
-              nameIsOptional
-                ? "Full name (optional — we'll derive it)"
-                : entryContact.trim()
-                ? "Full name (required for email / phone)"
-                : "Full name"
-            }
-            value={entryName}
-            onChange={(e) => setEntryName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addEntry()}
-            className="retro-input text-sm"
-            style={{ flex: "2 1 160px", minWidth: 0 }}
-          />
+          {/* Name field only appears when the user has typed something
+              that is NOT a profile URL (email / phone). Profile URLs
+              auto-derive the name and instant-fire generation, so the
+              name field is dead weight in that case. */}
+          {!nameIsOptional && (
+            <input
+              type="text"
+              placeholder={
+                entryContact.trim()
+                  ? "Full name (required for email / phone)"
+                  : "Full name (for email / phone only)"
+              }
+              value={entryName}
+              onChange={(e) => setEntryName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addEntry()}
+              className="retro-input text-sm"
+              style={{ flex: "2 1 160px", minWidth: 0 }}
+            />
+          )}
           <input
             type="text"
             placeholder={CONTACT_EXAMPLES[examplePos]}
@@ -683,7 +718,7 @@ export function BulkReachToolkit({
             onBlur={() => setContactFocused(false)}
             onKeyDown={(e) => e.key === "Enter" && addEntry()}
             className="retro-input text-sm"
-            style={{ flex: "3 1 240px", minWidth: 0 }}
+            style={{ flex: nameIsOptional ? "1 1 320px" : "3 1 240px", minWidth: 0 }}
           />
           <button
             type="button"
