@@ -77,7 +77,7 @@ export default async function PollListPage() {
         <div className="mt-6 grid sm:grid-cols-3 gap-5">
           <Pillar
             k="01"
-            t="One question, N answers"
+            t="One question, every twin answers"
             d="Every active twin on the platform generates a short first-person response shaped by their goals, voice, and context."
           />
           <Pillar

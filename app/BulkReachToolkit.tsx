@@ -476,19 +476,18 @@ export function BulkReachToolkit({
     const typed = entryName.trim();
     const { email, phone, profile_url, derived_name } =
       classifyContact(entryContact);
-    // Name policy:
-    //   - Profile URL: name is optional. We auto-derive from the URL handle,
-    //     and the server scrapes the page for the rest of the context.
-    //   - Email or phone: name IS required, because we have no other way to
-    //     identify the person — we'll fall back to an Exa name-search to
-    //     gather context for the opener.
-    const name = typed || derived_name || "";
+    // Full name field was removed from the UI. Name is now derived from:
+    //   - Profile URL handle (derived_name), OR
+    //   - CSV import (typed via setEntryName during CSV parse), OR
+    //   - Whatever the email-local part / phone number gives us as a fallback.
+    // The server-side scrape + Exa lookup fills in the rest, so we no longer
+    // refuse entries that lack a typed name.
+    const name =
+      typed ||
+      derived_name ||
+      (email ? email.split("@")[0]!.replace(/[._\-+]/g, " ") : "") ||
+      "";
     if (!email && !phone && !profile_url) return;
-    if ((email || phone) && !profile_url && !name) {
-      // refuse silently — the placeholder copy already tells the user
-      // a name is required when there's no profile URL to derive from.
-      return;
-    }
     const newEntry = { name, email, phone, profile_url };
     // INTENTIONALLY don't push into `entries` — auto-fire owns the
     // generation, the result lives in `personalized`, pendingNames
@@ -715,29 +714,14 @@ export function BulkReachToolkit({
           <PlatformChip name="X" domain="x.com" /> ·{" "}
           <PlatformChip name="Instagram" domain="instagram.com" /> ·{" "}
           <PlatformChip name="Facebook" domain="facebook.com" /> URL and
-          we&apos;ll scrape the rest — no name needed. For an email or
-          phone, add the name so we can look the person up.
+          we&apos;ll scrape everything else. Paste an email or phone
+          and we&apos;ll do our best from public records.
         </p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          {/* Name field only appears when the user has typed something
-              that is NOT a profile URL (email / phone). Profile URLs
-              auto-derive the name and instant-fire generation, so the
-              name field is dead weight in that case. */}
-          {!nameIsOptional && (
-            <input
-              type="text"
-              placeholder={
-                entryContact.trim()
-                  ? "Full name (required for email / phone)"
-                  : "Full name (for email / phone only)"
-              }
-              value={entryName}
-              onChange={(e) => setEntryName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addEntry()}
-              className="retro-input text-sm"
-              style={{ flex: "2 1 160px", minWidth: 0 }}
-            />
-          )}
+          {/* Full name field removed entirely — for URL inputs the name
+              is derived from the profile, and for email/phone the scrape
+              can usually pull a name from public records. Keeping the UI
+              minimal beats forcing a useless field. */}
           <input
             type="text"
             placeholder={CONTACT_EXAMPLES[examplePos]}
@@ -747,12 +731,12 @@ export function BulkReachToolkit({
             onBlur={() => setContactFocused(false)}
             onKeyDown={(e) => e.key === "Enter" && addEntry()}
             className="retro-input text-sm"
-            style={{ flex: nameIsOptional ? "1 1 320px" : "3 1 240px", minWidth: 0 }}
+            style={{ flex: "1 1 320px", minWidth: 0 }}
           />
           <button
             type="button"
             onClick={addEntry}
-            disabled={!entryName.trim() && !entryContact.trim()}
+            disabled={!entryContact.trim()}
             className="retro-btn retro-btn-primary text-sm"
           >
             + add
@@ -876,7 +860,7 @@ export function BulkReachToolkit({
               className="text-xs"
               style={{ color: "var(--text-dim)" }}
             >
-              add a name + email/phone above
+              paste a profile URL, email, or phone above
             </span>
           )}
         </div>

@@ -73,12 +73,11 @@ export async function ConversationRail({
           bar so users can swipe between conversations without bouncing
           back to /messages. Same data as the desktop vertical rail. */}
       <aside
-        className="lg:hidden"
+        className="flex lg:hidden"
         style={{
           position: "sticky",
           top: 44,
           zIndex: 6,
-          display: "flex",
           alignItems: "center",
           gap: 6,
           padding: "6px 10px",

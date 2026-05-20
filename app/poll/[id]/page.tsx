@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../../AppShell";
 import { OverrideRow } from "./OverrideRow";
 import { ReSynthesizeButton } from "./ReSynthesizeButton";
+import { PollMissingTwinsButton } from "./PollMissingTwinsButton";
 
 export const dynamic = "force-dynamic";
 
@@ -88,6 +89,24 @@ export default async function PollDetailPage({
       a.was_overridden === b.was_overridden ? 0 : a.was_overridden ? -1 : 1
     );
 
+  // Count twins on the platform who have NOT yet answered this poll —
+  // these are the ones the retroactive "poll new twins" button will pick
+  // up. Same signal filter as /api/polls/create (goals or ai_export_blob
+  // long enough to give a real answer).
+  const answeredIds = new Set(responses.map((r) => r.twin_user_id));
+  const { data: allTwins } = await service
+    .from("twin_profiles")
+    .select("user_id, goals, ai_export_blob")
+    .limit(400);
+  const eligibleTwins = ((allTwins as any[]) ?? []).filter(
+    (t) =>
+      (t.goals && t.goals.trim().length > 5) ||
+      (t.ai_export_blob && t.ai_export_blob.trim().length > 40)
+  );
+  const missingTwinsCount = eligibleTwins.filter(
+    (t) => !answeredIds.has(t.user_id)
+  ).length;
+
   return (
     <AppShell>
       <section className="mt-4">
@@ -165,6 +184,10 @@ export default async function PollDetailPage({
               </p>
             )}
             <ReSynthesizeButton pollId={p.id} />
+            <PollMissingTwinsButton
+              pollId={p.id}
+              pendingCount={missingTwinsCount}
+            />
           </>
         )}
       </section>
