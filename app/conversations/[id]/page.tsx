@@ -3,6 +3,10 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { hasAgreement, MAX_AUTO_TURNS } from "@/lib/twin-prompt";
 import { ChatUI } from "./ChatUI";
 import { ConversationRail } from "./ConversationRail";
+import { Sidebar } from "../../Sidebar";
+import { MobileShell } from "../../MobileShell";
+import { SitewidePrefetch } from "../../SitewidePrefetch";
+import { signOut } from "../../login/actions";
 import type { Message, AgreementResponse } from "@/lib/types";
 
 export default async function ConversationPage({
@@ -64,12 +68,78 @@ export default async function ConversationPage({
   const myResponse = resps.find((r) => r.user_id === user.id) ?? null;
   const otherResponse = resps.find((r) => r.user_id === otherId) ?? null;
 
+  // Sidebar data — same shape AppShell normally fetches. We render the
+  // Sidebar manually as a fixed-position element here (instead of using
+  // AppShell) because ChatUI owns the full h-screen layout and we don't
+  // want to nest <main> tags or fight ChatUI's mx-auto centering. The
+  // sidebar floats over the left edge of the viewport, the convo rail
+  // sits right after it, ChatUI's mx-auto centering is unaffected.
+  const { data: profileForSidebar } = await supabase
+    .from("profiles")
+    .select("display_name, avatar_url, email")
+    .eq("id", user.id)
+    .maybeSingle();
+  const sidebarDisplayName =
+    profileForSidebar?.display_name || user.email?.split("@")[0] || "you";
+  let conferences: { slug: string; name: string }[] = [];
+  try {
+    const { data: memberRows } = await supabase
+      .from("conference_members")
+      .select("conference_slug")
+      .eq("user_id", user.id);
+    const slugs = (memberRows ?? []).map((r: any) => r.conference_slug);
+    if (slugs.length > 0) {
+      const { data: confs } = await supabase
+        .from("conferences")
+        .select("slug, name")
+        .in("slug", slugs);
+      conferences = (confs ?? []).map((c: any) => ({
+        slug: c.slug as string,
+        name: c.name as string
+      }));
+    }
+  } catch {
+    /* sidebar still renders without conferences section */
+  }
+
+  const sidebarEl = (
+    <Sidebar
+      userId={user.id}
+      displayName={sidebarDisplayName}
+      avatarUrl={(profileForSidebar as any)?.avatar_url ?? null}
+      signOutAction={signOut}
+      conferences={conferences}
+    />
+  );
+
   return (
     <>
-      {/* Left rail — desktop only. Lets the user hop between active
-          conversations without leaving the chat view. Fixed-position so
-          it doesn't fight ChatUI's h-screen layout. Each link is
-          prefetched so swaps feel instant. */}
+      {/* Mobile chrome — hamburger top bar + slide-in drawer holding
+          the full sidebar. Hidden on lg+. */}
+      <MobileShell>{sidebarEl}</MobileShell>
+
+      {/* Warm the router cache for every primary nav destination. */}
+      <SitewidePrefetch />
+
+      {/* Desktop left sidebar — fixed-position so ChatUI's h-screen
+          layout doesn't need to know about it. Hidden on mobile (the
+          MobileShell drawer handles nav there). */}
+      <aside
+        className="hidden lg:block"
+        style={{
+          position: "fixed",
+          top: 16,
+          left: 16,
+          width: 220,
+          zIndex: 4
+        }}
+      >
+        {sidebarEl}
+      </aside>
+
+      {/* Conversation rail — narrow strip TO THE RIGHT of the main
+          sidebar, showing other convos. Was previously at left:16, now
+          at left:252 to clear the 220px sidebar + a 16px gap. */}
       <ConversationRail activeId={params.id} />
       <ChatUI
       conversationId={params.id}

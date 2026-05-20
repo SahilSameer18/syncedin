@@ -72,9 +72,14 @@ export async function ConversationRail({
       className="hidden lg:flex"
       style={{
         position: "fixed",
-        top: 64,
-        bottom: 24,
-        left: 16,
+        top: 16,
+        bottom: 16,
+        // Sits immediately right of the main AppShell sidebar (220px
+        // wide @ left:16 + 16px gap = 252px). On the conversation page
+        // the main sidebar is rendered from /conversations/[id]/page.tsx
+        // as a fixed-position element so ChatUI's h-screen layout stays
+        // intact.
+        left: 252,
         width: 76,
         flexDirection: "column",
         gap: 6,
