@@ -177,12 +177,13 @@ export default async function DashboardPage() {
       "going",
       "company"
     ]);
-    const setA = new Set(norm(a).filter((w) => !STOP.has(w)));
-    const setB = new Set(norm(b).filter((w) => !STOP.has(w)));
-    if (setA.size === 0 || setB.size === 0) return 0;
+    const arrA = Array.from(new Set(norm(a).filter((w) => !STOP.has(w))));
+    const arrB = Array.from(new Set(norm(b).filter((w) => !STOP.has(w))));
+    if (arrA.length === 0 || arrB.length === 0) return 0;
+    const setB = new Set(arrB);
     let overlap = 0;
-    for (const w of setA) if (setB.has(w)) overlap += 1;
-    const union = setA.size + setB.size - overlap;
+    for (const w of arrA) if (setB.has(w)) overlap += 1;
+    const union = arrA.length + arrB.length - overlap;
     return Math.round((overlap / union) * 100);
   }
   const myBlob = [
