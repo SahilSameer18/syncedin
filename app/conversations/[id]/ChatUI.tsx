@@ -633,18 +633,13 @@ export function ChatUI({
     if (!editingId) return;
     const id = editingId;
     const newText = editText;
-    // Meta-learning prompt: capture the WHY behind the edit. This is the
-    // proprietary calibration signal that lets your twin learn your worldview
-    // over time, not just your word choices. Optional — skip leaves reason null.
-    let reason: string | null = null;
-    try {
-      reason = window.prompt(
-        "Why did you change this? (one sentence — helps your twin learn your taste, can skip)",
-        ""
-      );
-    } catch {
-      /* environments without prompt() */
-    }
+    // Meta-learning signal removed from the foreground: the window.prompt
+    // for "why did you change this" was egregious on mobile (modal that
+    // blocks the entire OS-level UI). The edit itself is still a valuable
+    // training signal; we just no longer interrogate the user for the
+    // reason on every save. If we want this back later it should be an
+    // inline expandable note on the edited bubble, not a blocking prompt.
+    const reason: string | null = null;
     setRunning(true);
     setError(null);
     try {
