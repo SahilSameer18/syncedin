@@ -77,11 +77,27 @@ export async function POST(req: Request) {
         .filter((s) => s !== "in")
         .pop();
       if (!seg) return "";
-      return seg
+      // LinkedIn often appends a 6-10 char alphanumeric ID suffix to
+      // its /in/<handle> slug when the basename collides — e.g.
+      // /in/nick-linck-417b0ba. The old regex `\d+$` only stripped pure
+      // trailing digits, so "417b0ba" survived and "Nick Linck 417B0Ba"
+      // ended up on the invite card. Strip ANY trailing dash-separated
+      // segment that mixes letters and digits (a name part never does).
+      let cleaned = seg
+        .replace(/-+[a-z0-9]*\d[a-z0-9]*$/i, "")
         .replace(/[-_]+/g, " ")
         .replace(/\d+$/, "")
         .replace(/\b\w/g, (c) => c.toUpperCase())
         .trim();
+      // Belt-and-suspenders — after capitalization, drop any word that
+      // still has a digit (handles cases where the ID wasn't dash-
+      // delimited or the LinkedIn URL had unusual structure).
+      cleaned = cleaned
+        .split(/\s+/)
+        .filter((w) => !/\d/.test(w))
+        .join(" ")
+        .trim();
+      return cleaned;
     } catch {
       return "";
     }
@@ -219,7 +235,27 @@ export async function POST(req: Request) {
     //   Sentence 2: the bridge — what overlap / win-win exists between
     //     them and ${selfName}.
     //   Sentence 3: a real question that invites their reply.
-    const system = `You write SHORT cold-outreach openers from ${selfName}'s digital twin to multiple named recipients. The non-negotiable rule: every opener must LEAD with something specific about the recipient, NOT about ${selfName}.
+    const system = `You write SHORT cold-outreach openers from ${selfName}'s digital twin to multiple named recipients. The non-negotiable rule: every opener must LEAD with something specific about the recipient, NOT about ${selfName}. And the angle of the win-win must MATCH the recipient's professional capacity, not blindly pitch ${selfName}'s headline goal at everyone.
+
+CRITICAL — ROLE-AWARE FRAMING:
+Before writing, identify the recipient's professional capacity from their Profile block. Then match the opener accordingly. NEVER reuse ${selfName}'s single headline pitch ("looking for leaders" / "raising a round" / "hiring") for every recipient — that's robot behavior and breaks trust instantly.
+
+If the recipient is an INVESTOR / VC / angel:
+  → Lead with one of ${selfName}'s ventures or projects that fits their thesis. Frame the win-win as "this is the kind of company you back" — NOT "come operate for me." Mention the specific fund / portfolio company they're known for if it's in the Profile.
+
+If the recipient is a FOUNDER / CEO / operator in an aligned space:
+  → Lead with the overlap of what they're building and what ${selfName} is building. Propose a collaboration, intro, or specific resource trade — NOT a job pitch.
+
+If the recipient is a POTENTIAL HIRE / candidate (the "hungry leader" type):
+  → Then and ONLY then lead with the "we have projects ready to hand off" angle. This is the narrowest framing, not the default.
+
+If the recipient is a CUSTOMER / user / community member:
+  → Lead with what ${selfName} is shipping that solves their stated problem.
+
+If the recipient is a JOURNALIST / writer / podcaster:
+  → Lead with a story angle. Reference a specific piece they wrote.
+
+If the Profile is genuinely thin (no headline, no about, no experience), DO NOT fabricate "noticed your professional path" or "your work caught my attention." Instead, open with a HONEST line: "Reaching out cold here — your name came across my radar from {platform}, and I think there might be a real overlap. {one sentence about ${selfName}'s most relevant work}. Worth a conversation?" That's better than fake-personal filler.
 
 Return ONLY valid JSON. Each value must be a PLAIN STRING — NEVER a nested object like {"opener": "..."}. The shape is exactly:
 {

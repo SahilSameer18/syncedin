@@ -127,7 +127,10 @@ export function BulkReachToolkit({
     if (SOCIAL_HOSTS_RE.test(t)) {
       let url = t;
       if (!/^https?:\/\//i.test(url)) url = `https://${url}`;
-      // Try to derive a friendly name from the handle path
+      // Try to derive a friendly name from the handle path.
+      // Strip LinkedIn's alphanumeric ID suffix (e.g. /in/nick-linck-417b0ba
+      // → "Nick Linck", not "Nick Linck 417B0Ba"). Same logic as the
+      // server-side nameFromProfileUrl in /api/bulk-create-invites.
       let derived = "";
       try {
         const parsed = new URL(url);
@@ -138,9 +141,15 @@ export function BulkReachToolkit({
           .pop();
         if (seg) {
           derived = seg
+            .replace(/-+[a-z0-9]*\d[a-z0-9]*$/i, "")
             .replace(/[-_]+/g, " ")
-            .replace(/\b\w/g, (c) => c.toUpperCase())
             .replace(/\d+$/, "")
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+            .trim();
+          derived = derived
+            .split(/\s+/)
+            .filter((w) => !/\d/.test(w))
+            .join(" ")
             .trim();
         }
       } catch {

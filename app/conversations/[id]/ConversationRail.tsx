@@ -68,29 +68,130 @@ export async function ConversationRail({
   };
 
   return (
-    <aside
-      className="hidden lg:flex"
-      style={{
-        position: "fixed",
-        top: 16,
-        bottom: 16,
-        // Sits immediately right of the main AppShell sidebar (220px
-        // wide @ left:16 + 16px gap = 252px). On the conversation page
-        // the main sidebar is rendered from /conversations/[id]/page.tsx
-        // as a fixed-position element so ChatUI's h-screen layout stays
-        // intact.
-        left: 252,
-        width: 76,
-        flexDirection: "column",
-        gap: 6,
-        padding: 8,
-        background: "var(--panel-solid)",
-        border: "1px solid var(--border)",
-        borderRadius: 14,
-        overflowY: "auto",
-        zIndex: 5
-      }}
-    >
+    <>
+      {/* Mobile horizontal rail — sticks under the AppShell mobile top
+          bar so users can swipe between conversations without bouncing
+          back to /messages. Same data as the desktop vertical rail. */}
+      <aside
+        className="lg:hidden"
+        style={{
+          position: "sticky",
+          top: 44,
+          zIndex: 6,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          padding: "6px 10px",
+          background: "var(--panel-solid)",
+          borderBottom: "1px solid var(--border)",
+          overflowX: "auto",
+          overflowY: "hidden",
+          WebkitOverflowScrolling: "touch"
+        }}
+      >
+        <Link
+          href="/messages"
+          prefetch={true}
+          aria-label="All messages"
+          style={{
+            flex: "0 0 auto",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 36,
+            height: 36,
+            borderRadius: 18,
+            background: "var(--panel-2)",
+            color: "var(--text-dim)",
+            textDecoration: "none",
+            fontSize: 14,
+            fontWeight: 700
+          }}
+        >
+          ☰
+        </Link>
+        {rows.map((c) => {
+          const otherId =
+            c.participant_a === user.id ? c.participant_b : c.participant_a;
+          const p = profById.get(otherId);
+          const fullName = p?.display_name || p?.email || "Someone";
+          const fn = firstName(fullName);
+          const active = c.id === activeId;
+          return (
+            <Link
+              key={c.id}
+              href={`/conversations/${c.id}`}
+              prefetch={true}
+              aria-label={`Open conversation with ${fullName}`}
+              aria-current={active ? "page" : undefined}
+              style={{
+                flex: "0 0 auto",
+                display: "inline-flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 2,
+                padding: 2,
+                textDecoration: "none",
+                minWidth: 52
+              }}
+            >
+              <div
+                style={{
+                  border: active
+                    ? "2px solid var(--amber)"
+                    : "2px solid transparent",
+                  borderRadius: 20,
+                  padding: 1
+                }}
+              >
+                <Avatar
+                  id={otherId}
+                  name={fullName}
+                  avatarUrl={p?.avatar_url ?? null}
+                  size={32}
+                />
+              </div>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: active ? "var(--text)" : "var(--text-dim)",
+                  maxWidth: 48,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {fn}
+              </span>
+            </Link>
+          );
+        })}
+      </aside>
+
+      <aside
+        className="hidden lg:flex"
+        style={{
+          position: "fixed",
+          top: 16,
+          bottom: 16,
+          // Sits immediately right of the main AppShell sidebar (220px
+          // wide @ left:16 + 16px gap = 252px). On the conversation page
+          // the main sidebar is rendered from /conversations/[id]/page.tsx
+          // as a fixed-position element so ChatUI's h-screen layout stays
+          // intact.
+          left: 252,
+          width: 76,
+          flexDirection: "column",
+          gap: 6,
+          padding: 8,
+          background: "var(--panel-solid)",
+          border: "1px solid var(--border)",
+          borderRadius: 14,
+          overflowY: "auto",
+          zIndex: 5
+        }}
+      >
       <Link
         href="/messages"
         prefetch={true}
@@ -190,5 +291,6 @@ export async function ConversationRail({
         );
       })}
     </aside>
+    </>
   );
 }

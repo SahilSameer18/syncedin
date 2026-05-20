@@ -800,11 +800,12 @@ export function ChatUI({
               />
               <div className="min-w-0 flex-1">
                 <Link
-                  href="/dashboard"
+                  href="/messages"
+                  prefetch={true}
                   className="retro-dim text-xs"
                   style={{ display: "inline-block", marginBottom: 2 }}
                 >
-                  &lt; back
+                  &lt; messages
                 </Link>
                 <div className="text-base sm:text-lg font-bold flex items-center gap-1.5 min-w-0">
                   <span className="truncate" style={{ maxWidth: "8em" }}>

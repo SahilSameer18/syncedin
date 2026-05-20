@@ -33,6 +33,19 @@ function isXUrl(url: string): boolean {
 function isInstagramUrl(url: string): boolean {
   return /(?:^|\/\/)(?:www\.)?instagram\.com\//i.test(url);
 }
+function isLinkedInUrl(url: string): boolean {
+  return /(?:^|\/\/)(?:www\.)?linkedin\.com\/in\//i.test(url);
+}
+
+function linkedInHandleFromUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const m = u.pathname.match(/\/in\/([^/?#]+)/i);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
+}
 
 function handleFromUrl(url: string): string | null {
   try {
@@ -131,6 +144,125 @@ async function scrapingDogInstagram(handle: string): Promise<string> {
 /**
  * ScrapingDog X / Twitter profile endpoint.
  */
+/**
+ * ScrapingDog LinkedIn profile endpoint. Docs:
+ *   https://docs.scrapingdog.com/linkedin-scraper/linkedin-profile
+ * The `linkId` query param is the slug from linkedin.com/in/<linkId>.
+ * Returns headline, summary/about, current/past positions, education,
+ * skills. Far more substance than Exa's SEO-meta scrape of a LinkedIn
+ * profile page (which is just a hashed title because the rest is
+ * auth-walled).
+ */
+async function scrapingDogLinkedIn(handle: string): Promise<string> {
+  if (!SCRAPINGDOG_API_KEY) throw new Error("SCRAPINGDOG_API_KEY missing");
+  const url = `https://api.scrapingdog.com/linkedin?api_key=${encodeURIComponent(
+    SCRAPINGDOG_API_KEY
+  )}&type=profile&linkId=${encodeURIComponent(handle)}&premium=false`;
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) {
+    throw new Error(
+      `ScrapingDog LinkedIn ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`
+    );
+  }
+  const raw = (await res.json()) as unknown;
+  // Response is sometimes an array (one item per requested profile), sometimes
+  // a single object. Normalize to a single record.
+  const p = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+  if (!p || typeof p !== "object") {
+    throw new Error("ScrapingDog LinkedIn returned no usable record");
+  }
+
+  const name =
+    (p.fullName as string) ||
+    (p.full_name as string) ||
+    `${(p.first_name as string) || ""} ${(p.last_name as string) || ""}`.trim() ||
+    handle;
+  const headline = (p.headline as string) || (p.title as string) || "";
+  const about =
+    (p.about as string) ||
+    (p.summary as string) ||
+    (p.description as string) ||
+    "";
+  const location =
+    (p.location as string) ||
+    (p.geo_location as string) ||
+    "";
+  const followers =
+    (p.followers as number) || (p.connections as number) || 0;
+
+  // Positions can be in `experience`, `positions`, or `current_company` shapes.
+  const expRows = Array.isArray((p as any).experience)
+    ? ((p as any).experience as Array<Record<string, unknown>>)
+    : Array.isArray((p as any).positions)
+    ? ((p as any).positions as Array<Record<string, unknown>>)
+    : [];
+  const experiences = expRows
+    .slice(0, 6)
+    .map((e) => {
+      const role =
+        (e.title as string) || (e.position as string) || (e.role as string) || "";
+      const company =
+        (e.company as string) ||
+        ((e.companyName as string) || "") ||
+        ((e.company_name as string) || "");
+      const duration =
+        (e.duration as string) || (e.dateRange as string) || "";
+      const desc =
+        typeof e.description === "string"
+          ? (e.description as string).slice(0, 240)
+          : "";
+      const parts = [role, company && `at ${company}`, duration && `(${duration})`]
+        .filter(Boolean)
+        .join(" ");
+      return desc ? `${parts}. ${desc}` : parts;
+    })
+    .filter(Boolean);
+
+  const eduRows = Array.isArray((p as any).education)
+    ? ((p as any).education as Array<Record<string, unknown>>)
+    : [];
+  const education = eduRows
+    .slice(0, 4)
+    .map((e) => {
+      const school =
+        (e.school as string) || (e.institution as string) || (e.name as string) || "";
+      const degree = (e.degree as string) || (e.field as string) || "";
+      return [school, degree].filter(Boolean).join(" — ");
+    })
+    .filter(Boolean);
+
+  const skills = Array.isArray((p as any).skills)
+    ? ((p as any).skills as Array<unknown>)
+        .map((s) => (typeof s === "string" ? s : (s as any)?.name))
+        .filter(Boolean)
+        .slice(0, 10)
+    : [];
+
+  // Hard substance check — if we got nothing substantive, throw so the
+  // outer chain can try Apify or surface a clear "no scrape available"
+  // signal instead of generating a fake-personal opener.
+  if (!headline && !about && experiences.length === 0 && eduRows.length === 0) {
+    throw new Error(
+      `ScrapingDog LinkedIn returned only metadata for ${handle} (no headline, about, experience, or education).`
+    );
+  }
+
+  return flatten(
+    {
+      handle: `linkedin.com/in/${handle}`,
+      name,
+      headline,
+      location,
+      followers,
+      about: about ? about.slice(0, 1500) : "",
+      experience: experiences,
+      education,
+      skills
+    },
+    0
+  );
+}
+
 async function scrapingDogX(handle: string): Promise<string> {
   if (!SCRAPINGDOG_API_KEY) throw new Error("SCRAPINGDOG_API_KEY missing");
   const url = `https://api.scrapingdog.com/twitter/profile?api_key=${encodeURIComponent(
@@ -585,7 +717,54 @@ export async function scrapePublicProfile(url: string): Promise<string> {
     );
   }
 
-  // NON-SOCIAL URLs — Exa handles these well (LinkedIn, blogs, etc.).
+  // LINKEDIN URLs — Exa CAN reach the public meta but it's usually just
+  // an SEO title ("Lucas Chu | LinkedIn"), which gave the LLM nothing to
+  // work with and produced generic "noticed your professional path"
+  // openers. Bypass Exa for LinkedIn unless the response actually
+  // contains the headline + about text. If we have a ScrapingDog key,
+  // prefer it — its LinkedIn endpoint returns the full headline +
+  // about + experience.
+  if (isLinkedInUrl(url)) {
+    const handle = linkedInHandleFromUrl(url) || "";
+    const errors: string[] = [];
+
+    // 1. ScrapingDog LinkedIn — full headline + about + experience.
+    if (SCRAPINGDOG_API_KEY && handle) {
+      try {
+        return await scrapingDogLinkedIn(handle);
+      } catch (e: any) {
+        errors.push(`scrapingdog: ${e?.message ?? e}`);
+      }
+    }
+
+    // 2. Exa fallback — accept ONLY if substance is real (>300 chars
+    //    AND not just the page title). Otherwise throw so the caller
+    //    knows there's no usable scrape and can warn the LLM.
+    let exa = "";
+    try {
+      exa = await exaGetContents(url);
+    } catch {
+      /* fall through */
+    }
+    if (exa) {
+      const trimmed = exa.trim();
+      const looksLikeTitleOnly =
+        trimmed.length < 300 &&
+        /\| linkedin/i.test(trimmed) &&
+        !/(experience|about|headline|summary|education)/i.test(trimmed);
+      if (trimmed.length > 80 && !looksLikeTitleOnly) {
+        return trimmed;
+      }
+      errors.push(`exa: thin (${trimmed.length} chars, title-like)`);
+    }
+
+    throw new Error(
+      `Couldn't get substantive LinkedIn content for ${handle}. ${errors.join(" | ")}`
+    );
+  }
+
+  // Everything else (blogs, Substack, Crunchbase, etc.) — Exa handles
+  // these well since they're public HTML pages.
   let exaText = "";
   try {
     exaText = await exaGetContents(url);

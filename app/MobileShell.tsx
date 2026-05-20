@@ -101,15 +101,15 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             flexShrink: 0
           }}
         >
-          {/* Bypass the Wordmark component's size prop (smallest preset is
-              40px, too tall for the mobile bar) and render the PNG directly
-              at 22px. wordmark-themed class handles dark-mode invert. */}
+          {/* Wordmark at 28px so it visually matches the hamburger
+              button (30px) without forcing the bar taller (minHeight
+              stays 44). wordmark-themed handles dark-mode invert. */}
           <img
             src="/syncedin-wordmark.png"
             alt="SyncedIn"
             className="wordmark-themed"
-            height={22}
-            style={{ height: 22, width: "auto", display: "block" }}
+            height={28}
+            style={{ height: 28, width: "auto", display: "block" }}
           />
         </Link>
       </div>
@@ -140,8 +140,14 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             transition: "opacity 180ms ease"
           }}
         />
-        {/* Sliding drawer — pulls in the desktop Sidebar content */}
+        {/* Sliding drawer — pulls in the desktop Sidebar content.
+            The wordmark + its big top padding inside the Sidebar are
+            HIDDEN here because the mobile top bar already shows the
+            wordmark; rendering it again wasted ~140px of drawer height
+            and pushed every nav item far down. CSS-scoped to the drawer
+            via the class below so the desktop sidebar is unaffected. */}
         <div
+          className="syncedin-mobile-drawer"
           style={{
             position: "absolute",
             top: 0,
@@ -158,6 +164,16 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
         >
           {children}
         </div>
+        <style>{`
+          .syncedin-mobile-drawer img.wordmark-themed {
+            display: none;
+          }
+          /* The wordmark Link is the first child of the Sidebar — its
+             padding wrapper adds ~6px we can also reclaim by collapsing. */
+          .syncedin-mobile-drawer > div > a[aria-label="SyncedIn — home"] {
+            display: none;
+          }
+        `}</style>
       </div>
     </>
   );
