@@ -50,9 +50,14 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
       {/* Top mobile bar — kept thin. Padding + button height + wordmark
           height all sized so the bar lands at ~44px total. Earlier
           version ate ~30% of phone viewport height because the wordmark
-          rendered at natural ~60px tall. */}
+          rendered at natural ~60px tall.
+
+          CRITICAL: `display` MUST stay in the className, not the inline
+          style. Inline-style `display: flex` outranks Tailwind's
+          `lg:hidden` (which sets `display: none` at lg+), and the bar
+          starts leaking onto desktop. Bug shipped once already. */}
       <div
-        className="lg:hidden"
+        className="flex lg:hidden items-center"
         style={{
           position: "sticky",
           top: 0,
@@ -60,8 +65,6 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           background: "var(--panel-solid)",
           borderBottom: "1px solid var(--border)",
           padding: "5px 10px",
-          display: "flex",
-          alignItems: "center",
           gap: 8,
           minHeight: 44
         }}
@@ -111,7 +114,11 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
         </Link>
       </div>
 
-      {/* Drawer + scrim — slides in from left when open */}
+      {/* Drawer + scrim — slides in from left when open. Same
+          inline-style vs Tailwind specificity caveat as above: do NOT
+          set `display` inline; let `lg:hidden` win at lg+. We control
+          interactivity via pointerEvents, not display, so the drawer
+          can still animate when open changes on mobile. */}
       <div
         className="lg:hidden"
         aria-hidden={!open}

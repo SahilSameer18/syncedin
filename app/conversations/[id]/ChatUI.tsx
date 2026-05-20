@@ -932,13 +932,52 @@ export function ChatUI({
                         : "Right-click to copy"
                     }
                   >
-                    {body}
+                    {/* linkify() wraps URLs, bare domains, and emails in
+                        <a> tags so users can actually click them. Was
+                        defined but never invoked — body was rendered as
+                        plain text, making every link in every message
+                        non-clickable. Hard bug to spot because the
+                        plain-text version looked stylistically fine. */}
+                    {linkify(body)}
                   </div>
-                  {m.edited && (
+                  {/* Edit affordance on your own messages. The bubble has
+                      always been double-click-to-edit + right-click-to-edit
+                      (per the title), but those are hidden cues nobody
+                      discovers without instruction. Surfacing a small
+                      "✎ edit" button below own messages makes the
+                      capability obvious. Tapping it opens the same inline
+                      editor double-click would. */}
+                  {mine && (
                     <div
-                      className={`text-[10px] retro-dim mt-0.5 ${
-                        mine ? "" : "text-left"
-                      }`}
+                      className="text-[10px] mt-0.5 flex items-center justify-end gap-2"
+                      style={{ color: "var(--text-dim)" }}
+                    >
+                      {m.edited && <span>✎ edited</span>}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(m.id);
+                          setEditText(m.final_text);
+                        }}
+                        style={{
+                          fontSize: 11,
+                          padding: "2px 8px",
+                          border: "1px solid var(--border)",
+                          borderRadius: 6,
+                          background: "transparent",
+                          color: "var(--text-dim)",
+                          cursor: "pointer",
+                          letterSpacing: "0.02em"
+                        }}
+                        title="Edit this message — the rest of the conversation regenerates after"
+                      >
+                        ✎ edit
+                      </button>
+                    </div>
+                  )}
+                  {!mine && m.edited && (
+                    <div
+                      className="text-[10px] retro-dim mt-0.5 text-left"
                     >
                       ✎ edited
                     </div>

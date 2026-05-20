@@ -180,6 +180,44 @@ export function BulkReachToolkit({
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
+  // Persistence — the personalized list survives reloads. The user
+  // generates invites, walks away, comes back tomorrow; the row is
+  // still there with the link + "send via" buttons until they
+  // explicitly tick "✓ invite sent". Then it's removed from the visible
+  // list. Storage key is intentionally non-user-scoped because we don't
+  // know the user id in this client component; collisions across logged-
+  // in users on the same browser are unlikely + low-risk.
+  const STORAGE_KEY = "syncedin.personalizedInvites.v1";
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) setPersonalized(parsed);
+      }
+    } catch {
+      /* corrupted storage — ignore */
+    }
+    setHydrated(true);
+  }, []);
+  useEffect(() => {
+    if (!hydrated) return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(personalized));
+    } catch {
+      /* quota / private mode */
+    }
+  }, [personalized, hydrated]);
+
+  /** Remove a single personalized invite from the visible list +
+   *  persisted storage. Triggered by the "✓ invite sent" button on
+   *  each row. The actual pending_invites DB row stays — only the
+   *  client-side reminder is cleared. */
+  function markInviteSent(slug: string) {
+    setPersonalized((prev) => prev.filter((p) => p.slug !== slug));
+  }
+
   useEffect(() => {
     setContactPickerSupported(
       typeof navigator !== "undefined" && !!(navigator as any).contacts?.select
@@ -354,6 +392,63 @@ export function BulkReachToolkit({
     e.target.value = "";
   }
 
+  // Pending set — entries currently being generated. Used to show
+  // "generating…" rows in the personalized list while the API is in
+  // flight so the user has immediate feedback after each add.
+  const [pendingNames, setPendingNames] = useState<string[]>([]);
+
+  /**
+   * Fire bulk-create-invites for an arbitrary list of contacts. Used by:
+   *   - addEntry()         → auto-fires for the single contact just added
+   *   - CSV import path    → fires for all imported rows
+   *   - manual button      → fires for whatever's in `entries` (rare now,
+   *                          mostly relevant if auto-generate failed and
+   *                          the user wants a retry)
+   * Results append to the personalized list. Each contact moves through
+   * pendingNames so the UI can show its "generating" state.
+   */
+  async function generateForContacts(
+    contacts: Array<{
+      name: string;
+      email?: string;
+      phone?: string;
+      profile_url?: string;
+    }>
+  ) {
+    if (contacts.length === 0) return;
+    setGenError(null);
+    setPendingNames((prev) => [
+      ...prev,
+      ...contacts.map((c) => c.name || c.email || c.phone || "anon")
+    ]);
+    setGenerating(true);
+    try {
+      const r = await fetch("/api/bulk-create-invites", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ contacts })
+      });
+      const j = await r.json();
+      if (j.error) {
+        setGenError(j.detail || j.error);
+        return;
+      }
+      setPersonalized((prev) => [...prev, ...(j.results ?? [])]);
+    } catch {
+      setGenError("Couldn't reach the server.");
+    } finally {
+      setGenerating(false);
+      setPendingNames((prev) =>
+        prev.filter(
+          (n) =>
+            !contacts.some(
+              (c) => (c.name || c.email || c.phone || "anon") === n
+            )
+        )
+      );
+    }
+  }
+
   function addEntry() {
     const typed = entryName.trim();
     const { email, phone, profile_url, derived_name } =
@@ -371,9 +466,14 @@ export function BulkReachToolkit({
       // a name is required when there's no profile URL to derive from.
       return;
     }
-    setEntries((prev) => [...prev, { name, email, phone, profile_url }]);
+    const newEntry = { name, email, phone, profile_url };
+    setEntries((prev) => [...prev, newEntry]);
     setEntryName("");
     setEntryContact("");
+    // AUTO-GENERATE the personalized invite for this single entry the
+    // moment it's added. No "+ generate" click required — the result
+    // streams into the personalized panel below within a few seconds.
+    generateForContacts([newEntry]);
   }
 
   // Live classification of whatever's currently typed in the contact field
@@ -382,47 +482,22 @@ export function BulkReachToolkit({
   const liveClassified = classifyContact(entryContact);
   const nameIsOptional = !!liveClassified.profile_url;
 
+  // Kept as a manual retry / batch path (e.g., after CSV import or a
+  // failed auto-generate). The primary flow is auto-fire from addEntry.
   async function generatePersonalized() {
-    // Prefer the rich entries list; fall back to plain email list for backward compat.
     const contacts =
       entries.length > 0
         ? entries
-        : emails.map((e) => ({ email: e }));
+        : emails.map((e) => ({ email: e, name: "" }));
     if (contacts.length === 0) {
       setGenError(
         "Add at least one name+email above, or import a CSV first."
       );
       return;
     }
-    setGenerating(true);
-    setGenError(null);
-    try {
-      const r = await fetch("/api/bulk-create-invites", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          contacts
-        })
-      });
-      const j = await r.json();
-      if (j.error) {
-        setGenError(j.detail || j.error);
-        return;
-      }
-      // Append to (don't replace) the personalized list — running the
-      // generator twice in a row should keep prior results visible.
-      setPersonalized((prev) => [...prev, ...(j.results ?? [])]);
-      // Auto-clear the entries list once invites are generated. The
-      // contacts moved "down" — they're now in the personalized panel,
-      // no need to keep showing them above. Less visual stack, clearer
-      // signal that the generation step succeeded.
-      setEntries([]);
-      setEmails([]);
-    } catch {
-      setGenError("Couldn't reach the server.");
-    } finally {
-      setGenerating(false);
-    }
+    await generateForContacts(contacts);
+    setEntries([]);
+    setEmails([]);
   }
 
   function gmailUrl(): string {
@@ -755,7 +830,7 @@ export function BulkReachToolkit({
           high-fidelity path is what the user sees first. Each row is a custom
           landing page generated with a twin-voice opener that references real
           context scraped from the recipient's social profile. */}
-      {personalized.length > 0 && (
+      {(personalized.length > 0 || pendingNames.length > 0) && (
         <div
           className="mt-5 retro-panel"
           style={{ padding: 16, borderColor: "var(--amber)" }}
@@ -802,6 +877,37 @@ export function BulkReachToolkit({
             copy all as list
           </button>
           <ul className="mt-3 space-y-2">
+            {/* In-flight rows — render a placeholder for each contact
+                still generating so the user sees instant feedback after
+                pressing + add. */}
+            {pendingNames.map((n) => (
+              <li
+                key={`pending-${n}`}
+                className="retro-panel"
+                style={{
+                  padding: 10,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  borderColor: "var(--amber)"
+                }}
+              >
+                <span
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    background: "var(--amber-bright)",
+                    boxShadow: "0 0 8px var(--amber-bright)",
+                    animation: "sg-pulse 1.2s ease-in-out infinite"
+                  }}
+                />
+                <div className="text-sm" style={{ color: "var(--text)" }}>
+                  Generating personalized invite for{" "}
+                  <span className="font-semibold">{n}</span>…
+                </div>
+              </li>
+            ))}
             {personalized.map((p) => (
               <li
                 key={p.slug}
@@ -887,6 +993,23 @@ export function BulkReachToolkit({
                         ✉️ Email
                       </a>
                     )}
+                    {/* "✓ invite sent" — the explicit dismiss. Removes
+                        this row from the personalized list + localStorage
+                        so the user can track what they've actually sent
+                        without losing the result panel between sessions. */}
+                    <button
+                      type="button"
+                      onClick={() => markInviteSent(p.slug)}
+                      className="retro-btn text-xs"
+                      style={{
+                        padding: "5px 10px",
+                        borderColor: "var(--green, #3cd870)",
+                        color: "var(--green, #3cd870)"
+                      }}
+                      title="Mark this invite as sent and remove from the list"
+                    >
+                      ✓ invite sent
+                    </button>
                   </div>
                 </div>
               </li>
