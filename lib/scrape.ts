@@ -317,14 +317,34 @@ async function scrapeXProfile(url: string): Promise<string> {
     (a0.followers as number) ||
     0;
 
-  // If structured extraction failed, dump the first item's raw flattened
-  // shape — better signal for the LLM than an empty scaffold ("Bio: \n
-  // Recent posts: •").
-  if (tweets.length === 0 && !bio) {
+  // SUBSTANCE CHECK — same idea as the IG version. If we only have a
+  // handle (no real name, no bio, fewer than 2 substantive tweets), we
+  // produce "@jackjayio on X\n\nRecent posts:\n• rt" which gives the
+  // LLM nothing to work with and the opener ends up just mentioning
+  // the handle. Throw so the outer chain falls through to ScrapingDog.
+  const hasRealName =
+    typeof name === "string" &&
+    name.trim().length > 1 &&
+    name.toLowerCase() !== handle.toLowerCase();
+  const hasBio = typeof bio === "string" && bio.trim().length > 5;
+  // Substantive tweets: >20 chars AND not just an @mention or RT marker.
+  const substantiveTweets = tweets.filter(
+    (t) =>
+      t.trim().length > 20 &&
+      !/^(rt\s+@|@\w+\s*$)/i.test(t.trim())
+  );
+  const hasUsableTweets = substantiveTweets.length >= 2;
+
+  if (!hasRealName && !hasBio && !hasUsableTweets) {
+    // Last-ditch: dump the first item's raw flattened shape if it's
+    // got SOMETHING beyond just the handle. Otherwise throw and let
+    // the outer chain try a different vendor.
     const raw = flatten(items[0]).slice(0, 2000);
-    if (raw.trim().length > 40) return raw;
+    if (raw.trim().length > 80 && !/^handle:\s*@?\w+\s*$/i.test(raw.trim())) {
+      return raw;
+    }
     throw new Error(
-      "Apify returned items with no usable text — handle may be private or scrape was blocked."
+      `Apify X returned only metadata for @${handle} (no bio, no real name, no substantive tweets). Falling through to next vendor.`
     );
   }
 
@@ -332,9 +352,9 @@ async function scrapeXProfile(url: string): Promise<string> {
   lines.push(`${name} (@${handle}) on X`);
   if (followers) lines.push(`Followers: ${followers.toLocaleString()}`);
   if (bio) lines.push(`Bio: ${bio}`);
-  if (tweets.length > 0) {
+  if (substantiveTweets.length > 0) {
     lines.push("Recent posts:");
-    lines.push("• " + tweets.slice(0, 15).join("\n• "));
+    lines.push("• " + substantiveTweets.slice(0, 15).join("\n• "));
   }
   return lines.join("\n\n");
 }

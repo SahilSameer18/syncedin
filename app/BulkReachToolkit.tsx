@@ -478,7 +478,11 @@ export function BulkReachToolkit({
       return;
     }
     const newEntry = { name, email, phone, profile_url };
-    setEntries((prev) => [...prev, newEntry]);
+    // INTENTIONALLY don't push into `entries` — auto-fire owns the
+    // generation, the result lives in `personalized`, pendingNames
+    // shows the in-flight state. Adding to entries would resurrect
+    // the "+ generate N personalized invites" CTA for an entry that's
+    // already been processed.
     setEntryName("");
     setEntryContact("");
     // AUTO-GENERATE the personalized invite for this single entry the
@@ -515,7 +519,9 @@ export function BulkReachToolkit({
       // Re-check the field hasn't changed under us (user kept typing).
       if (!entryContact.includes(url.replace(/^https?:\/\//i, ""))) return;
       const entry = { name: derivedName, profile_url: url };
-      setEntries((prev) => [...prev, entry]);
+      // Same intentional skip-of-entries as addEntry — auto-fire owns
+      // the generation, no need to leak this into the entries list and
+      // resurrect the bulk CTA.
       setEntryName("");
       setEntryContact("");
       generateForContacts([entry]);
