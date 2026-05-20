@@ -425,14 +425,26 @@ export default async function HypernetworkPage() {
               d: "Aligned clones converge into group chats: small action coalitions of humans whose twins agreed the same change is obvious. Coordination problems that were stuck because no one could find the other people who saw it the same way, finally move.",
               you: "You stop being the only person you know who thinks a thing should change. The network finds your aligned tribe and convenes it. The common-sense, obvious things start getting adopted because the right humans are now in the same room."
             }
-          ].map((p) => (
+          ].map((p, idx) => (
             <li key={p.t} className="retro-panel p-5">
-              <div className="font-semibold text-base">{p.t}</div>
               <div
-                className="text-sm mt-1.5"
-                style={{ color: "var(--text-dim)" }}
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  gap: 16,
+                  flexWrap: "wrap"
+                }}
               >
-                {p.d}
+                <PhaseGlyph phase={idx} />
+                <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+                  <div className="font-semibold text-base">{p.t}</div>
+                  <div
+                    className="text-sm mt-1.5"
+                    style={{ color: "var(--text-dim)" }}
+                  >
+                    {p.d}
+                  </div>
+                </div>
               </div>
               <div
                 className="mt-3 text-sm"
@@ -618,5 +630,165 @@ export default async function HypernetworkPage() {
   }
   return (
     <main className="max-w-5xl mx-auto px-5 pt-4 pb-8">{body}</main>
+  );
+}
+
+/**
+ * PhaseGlyph — small animated SVG per roadmap phase. Each glyph is a
+ * 96×80 self-contained illustration with SMIL animations that runs
+ * forever (no JS needed). Drawn in plain SVG so they render server-side
+ * and don't need hydration — important since hypernetwork/page.tsx is
+ * a server component.
+ */
+function PhaseGlyph({ phase }: { phase: number }) {
+  const W = 96;
+  const H = 80;
+  const wrap: React.CSSProperties = {
+    flex: "0 0 96px",
+    width: 96,
+    height: 80,
+    background: "var(--panel-2)",
+    border: "1px solid var(--border)",
+    borderRadius: 12,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center"
+  };
+
+  if (phase === 0) {
+    // PAIR — two avatars connected by a pulsing line.
+    return (
+      <div style={wrap}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="80" height="64">
+          <line
+            x1={26} y1={40} x2={70} y2={40}
+            stroke="var(--amber-bright)"
+            strokeWidth={1.5}
+            strokeDasharray="4 4"
+          >
+            <animate
+              attributeName="stroke-dashoffset"
+              from="0" to="16"
+              dur="1.6s"
+              repeatCount="indefinite"
+            />
+          </line>
+          <circle cx={26} cy={40} r={10} fill="none" stroke="var(--text)" strokeWidth={1.8} />
+          <circle cx={70} cy={40} r={10} fill="none" stroke="var(--text)" strokeWidth={1.8} />
+          <circle cx={48} cy={40} r={3} fill="var(--amber-bright)">
+            <animate attributeName="cx" values="26;70;26" dur="2.4s" repeatCount="indefinite" />
+            <animate attributeName="r" values="2.5;4;2.5" dur="1.2s" repeatCount="indefinite" />
+          </circle>
+        </svg>
+      </div>
+    );
+  }
+
+  if (phase === 1) {
+    // WEB — center node with radar sweep scanning surrounding dots.
+    return (
+      <div style={wrap}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="80" height="64">
+          <circle cx={48} cy={40} r={32} fill="none" stroke="var(--border-bright)" strokeWidth={1} strokeDasharray="2 4" />
+          <circle cx={48} cy={40} r={20} fill="none" stroke="var(--border-bright)" strokeWidth={1} strokeDasharray="2 4" />
+          <g>
+            <path d="M 48 40 L 80 40 A 32 32 0 0 1 65 67 Z" fill="var(--amber)" opacity={0.35}>
+              <animateTransform attributeName="transform" type="rotate" from="0 48 40" to="360 48 40" dur="3.5s" repeatCount="indefinite" />
+            </path>
+          </g>
+          <circle cx={18} cy={28} r={2.5} fill="var(--text-dim)" />
+          <circle cx={76} cy={22} r={2.5} fill="var(--text-dim)" />
+          <circle cx={82} cy={52} r={2.5} fill="var(--text-dim)" />
+          <circle cx={20} cy={62} r={2.5} fill="var(--text-dim)" />
+          <circle cx={48} cy={40} r={6} fill="var(--text)" />
+        </svg>
+      </div>
+    );
+  }
+
+  if (phase === 2) {
+    // CALIBRATION — stepped vertical dial climbing.
+    return (
+      <div style={wrap}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="80" height="64">
+          {[0, 1, 2, 3, 4].map((i) => (
+            <rect
+              key={i}
+              x={20 + i * 12}
+              y={62 - (i + 1) * 8}
+              width={8}
+              height={(i + 1) * 8}
+              rx={1.5}
+              fill="var(--amber)"
+              opacity={0.4}
+            >
+              <animate
+                attributeName="opacity"
+                values="0.25;0.95;0.25"
+                dur="2.2s"
+                begin={`${i * 0.2}s`}
+                repeatCount="indefinite"
+              />
+            </rect>
+          ))}
+        </svg>
+      </div>
+    );
+  }
+
+  if (phase === 3) {
+    // HYPERNETWORK — a field of dots; a few rise to the top with halo.
+    return (
+      <div style={wrap}>
+        <svg viewBox={`0 0 ${W} ${H}`} width="80" height="64">
+          {[
+            [16, 60], [28, 55], [40, 58], [52, 62], [64, 56], [76, 60],
+            [22, 45], [34, 42], [48, 44], [62, 46], [74, 42],
+            [28, 30], [44, 28], [60, 30]
+          ].map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r={1.8} fill="var(--text-dim)">
+              <animate attributeName="opacity" values="0.3;0.9;0.3" dur={`${2 + (i % 4) * 0.3}s`} begin={`${i * 0.1}s`} repeatCount="indefinite" />
+            </circle>
+          ))}
+          <circle cx={48} cy={16} r={4} fill="var(--amber-bright)">
+            <animate attributeName="r" values="3;5;3" dur="1.6s" repeatCount="indefinite" />
+          </circle>
+          <circle cx={48} cy={16} r={10} fill="none" stroke="var(--amber-bright)" strokeWidth={1} opacity={0.5}>
+            <animate attributeName="r" values="6;14;6" dur="2s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.6;0;0.6" dur="2s" repeatCount="indefinite" />
+          </circle>
+        </svg>
+      </div>
+    );
+  }
+
+  // PHASE 4 — COALITIONS — three clusters of dots forming.
+  return (
+    <div style={wrap}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="80" height="64">
+        {[
+          // cluster 1
+          { cx: 24, cy: 28, color: "var(--amber)", delay: 0 },
+          { cx: 30, cy: 24, color: "var(--amber)", delay: 0.1 },
+          { cx: 28, cy: 32, color: "var(--amber)", delay: 0.2 },
+          // cluster 2
+          { cx: 64, cy: 26, color: "var(--amber-bright)", delay: 0.3 },
+          { cx: 70, cy: 30, color: "var(--amber-bright)", delay: 0.4 },
+          { cx: 68, cy: 22, color: "var(--amber-bright)", delay: 0.5 },
+          // cluster 3
+          { cx: 44, cy: 58, color: "var(--text)", delay: 0.6 },
+          { cx: 50, cy: 54, color: "var(--text)", delay: 0.7 },
+          { cx: 52, cy: 62, color: "var(--text)", delay: 0.8 }
+        ].map((c, i) => (
+          <circle key={i} cx={c.cx} cy={c.cy} r={3} fill={c.color}>
+            <animate attributeName="r" values="2;4;2" dur="1.8s" begin={`${c.delay}s`} repeatCount="indefinite" />
+          </circle>
+        ))}
+        {/* Connecting hairlines within each cluster */}
+        <path d="M 24 28 L 30 24 L 28 32 Z" fill="none" stroke="var(--amber)" strokeWidth={0.5} opacity={0.6} />
+        <path d="M 64 26 L 70 30 L 68 22 Z" fill="none" stroke="var(--amber-bright)" strokeWidth={0.5} opacity={0.6} />
+        <path d="M 44 58 L 50 54 L 52 62 Z" fill="none" stroke="var(--text)" strokeWidth={0.5} opacity={0.4} />
+      </svg>
+    </div>
   );
 }
