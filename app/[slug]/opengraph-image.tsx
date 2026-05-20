@@ -134,19 +134,25 @@ export default async function InviteOgImage({
             style={{
               display: "flex",
               alignItems: "center",
-              marginBottom: 28,
-              marginTop: -4
+              // Bigger gap below the avatars so the headline doesn't
+              // crash into them — earlier render had 28px which felt
+              // crowded once the avatar grew to 108. 56px buys real
+              // air between the face and the "your digital twin
+              // awaits" line.
+              marginBottom: 56,
+              marginTop: 4,
+              gap: 0
             }}
           >
             {recipientAvatar && (
               <img
                 src={recipientAvatar}
-                width={108}
-                height={108}
+                width={92}
+                height={92}
                 style={{
-                  width: 108,
-                  height: 108,
-                  borderRadius: 54,
+                  width: 92,
+                  height: 92,
+                  borderRadius: 46,
                   border: "4px solid #ffffff",
                   boxShadow: "0 8px 24px -8px rgba(58,77,255,0.45)",
                   objectFit: "cover"
@@ -168,12 +174,12 @@ export default async function InviteOgImage({
             {inviterAvatar && (
               <img
                 src={inviterAvatar}
-                width={88}
-                height={88}
+                width={72}
+                height={72}
                 style={{
-                  width: 88,
-                  height: 88,
-                  borderRadius: 44,
+                  width: 72,
+                  height: 72,
+                  borderRadius: 36,
                   border: "4px solid #ffffff",
                   boxShadow: "0 8px 24px -8px rgba(139,61,255,0.45)",
                   objectFit: "cover",
@@ -186,10 +192,10 @@ export default async function InviteOgImage({
 
         <div
           style={{
-            fontSize: 76,
+            fontSize: 72,
             fontWeight: 800,
             color: "#0a0c14",
-            lineHeight: 1.02,
+            lineHeight: 1.12,
             letterSpacing: "-0.025em",
             maxWidth: 1000,
             display: "flex"
