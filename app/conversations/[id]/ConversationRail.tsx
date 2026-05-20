@@ -72,6 +72,10 @@ export async function ConversationRail({
       {/* Mobile horizontal rail — sticks under the AppShell mobile top
           bar so users can swipe between conversations without bouncing
           back to /messages. Same data as the desktop vertical rail. */}
+      {/* Mobile rail — kept compact (no name labels, smaller avatars)
+          so it doesn't overlap or compete with the conversation header
+          right below it. Names are still implied by the avatar itself
+          (initials/photo) and the active state has an amber ring. */}
       <aside
         className="flex lg:hidden"
         style={{
@@ -79,13 +83,14 @@ export async function ConversationRail({
           top: 44,
           zIndex: 6,
           alignItems: "center",
-          gap: 6,
-          padding: "6px 10px",
+          gap: 8,
+          padding: "5px 10px",
           background: "var(--panel-solid)",
           borderBottom: "1px solid var(--border)",
           overflowX: "auto",
           overflowY: "hidden",
-          WebkitOverflowScrolling: "touch"
+          WebkitOverflowScrolling: "touch",
+          minHeight: 38
         }}
       >
         <Link
@@ -97,13 +102,13 @@ export async function ConversationRail({
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            width: 36,
-            height: 36,
-            borderRadius: 18,
+            width: 28,
+            height: 28,
+            borderRadius: 14,
             background: "var(--panel-2)",
             color: "var(--text-dim)",
             textDecoration: "none",
-            fontSize: 14,
+            fontSize: 12,
             fontWeight: 700
           }}
         >
@@ -114,7 +119,6 @@ export async function ConversationRail({
             c.participant_a === user.id ? c.participant_b : c.participant_a;
           const p = profById.get(otherId);
           const fullName = p?.display_name || p?.email || "Someone";
-          const fn = firstName(fullName);
           const active = c.id === activeId;
           return (
             <Link
@@ -126,43 +130,24 @@ export async function ConversationRail({
               style={{
                 flex: "0 0 auto",
                 display: "inline-flex",
-                flexDirection: "column",
                 alignItems: "center",
-                gap: 2,
-                padding: 2,
+                justifyContent: "center",
                 textDecoration: "none",
-                minWidth: 52
+                padding: 0,
+                border: active
+                  ? "2px solid var(--amber)"
+                  : "2px solid transparent",
+                borderRadius: 16,
+                width: 32,
+                height: 32
               }}
             >
-              <div
-                style={{
-                  border: active
-                    ? "2px solid var(--amber)"
-                    : "2px solid transparent",
-                  borderRadius: 20,
-                  padding: 1
-                }}
-              >
-                <Avatar
-                  id={otherId}
-                  name={fullName}
-                  avatarUrl={p?.avatar_url ?? null}
-                  size={32}
-                />
-              </div>
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 600,
-                  color: active ? "var(--text)" : "var(--text-dim)",
-                  maxWidth: 48,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap"
-                }}
-              >
-                {fn}
-              </span>
+              <Avatar
+                id={otherId}
+                name={fullName}
+                avatarUrl={p?.avatar_url ?? null}
+                size={26}
+              />
             </Link>
           );
         })}
