@@ -137,7 +137,37 @@ export default async function MessagesPage() {
               c.participant_a === user.id ? c.participant_b : c.participant_a;
             const isTest = isTestById.get(otherId);
             return (
-              <div key={c.id} className="retro-panel retro-panel-hover p-3">
+              <div
+                key={c.id}
+                className="retro-panel retro-panel-hover p-3"
+                style={{ position: "relative", paddingRight: 44 }}
+              >
+                {/* Always-visible chevron — same affordance as poll list
+                    cards so it's obvious every row is tappable, not a
+                    static read-only summary. */}
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    right: 14,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: 24,
+                    height: 24,
+                    borderRadius: 12,
+                    border: "1px solid var(--border-bright)",
+                    background: "var(--panel-2)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "var(--text-dim)",
+                    fontSize: 12,
+                    fontWeight: 700,
+                    pointerEvents: "none"
+                  }}
+                >
+                  →
+                </span>
                 <div className="flex items-start gap-3">
                   <Link
                     href={`/conversations/${c.id}`}

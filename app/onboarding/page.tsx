@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { SelfGraph } from "./SelfGraph";
+import { LiveSyncMeter } from "./LiveSyncMeter";
 
 export default async function OnboardingPage({
   searchParams
@@ -58,17 +59,26 @@ export default async function OnboardingPage({
         <p className="mt-3 text-sm retro-green">✓ Saved.</p>
       )}
 
-      <div className="mt-6 grid lg:grid-cols-[1fr_440px] gap-8 items-start">
+      <div className="mt-6 grid lg:grid-cols-[1fr_320px] gap-8 items-start">
         <div className="min-w-0">
           <OnboardingWizard initial={initial} userId={user.id} />
         </div>
 
-        {/* Live self-graph — visible on every screen so users see their twin
-            fill up as they paste context */}
+        {/* Right rail — live SyncMeter (sci-fi-upload power core). Fills
+            in real time as the user adds context. Replaces the old
+            SelfGraph here; the topographic visual now lives at the
+            bottom of the page where it can render full-width. */}
         <div>
-          <SelfGraph formSelector="#onboarding-form" />
+          <LiveSyncMeter formSelector="#onboarding-form" size={220} />
         </div>
       </div>
+
+      {/* Self-graph at the bottom — full-width, more breathing room for
+          the constellation cards. Renders only when the user has some
+          context; otherwise the placeholder lives inside SelfGraph itself. */}
+      <section className="mt-12">
+        <SelfGraph formSelector="#onboarding-form" />
+      </section>
     </main>
   );
 }
