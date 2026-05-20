@@ -353,12 +353,26 @@ async function scrapeInstagramProfile(url: string): Promise<string> {
     slug: string;
     input: Record<string, unknown>;
   }> = [
+    // Variant 1: details mode — should return profile + recent posts in
+    // one shot. Free-tier-compatible. When it works this is everything
+    // we need in a single call.
     {
       slug: "apify/instagram-scraper",
       input: {
         directUrls: [url],
         resultsType: "details",
-        resultsLimit: 5,
+        resultsLimit: 10,
+        addParentData: false
+      }
+    },
+    // Variant 2: posts mode — explicitly request post objects with
+    // captions. Use this if the details mode came back light on posts.
+    {
+      slug: "apify/instagram-scraper",
+      input: {
+        directUrls: [url],
+        resultsType: "posts",
+        resultsLimit: 12,
         addParentData: false
       }
     },
@@ -442,6 +456,25 @@ async function scrapeInstagramProfile(url: string): Promise<string> {
         )
         .filter(Boolean)
     : [];
+
+  // SUBSTANCE CHECK — if we got a profile row back but it has NO bio,
+  // NO real name, AND no captions, the scrape is functionally empty
+  // and we should throw so the caller can fall through to a different
+  // vendor (ScrapingDog). Before this check, scrapeInstagramProfile
+  // would return a thin "handle: @ethos" string that passed the chain's
+  // success path — opener ended up just mentioning the username.
+  const hasRealName =
+    typeof profile.fullName === "string" &&
+    (profile.fullName as string).trim().length > 1;
+  const hasBio =
+    typeof profile.biography === "string" &&
+    (profile.biography as string).trim().length > 5;
+  const hasCaptions = captions.length > 0;
+  if (!hasRealName && !hasBio && !hasCaptions) {
+    throw new Error(
+      `Apify IG returned only metadata for @${handle} (no bio, no captions). Falling through to next vendor.`
+    );
+  }
 
   return flatten(
     {

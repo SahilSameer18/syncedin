@@ -211,11 +211,22 @@ export function BulkReachToolkit({
   }, [personalized, hydrated]);
 
   /** Remove a single personalized invite from the visible list +
-   *  persisted storage. Triggered by the "✓ invite sent" button on
+   *  persisted storage. Triggered by the "mark as sent?" button on
    *  each row. The actual pending_invites DB row stays — only the
    *  client-side reminder is cleared. */
   function markInviteSent(slug: string) {
     setPersonalized((prev) => prev.filter((p) => p.slug !== slug));
+  }
+
+  /** Update an edit-in-place starter for a personalized invite row.
+   *  The new text persists to localStorage (alongside the rest of the
+   *  personalized list) so reloads keep the user's edits. Send buttons
+   *  (SMS / WA / Email / copy) read the current starter so the user's
+   *  edits flow into the actual outbound message. */
+  function updateStarter(slug: string, text: string) {
+    setPersonalized((prev) =>
+      prev.map((p) => (p.slug === slug ? { ...p, starter: text } : p))
+    );
   }
 
   useEffect(() => {
@@ -947,8 +958,9 @@ export function BulkReachToolkit({
               <li
                 key={p.slug}
                 className="retro-panel"
-                style={{ padding: 10 }}
+                style={{ padding: 12 }}
               >
+                {/* HEAD ROW — name + email + landing URL */}
                 <div className="flex flex-wrap items-center gap-2 justify-between">
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div
@@ -978,25 +990,54 @@ export function BulkReachToolkit({
                       {p.url}
                     </a>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => copy(p.url, "link")}
-                      className="retro-btn text-xs"
-                      style={{ padding: "5px 10px" }}
-                    >
-                      copy link
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        copy(`${p.starter}\n\n${p.url}`, "message")
-                      }
-                      className="retro-btn text-xs"
-                      style={{ padding: "5px 10px" }}
-                    >
-                      copy msg
-                    </button>
+                </div>
+
+                {/* EDITABLE STARTER — the actual opener message, shown
+                    in place instead of buried behind a "copy msg"
+                    button. Edit it inline; the send buttons below pick
+                    up the latest text. Persists to localStorage with
+                    the rest of the personalized list. */}
+                <div
+                  className="retro-label mt-3"
+                  style={{ color: "var(--text-dim)" }}
+                >
+                  opener · click to edit
+                </div>
+                <textarea
+                  value={p.starter}
+                  onChange={(e) => updateStarter(p.slug, e.target.value)}
+                  rows={4}
+                  className="retro-input mt-1 text-sm w-full"
+                  style={{
+                    minHeight: 88,
+                    resize: "vertical",
+                    lineHeight: 1.5,
+                    fontFamily:
+                      'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
+                  }}
+                />
+
+                {/* SEND ROW — all actions use the CURRENT starter so
+                    edits flow through to the outbound message. */}
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => copy(p.url, "link")}
+                    className="retro-btn text-xs"
+                    style={{ padding: "5px 10px" }}
+                  >
+                    copy link
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      copy(`${p.starter}\n\n${p.url}`, "full message")
+                    }
+                    className="retro-btn text-xs"
+                    style={{ padding: "5px 10px" }}
+                  >
+                    copy msg + link
+                  </button>
                     <a
                       href={`sms:?&body=${encodeURIComponent(
                         `${p.starter}\n\n${p.url}`
@@ -1048,7 +1089,6 @@ export function BulkReachToolkit({
                     >
                       mark as sent?
                     </button>
-                  </div>
                 </div>
               </li>
             ))}
