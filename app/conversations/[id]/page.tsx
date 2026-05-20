@@ -129,9 +129,18 @@ export default async function ConversationPage({
         style={{
           position: "fixed",
           top: 16,
+          bottom: 16,
           left: 16,
           width: 220,
-          zIndex: 4
+          zIndex: 4,
+          // Sidebar content (Dashboard / Messages / Invite / Poll /
+          // conferences list / Hypernetwork / + new conversation / sign
+          // out + dark toggle) can naturally exceed viewport height once
+          // a user has a few conferences. Constrain to viewport - 32px
+          // (top:16 + bottom:16) and scroll internally so it never bleeds
+          // off the bottom of the page.
+          maxHeight: "calc(100vh - 32px)",
+          overflowY: "auto"
         }}
       >
         {sidebarEl}
