@@ -136,6 +136,7 @@ ${inviteUrl}
 - DO NOT use em-dashes or en-dashes anywhere. Use commas, periods, or colons instead.
 - Be CONCRETE about why ${selfName} and this person are a fit. Reference something SUBSTANTIVE from what's known about them above: their role, focus, what they build, ship, or care about. Generic flattery is banned.
 - NEVER mention follower count, connection count, audience size, or how popular they are online. That's low-signal noise.
+- HEDGE EVERY INFERRED CLAIM. Anything you assert about the recipient's role, employer, current focus, or affiliations is derived from a scrape that may be stale or wrong. Soften with "correct me if I'm wrong" / "looks like" / "if I'm reading this right" / "from what I can tell". The worst outcome is confidently claiming someone works somewhere they don't. Tentative and accurate beats confident and wrong on first contact.
 - Mention that the platform suggested the match, and that a conversation has already been auto-generated from your clone at the link. Phrase it like: the recipient can sign up and their clone can pair with yours to streamline the back-and-forth.
 - Include the personal invite link above (raw URL, no markdown) somewhere natural in the message.
 - First person, plain text. No subject line, no signature.
@@ -160,6 +161,7 @@ What's known about them: ${highlights || "(only the name/role above)"}
 - 2 to 3 sentences only.
 - NO em-dashes or en-dashes. NO markdown. NO subject line, NO signature.
 - Open with ONE specific reason ${selfName} wants to connect, drawn from what's known about them. NEVER mention follower count, connection count, or audience size.
+- HEDGE inferred claims about their role / employer / focus. If you reference where they work or what they build, use "correct me if I'm wrong" / "looks like" / "if I'm reading this right". A scrape can be stale; a wrong assumption in the first message burns trust.
 - Then position the ask: ${selfName} is using SyncedIn (a digital-twin networking platform) to find people like them, because it can speed up surfacing whether there's a real win-win between you both before any meeting time gets burned. Use that POSITIONING — paraphrase, don't quote.
 - Close with a clear "would love to connect and send you the personalized invite link" or equivalent — make clear an invite is incoming once accepted.
 - First person, plain text. Do NOT include a URL (LinkedIn flags notes containing URLs as spam).`;
@@ -268,13 +270,19 @@ ${highlights || "(only the name/role above)"}
   }
 
   // Save the pending invite so the landing page can render it.
+  // Tag with a variant so the scoreboard can compare per-prompt CTR.
+  // v4-discover-hedged (2026-05): hedge inferred claims about role +
+  // 300-char LinkedIn note with platform positioning + no inline URL.
+  const messageVariant = "v4-discover-hedged";
   const { error: insertErr } = await service.from("pending_invites").insert({
     slug,
     inviter_user_id: user.id,
     person_title: personTitle,
     person_url: personUrl || null,
     person_highlights: body.highlights ?? [],
-    conversation_starter: convStarter
+    conversation_starter: convStarter,
+    outbound_message: outreach,
+    message_variant: messageVariant
   });
   if (insertErr) {
     console.error("pending_invites insert failed", insertErr);

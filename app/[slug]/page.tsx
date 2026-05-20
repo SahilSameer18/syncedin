@@ -120,6 +120,25 @@ export default async function InviteLandingPage({
     notFound();
   }
 
+  // Fire-and-forget CTR tracking: bump visit_count + stamp first_visit_at
+  // if this is the first time anyone has loaded this invite. Wrapped in
+  // try/catch so a missing column (prod that hasn't run the migration yet)
+  // silently degrades rather than throwing on a public-facing page.
+  void (async () => {
+    try {
+      await service
+        .from("pending_invites")
+        .update({
+          visit_count: ((invite as any).visit_count ?? 0) + 1,
+          first_visit_at:
+            (invite as any).first_visit_at ?? new Date().toISOString()
+        })
+        .eq("slug", slug);
+    } catch {
+      /* migration not yet applied — skip silently */
+    }
+  })();
+
   // Lookup the inviter's display name + avatar so the landing page reads naturally.
   const { data: inviter } = await service
     .from("profiles")

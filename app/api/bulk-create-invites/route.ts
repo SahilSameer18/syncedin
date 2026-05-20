@@ -287,7 +287,8 @@ Hard constraints:
 - It's fine to mention that "my twin is reaching out" once, near the end of beat 2 — but never as the lead.
 - NO em-dashes, NO en-dashes, NO markdown, NO bullets, NO emojis.
 - NEVER reference follower counts, audience size, "your X followers," "your reach," or any quantitative social-metric flattery. Lead with substance — what they're building, who they back, what they've shipped.
-- If the recipient's name appears to be a URL slug (lowercase, jammed-together, e.g. "chulucas"), use just their first name in a natural casing. If unsure, skip the name and address them directly ("Saw your work on...").`;
+- If the recipient's name appears to be a URL slug (lowercase, jammed-together, e.g. "chulucas"), use just their first name in a natural casing. If unsure, skip the name and address them directly ("Saw your work on...").
+- HEDGE INFERENCES: Any time you assert someone's role, employer, current focus, or affiliations from a scrape, you MUST soften the claim. Use phrases like "correct me if I'm wrong" / "looks like" / "if I'm reading this right" / "from what I can tell". A scrape can be stale or about a different person with the same name — the worst outcome is asserting a wrong fact confidently and burning trust on first contact. Better to be tentative and accurate than confident and wrong.`;
     const userContent = `${selfName}'s goals: ${t?.goals || "(not specified)"}
 ${selfName}'s deal preferences: ${t?.deal_preferences || "(not specified)"}
 
@@ -420,6 +421,15 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
       );
       if (m && m[1]) avatar_url = m[1].trim();
     }
+    // Tag the outbound message with a variant so we can compare CTR per
+    // prompt version over time. Bump this string whenever the bulk-invite
+    // opener system prompt is materially changed. The /invite scoreboard
+    // will eventually group rows by variant for an A/B view.
+    //
+    // v4-hedged-roleaware (2026-05): role-aware framing (VC/founder/operator/
+    // customer/journalist) + hedge inferred claims about role/employer.
+    const messageVariant = "v4-hedged-roleaware";
+
     await service.from("pending_invites").insert({
       slug,
       inviter_user_id: user.id,
@@ -432,7 +442,8 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
       // Outbound DM (personalized cold message, what the inviter sends
       // before the recipient ever clicks).
       outbound_message: outboundMessage,
-      recipient_avatar_url: avatar_url
+      recipient_avatar_url: avatar_url,
+      message_variant: messageVariant
     });
     results.push({
       contact: c,

@@ -73,7 +73,7 @@ export default async function DashboardPage() {
       .order("display_name", { ascending: true }),
     service
       .from("profiles")
-      .select("id, display_name, email")
+      .select("id, display_name, email, avatar_url")
       .eq("is_test_persona", false)
       .neq("id", user.id)
   ]);
@@ -107,7 +107,9 @@ export default async function DashboardPage() {
     realUserIds.length
       ? service
           .from("twin_profiles")
-          .select("user_id, goals, deal_preferences")
+          .select(
+            "user_id, goals, deal_preferences, ai_export_blob, communication_style, deal_breakers"
+          )
           .in("user_id", realUserIds)
       : Promise.resolve({ data: [] as any[] })
   ]);
@@ -131,13 +133,106 @@ export default async function DashboardPage() {
   // in a conversation with. Once you've connected, they drop off discovery —
   // the space below pivots to inviting more people.
   const existingConvoIds = new Set(otherIds);
+  /**
+   * Lightweight token-overlap score between two twin profiles. Returns
+   * 0-100. Token similarity over (goals + deal_preferences + ai_export_blob
+   * + communication_style) with a tiny floor so even thin-profile matches
+   * get a non-zero number. Server-side and instant — no LLM call needed
+   * to display these on first paint. Good enough as a "warm hint" until we
+   * upgrade to a Claude-scored job that runs once per (a,b) pair.
+   */
+  function jaccardScore(a: string, b: string): number {
+    const norm = (s: string) =>
+      (s || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 3);
+    const STOP = new Set([
+      "with",
+      "from",
+      "that",
+      "this",
+      "have",
+      "your",
+      "they",
+      "them",
+      "into",
+      "about",
+      "their",
+      "where",
+      "which",
+      "would",
+      "could",
+      "should",
+      "while",
+      "people",
+      "looking",
+      "really",
+      "after",
+      "before",
+      "every",
+      "right",
+      "still",
+      "going",
+      "company"
+    ]);
+    const setA = new Set(norm(a).filter((w) => !STOP.has(w)));
+    const setB = new Set(norm(b).filter((w) => !STOP.has(w)));
+    if (setA.size === 0 || setB.size === 0) return 0;
+    let overlap = 0;
+    for (const w of setA) if (setB.has(w)) overlap += 1;
+    const union = setA.size + setB.size - overlap;
+    return Math.round((overlap / union) * 100);
+  }
+  const myBlob = [
+    twin?.goals ?? "",
+    (twin as any)?.deal_preferences ?? "",
+    (twin as any)?.communication_style ?? "",
+    (twin as any)?.ai_export_blob ?? ""
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const directory = (allRealUsers ?? [])
-    .map((p) => ({
-      ...p,
-      goals: twinByUser.get(p.id)?.goals ?? null,
-      deal_preferences: twinByUser.get(p.id)?.deal_preferences ?? null
-    }))
-    .filter((p) => p.goals && !existingConvoIds.has(p.id));
+    .map((p) => {
+      const t = twinByUser.get(p.id);
+      const theirBlob = [
+        t?.goals ?? "",
+        t?.deal_preferences ?? "",
+        (t as any)?.communication_style ?? "",
+        (t as any)?.ai_export_blob ?? ""
+      ]
+        .filter(Boolean)
+        .join(" ");
+      // Score floor: 12 so even thin matches read as "small overlap" not
+      // "no overlap" — most twin pairs do share *some* surface area.
+      const raw = jaccardScore(myBlob, theirBlob);
+      const score = Math.max(raw, theirBlob.length > 40 ? 12 : 0);
+      // Headline fallback: first line of ai_export_blob if goals is
+      // missing or placeholder (Sydney / Nicole had empty cards because
+      // goals was stale, but their ai_export_blob still has substance).
+      const blob = (t as any)?.ai_export_blob || "";
+      const headlineFromBlob =
+        blob && typeof blob === "string"
+          ? blob
+              .split(/[\n\r]/)
+              .map((l: string) => l.trim())
+              .find((l: string) => l.length > 20 && l.length < 200) || ""
+          : "";
+      return {
+        ...p,
+        goals: t?.goals ?? null,
+        deal_preferences: t?.deal_preferences ?? null,
+        headline_fallback: headlineFromBlob,
+        connection_score: score
+      };
+    })
+    // Show ANYONE on the platform we're not already in conversation with
+    // — even thin profiles. The user wanted Sydney + Nicole visible.
+    .filter((p) => !existingConvoIds.has(p.id))
+    // Highest connection score first so the most promising matches lead.
+    .sort((a, b) => b.connection_score - a.connection_score);
 
   const realConversations = (conversations ?? [])
     .filter(

@@ -15,6 +15,38 @@ type Candidate = {
  * a clean first-person dossier for them, which the wizard appends to their
  * twin context blob and (optionally) pre-fills their avatar.
  */
+/**
+ * localStorage key — persists the "this is me" choice across remounts so
+ * navigating back to step 1 doesn't re-prompt the user to confirm again.
+ * Keyed by name so the cache only applies to the same identity.
+ */
+const SELF_CONFIRMED_KEY = "syncedin.selfDiscovery.confirmed.v1";
+
+type StoredConfirmation = {
+  name: string;
+  url: string;
+};
+
+function loadStoredConfirmation(): StoredConfirmation | null {
+  try {
+    const raw = localStorage.getItem(SELF_CONFIRMED_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredConfirmation;
+    if (parsed && typeof parsed.url === "string" && parsed.url) return parsed;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredConfirmation(c: StoredConfirmation) {
+  try {
+    localStorage.setItem(SELF_CONFIRMED_KEY, JSON.stringify(c));
+  } catch {
+    /* storage disabled — non-fatal, choice just won't persist */
+  }
+}
+
 export function SelfDiscovery({
   name,
   onConfirm,
@@ -33,10 +65,27 @@ export function SelfDiscovery({
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSearched = useRef<string>("");
 
+  // Hydrate persisted confirmation on mount so coming back to step 1
+  // doesn't re-run the search or re-prompt. The dossier was already
+  // appended to the user's blob on first confirm — we just need to keep
+  // showing the ✓ state.
+  useEffect(() => {
+    const stored = loadStoredConfirmation();
+    if (stored && stored.name === name.trim()) {
+      setConfirmed(stored.url);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     if (debounce.current) clearTimeout(debounce.current);
     const trimmed = name.trim();
     if (trimmed.length < 4 || trimmed.split(/\s+/).length < 2 || dismissed) {
+      setCandidates(null);
+      return;
+    }
+    // Already confirmed for this exact name — skip the search entirely.
+    if (confirmed) {
       setCandidates(null);
       return;
     }
@@ -49,7 +98,7 @@ export function SelfDiscovery({
       if (debounce.current) clearTimeout(debounce.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, dismissed]);
+  }, [name, dismissed, confirmed]);
 
   async function runSearch(q: string) {
     setSearching(true);
@@ -73,36 +122,60 @@ export function SelfDiscovery({
     }
   }
 
-  async function confirmCandidate(c: Candidate) {
-    setConfirming(c.url);
+  function confirmCandidate(c: Candidate) {
+    // Optimistic confirm: seed the blob with what we already know from
+    // the candidate highlights so the user gets instant feedback, persist
+    // the choice so a re-mount doesn't re-prompt, then advance to the
+    // next step. The richer dossier fetch happens in the background and
+    // appends a second snippet when it returns. The user no longer has
+    // to wait staring at the spinner — clicking "this is me" is
+    // committed in one motion.
     setError(null);
-    try {
-      const r = await fetch("/api/exa-self-research", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          name,
-          confirmed_url: c.url,
-          confirmed_title: c.title,
-          confirmed_highlights: c.highlights
-        })
-      });
-      const j = await r.json();
-      if (j.dossier) {
-        onConfirm(j.dossier, c.url);
-        setConfirmed(c.url);
-        if (onAdvance) {
-          // Brief visible confirmation before jumping forward.
-          setTimeout(() => onAdvance(), 900);
-        }
-      } else {
-        setError("That didn't pull a usable dossier. Try another card.");
-      }
-    } catch {
-      setError("Couldn't pull the dossier. You can keep going manually.");
-    } finally {
-      setConfirming(null);
+    setConfirmed(c.url);
+    saveStoredConfirmation({ name: name.trim(), url: c.url });
+
+    // Build a fast snippet from the highlights so the blob is non-empty
+    // immediately. Server fetch may return a richer dossier that we
+    // append on top.
+    const quickSnippet = `${c.title}\n\n${(c.highlights || [])
+      .filter(Boolean)
+      .join("\n\n")}`.trim();
+    if (quickSnippet) {
+      onConfirm(quickSnippet, c.url);
     }
+
+    // Advance the wizard immediately — don't gate forward motion on a
+    // network round-trip.
+    if (onAdvance) onAdvance();
+
+    // Background fetch — enrich the blob with the full dossier when it
+    // arrives. If it fails, we already have the quick snippet so the
+    // user isn't blocked.
+    setConfirming(c.url);
+    (async () => {
+      try {
+        const r = await fetch("/api/exa-self-research", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name,
+            confirmed_url: c.url,
+            confirmed_title: c.title,
+            confirmed_highlights: c.highlights
+          })
+        });
+        const j = await r.json();
+        if (j.dossier && j.dossier.trim() !== quickSnippet.trim()) {
+          // Use a distinct source string so the wizard doesn't dedupe
+          // the enrichment against the quick snippet.
+          onConfirm(j.dossier, `${c.url}#dossier`);
+        }
+      } catch {
+        /* quick snippet is already in the blob — nothing more to do */
+      } finally {
+        setConfirming(null);
+      }
+    })();
   }
 
   if (dismissed || confirmed) {

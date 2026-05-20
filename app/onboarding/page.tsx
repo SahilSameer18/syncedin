@@ -6,6 +6,7 @@ import { OnboardingWizard } from "./OnboardingWizard";
 import { SelfGraph } from "./SelfGraph";
 import { LiveSyncMeter } from "./LiveSyncMeter";
 import { WelcomeSplash } from "./WelcomeSplash";
+import { TypingParticles } from "./TypingParticles";
 
 export default async function OnboardingPage({
   searchParams
@@ -96,6 +97,10 @@ export default async function OnboardingPage({
 
   return (
     <main className="max-w-6xl mx-auto px-6 pt-2 pb-8">
+      {/* Glowing-dot particles that fly from inputs toward the SyncMeter
+          whenever the user types. Pure DOM + CSS, respects reduced
+          motion. Mounted at page level so it sees the form + meter. */}
+      <TypingParticles />
       {/* Top nav row — kept tight. The empty vertical band the user
           flagged was the Wordmark's natural baseline gap + the mt-6 on
           the H1 below; reduced both so step 1 ships above the fold. */}
@@ -132,8 +137,10 @@ export default async function OnboardingPage({
         {/* Right rail — live SyncMeter (sci-fi-upload power core). Fills
             in real time as the user adds context. Replaces the old
             SelfGraph here; the topographic visual now lives at the
-            bottom of the page where it can render full-width. */}
-        <div>
+            bottom of the page where it can render full-width. The
+            data-sync-meter attr is the target for the typing particles
+            so they fly toward this element regardless of viewport. */}
+        <div data-sync-meter>
           <LiveSyncMeter
             formSelector="#onboarding-form"
             size={220}

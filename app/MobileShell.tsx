@@ -64,9 +64,9 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           zIndex: 40,
           background: "var(--panel-solid)",
           borderBottom: "1px solid var(--border)",
-          padding: "5px 10px",
+          padding: "4px 10px",
           gap: 8,
-          minHeight: 44
+          minHeight: 52
         }}
       >
         <button
@@ -96,20 +96,21 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           style={{
             display: "inline-flex",
             alignItems: "center",
-            height: 28,
+            height: 40,
             textDecoration: "none",
             flexShrink: 0
           }}
         >
-          {/* Wordmark at 28px so it visually matches the hamburger
-              button (30px) without forcing the bar taller (minHeight
-              stays 44). wordmark-themed handles dark-mode invert. */}
+          {/* Wordmark at 40px (3× the original 14px feel Jack flagged).
+              We bump the top-bar minHeight to fit so the wordmark has
+              room without being clipped. wordmark-themed handles
+              dark-mode invert. */}
           <img
             src="/syncedin-wordmark.png"
             alt="SyncedIn"
             className="wordmark-themed"
-            height={28}
-            style={{ height: 28, width: "auto", display: "block" }}
+            height={40}
+            style={{ height: 40, width: "auto", display: "block" }}
           />
         </Link>
       </div>
@@ -159,7 +160,7 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             transform: open ? "translateX(0)" : "translateX(-100%)",
             transition: "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
             overflowY: "auto",
-            padding: "12px 14px 24px"
+            padding: "6px 8px 16px"
           }}
         >
           {children}

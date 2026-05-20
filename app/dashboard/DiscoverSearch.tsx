@@ -10,6 +10,11 @@ type DirectoryUser = {
   display_name: string | null;
   email: string;
   goals: string | null;
+  /** First substantive line from ai_export_blob when goals is stale. */
+  headline_fallback?: string;
+  /** 0-100 token-overlap score with the current user's twin. */
+  connection_score?: number;
+  avatar_url?: string | null;
 };
 type ExaPerson = { title: string; url: string; highlights: string[] };
 type FindResponse = {
@@ -235,9 +240,40 @@ export function DiscoverSearch({
     return () => clearInterval(t);
   }, [intent]);
 
-  async function askTwin(useIntent: string) {
+  // localStorage cache so Find People doesn't re-burn an Exa call every
+  // time the user lands on the dashboard. 60-min TTL: long enough that
+  // they get instant paint on repeat visits, short enough that new
+  // signups feed back into the suggestions on the same day.
+  const FIND_CACHE_KEY = "syncedin.findPeople.v1";
+  const FIND_TTL_MS = 60 * 60 * 1000;
+
+  async function askTwin(useIntent: string, useCache = false) {
     setSuggesting(true);
     setLastIntent(useIntent);
+    // Cache check (only for the empty-intent auto-load case — if the
+    // user typed a specific intent we always hit the server fresh).
+    if (useCache && !useIntent) {
+      try {
+        const raw = localStorage.getItem(FIND_CACHE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw) as {
+            at: number;
+            suggestions: Suggestion[];
+          };
+          if (
+            parsed &&
+            Date.now() - parsed.at < FIND_TTL_MS &&
+            Array.isArray(parsed.suggestions)
+          ) {
+            setSuggestions(parsed.suggestions);
+            setSuggesting(false);
+            return;
+          }
+        }
+      } catch {
+        /* corrupt cache — fall through and refetch */
+      }
+    }
     try {
       const r = await fetch("/api/twin-suggest-connections", {
         method: "POST",
@@ -245,7 +281,20 @@ export function DiscoverSearch({
         body: JSON.stringify(useIntent ? { intent: useIntent } : {})
       });
       const j = await r.json();
-      setSuggestions(j.suggestions ?? []);
+      const fresh = j.suggestions ?? [];
+      setSuggestions(fresh);
+      // Only cache the no-intent default suggestions — intent-specific
+      // queries are too varied to keep around.
+      if (!useIntent) {
+        try {
+          localStorage.setItem(
+            FIND_CACHE_KEY,
+            JSON.stringify({ at: Date.now(), suggestions: fresh })
+          );
+        } catch {
+          /* storage full or disabled — non-fatal */
+        }
+      }
     } catch {
       setSuggestions([]);
     } finally {
@@ -263,7 +312,7 @@ export function DiscoverSearch({
     if (suggestions !== null) return;
     if (searching) return;
     autoFired.current = true;
-    askTwin("");
+    askTwin("", true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -306,9 +355,81 @@ export function DiscoverSearch({
         )}
       </div>
 
+      {/* Platform-users directory — Jack's call: ALREADY-ON-SYNCEDIN users
+          render ABOVE the Find People (Exa) block. They're a higher-value
+          surface (zero invite friction) so they get top placement, even
+          before the "your twin says" recommendations. Each row shows the
+          connection score on the right. */}
+      {!searching && directory.length > 0 && (
+        <div className="mt-4">
+          <div className="flex items-baseline justify-between">
+            <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
+              already on SyncedIn
+            </div>
+            <div className="retro-dim text-xs">
+              {directory.length} {directory.length === 1 ? "twin" : "twins"} you
+              haven&apos;t talked to yet
+            </div>
+          </div>
+          <div className="mt-3 space-y-2">
+            {directory.slice(0, 12).map((p) => {
+              const blurb =
+                (looksLikeRealBio(p.goals) ? p.goals : null) ||
+                p.headline_fallback ||
+                "";
+              const score = p.connection_score ?? 0;
+              const scoreColor =
+                score >= 50
+                  ? "var(--amber-bright)"
+                  : score >= 25
+                    ? "var(--text)"
+                    : "var(--text-dim)";
+              return (
+                <form
+                  action={startConversationWithUser}
+                  key={p.id}
+                  className="retro-panel retro-panel-hover p-4 flex items-start justify-between gap-4"
+                >
+                  <div className="min-w-0">
+                    <div className="font-semibold text-sm">
+                      {p.display_name || p.email}
+                    </div>
+                    {blurb && (
+                      <div className="retro-dim text-xs mt-1 line-clamp-2">
+                        {blurb}
+                      </div>
+                    )}
+                  </div>
+                  <input type="hidden" name="userId" value={p.id} />
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
+                    <div
+                      className="text-xs font-mono"
+                      style={{
+                        color: scoreColor,
+                        letterSpacing: "0.04em",
+                        fontWeight: 700
+                      }}
+                      title="Estimated connection score: how much of your twin's profile overlaps with theirs. Updates as both twins add context."
+                    >
+                      {score}% sync
+                    </div>
+                    <button
+                      type="submit"
+                      className="retro-btn retro-btn-primary text-xs"
+                    >
+                      connect &gt;
+                    </button>
+                  </div>
+                </form>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Twin-recommended connections */}
       {!searching && (
-        <div className="mt-4">
+        <div className="mt-6">
           <div className="flex gap-2">
             <button
               type="button"
@@ -609,44 +730,21 @@ export function DiscoverSearch({
         </div>
       )}
 
-      {/* Empty state — show the existing directory of finished twins */}
-      {!searching && (
-        <div className="mt-4 space-y-2">
-          {directory.length === 0 ? (
-            <div className="retro-panel p-4 text-sm">
-              <div className="font-semibold">You&apos;re caught up on discovery.</div>
-              <div className="retro-dim mt-1">
-                Search above for anyone — your twin will draft an invite if
-                they aren&apos;t on SyncedIn yet.
-              </div>
+      {/* Empty state — only shown when there are no platform users left
+          to discover. The full directory list now renders above (right
+          under the search input) so we only fall through to this when
+          everyone you could connect to is already in a conversation. */}
+      {!searching && directory.length === 0 && (
+        <div className="mt-4">
+          <div className="retro-panel p-4 text-sm">
+            <div className="font-semibold">
+              You&apos;re caught up on platform discovery.
             </div>
-          ) : (
-            directory.map((p) => (
-              <form
-                action={startConversationWithUser}
-                key={p.id}
-                className="retro-panel retro-panel-hover p-4 flex items-start justify-between gap-4"
-              >
-                <div className="min-w-0">
-                  <div className="font-semibold text-sm">
-                    {p.display_name || p.email}
-                  </div>
-                  {looksLikeRealBio(p.goals) && (
-                    <div className="retro-dim text-xs mt-1 line-clamp-2">
-                      {p.goals}
-                    </div>
-                  )}
-                </div>
-                <input type="hidden" name="userId" value={p.id} />
-                <button
-                  type="submit"
-                  className="retro-btn text-xs shrink-0 self-center"
-                >
-                  connect &gt;
-                </button>
-              </form>
-            ))
-          )}
+            <div className="retro-dim mt-1">
+              Search above for anyone — your twin will draft an invite if
+              they aren&apos;t on SyncedIn yet.
+            </div>
+          </div>
         </div>
       )}
 
