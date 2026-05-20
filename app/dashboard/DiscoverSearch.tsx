@@ -775,11 +775,13 @@ export function DiscoverSearch({
                                 e.stopPropagation();
                                 draftOutreach(p);
                               }}
-                              disabled={drafting === p.url}
+                              disabled={!!getDraft(p.url)?.generating}
                               className="retro-btn text-sm"
                             >
-                              {drafting === p.url ? (
+                              {getDraft(p.url)?.generating ? (
                                 <DotsLoader label="Drafting" />
+                              ) : getDraft(p.url)?.draftText ? (
+                                "Redraft"
                               ) : (
                                 "Draft invite"
                               )}
@@ -795,106 +797,145 @@ export function DiscoverSearch({
                           </div>
                         )}
 
-                        {draftFor?.url === p.url && draftText && (
-                          <div className="mt-3 space-y-3">
-                            {/* Short connection-request note (max 200 chars) */}
-                            {shortText && (
+                        {(() => {
+                          const d = getDraft(p.url);
+                          if (!d || !d.draftText) return null;
+                          return (
+                            <div
+                              className="mt-3 space-y-3"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {d.shortText && (
+                                <div>
+                                  <div
+                                    className="retro-label flex items-center justify-between"
+                                    style={{ color: "var(--amber-bright)" }}
+                                  >
+                                    <span>
+                                      connection note ·{" "}
+                                      {d.shortText.length}/300
+                                    </span>
+                                  </div>
+                                  <textarea
+                                    value={d.shortText}
+                                    onChange={(e) =>
+                                      setDraft(p.url, {
+                                        shortText: e.target.value.slice(
+                                          0,
+                                          300
+                                        )
+                                      })
+                                    }
+                                    rows={3}
+                                    className="retro-input mt-1 text-sm"
+                                    maxLength={300}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                  <div className="flex flex-wrap gap-2 mt-2">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        copy(d.shortText);
+                                      }}
+                                      className="retro-btn text-sm"
+                                    >
+                                      Copy note
+                                    </button>
+                                    {isLinkedInUrl(p.url) && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openLinkedInWithNote(
+                                            p.url,
+                                            d.shortText
+                                          );
+                                        }}
+                                        className="retro-btn retro-btn-primary text-sm"
+                                        title="Note copied. LinkedIn opens — click Connect → Add a note → Paste"
+                                      >
+                                        Open LinkedIn (note copied) →
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Long DM with personal invite link */}
                               <div>
                                 <div
-                                  className="retro-label flex items-center justify-between"
-                                  style={{ color: "var(--amber-bright)" }}
+                                  className="retro-label"
+                                  style={{
+                                    color: "var(--amber-bright)"
+                                  }}
                                 >
-                                  <span>connection note · {shortText.length}/200</span>
+                                  direct message (with invite link)
                                 </div>
                                 <textarea
-                                  value={shortText}
+                                  value={d.draftText}
                                   onChange={(e) =>
-                                    setShortText(e.target.value.slice(0, 200))
+                                    setDraft(p.url, {
+                                      draftText: e.target.value
+                                    })
                                   }
-                                  rows={2}
+                                  rows={6}
                                   className="retro-input mt-1 text-sm"
-                                  maxLength={200}
+                                  onClick={(e) => e.stopPropagation()}
                                 />
                                 <div className="flex flex-wrap gap-2 mt-2">
                                   <button
                                     type="button"
-                                    onClick={() => copy(shortText)}
-                                    className="retro-btn text-sm"
-                                  >
-                                    Copy note
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      copy(shortText);
-                                      const profile = draftFor?.url || "";
-                                      if (profile) window.open(profile, "_blank", "noopener");
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      copy(d.draftText);
                                     }}
                                     className="retro-btn retro-btn-primary text-sm"
                                   >
-                                    Copy &amp; open LinkedIn →
+                                    Copy DM
                                   </button>
+                                  {d.inviteUrl && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          copy(d.inviteUrl);
+                                        }}
+                                        className="retro-btn retro-btn-primary text-sm"
+                                        title={d.inviteUrl}
+                                      >
+                                        🔗 Copy invite URL
+                                      </button>
+                                      <a
+                                        href={d.inviteUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        onClick={(e) =>
+                                          e.stopPropagation()
+                                        }
+                                        className="retro-btn text-sm"
+                                      >
+                                        Preview →
+                                      </a>
+                                    </>
+                                  )}
                                 </div>
-                              </div>
-                            )}
-
-                            {/* Long DM with personal invite link */}
-                            <div>
-                              <div
-                                className="retro-label"
-                                style={{ color: "var(--amber-bright)" }}
-                              >
-                                direct message (with invite link)
-                              </div>
-                              <textarea
-                                value={draftText}
-                                onChange={(e) => setDraftText(e.target.value)}
-                                rows={6}
-                                className="retro-input mt-1 text-sm"
-                              />
-                              <div className="flex flex-wrap gap-2 mt-2">
-                                <button
-                                  type="button"
-                                  onClick={() => copy(draftText)}
-                                  className="retro-btn retro-btn-primary text-sm"
-                                >
-                                  Copy DM
-                                </button>
-                                {inviteUrl && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={() => copy(inviteUrl)}
-                                      className="retro-btn retro-btn-primary text-sm"
-                                      title={inviteUrl}
-                                    >
-                                      🔗 Copy invite URL
-                                    </button>
-                                    <a
-                                      href={inviteUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="retro-btn text-sm"
-                                    >
-                                      Preview →
-                                    </a>
-                                  </>
+                                {d.inviteUrl && (
+                                  <div
+                                    className="text-xs mt-1.5"
+                                    style={{
+                                      color: "var(--text-dim)",
+                                      wordBreak: "break-all"
+                                    }}
+                                  >
+                                    {d.inviteUrl}
+                                  </div>
                                 )}
                               </div>
-                              {inviteUrl && (
-                                <div
-                                  className="text-xs mt-1.5"
-                                  style={{
-                                    color: "var(--text-dim)",
-                                    wordBreak: "break-all"
-                                  }}
-                                >
-                                  {inviteUrl}
-                                </div>
-                              )}
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </li>
                     );
                   })}

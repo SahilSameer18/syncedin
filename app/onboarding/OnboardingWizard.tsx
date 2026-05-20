@@ -77,6 +77,18 @@ export function OnboardingWizard({
 }) {
   const [step, setStep] = useState(0);
   const [state, setState] = useState<Initial>(initial);
+
+  // Returning user? If onboarding was completed at least once (goals
+  // present, OR any deep field filled, OR ai memory present), the step
+  // pills become fully clickable so the user can jump to any step.
+  // For first-time users we keep the strict "only step ≤ current" rule
+  // so they don't accidentally skip required fields before they exist.
+  const hasCompletedOnboarding =
+    (initial.goals || "").trim().length > 5 ||
+    (initial.deal_preferences || "").trim().length > 0 ||
+    (initial.communication_style || "").trim().length > 0 ||
+    (initial.deal_breakers || "").trim().length > 0 ||
+    (initial.ai_export_blob || "").trim().length > 80;
   const set = <K extends keyof Initial>(k: K, v: Initial[K]) =>
     setState((s) => ({ ...s, [k]: v }));
 
@@ -405,14 +417,26 @@ export function OnboardingWizard({
             <div key={s.key} className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => i <= step && setStep(i)}
+                onClick={() => {
+                  // Returning users can jump anywhere — they've already
+                  // filled the required fields once. First-time users
+                  // are still gated to back-only so they don't skip
+                  // required fields before completing them.
+                  if (hasCompletedOnboarding || i <= step) {
+                    setStep(i);
+                  }
+                }}
                 className="flex items-center gap-2"
                 style={{
                   background: "transparent",
                   border: 0,
                   padding: 0,
-                  cursor: i <= step ? "pointer" : "default",
-                  opacity: i > step ? 0.55 : 1
+                  cursor:
+                    hasCompletedOnboarding || i <= step
+                      ? "pointer"
+                      : "default",
+                  opacity:
+                    i > step && !hasCompletedOnboarding ? 0.55 : 1
                 }}
               >
                 <span
