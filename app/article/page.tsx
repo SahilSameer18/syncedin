@@ -182,13 +182,26 @@ export default function LaunchArticlePage() {
 
       <nav className="article-nav">
         <Wordmark />
-        <Link
-          href="/login"
-          className="retro-btn retro-btn-primary"
-          style={{ fontSize: 13, padding: "8px 14px" }}
-        >
-          + sign up
-        </Link>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <Link
+            href="/blog"
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: "var(--text-dim)",
+              textDecoration: "none"
+            }}
+          >
+            ← All writing
+          </Link>
+          <Link
+            href="/login"
+            className="retro-btn retro-btn-primary"
+            style={{ fontSize: 13, padding: "8px 14px" }}
+          >
+            + sign up
+          </Link>
+        </div>
       </nav>
 
       <article className="article-body">

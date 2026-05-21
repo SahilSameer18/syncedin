@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogo } from "../BrandLogo";
 
@@ -100,6 +100,17 @@ export function DemoConversation({
   const [activeTab, setActiveTab] = useState<"context" | "socials" | "ai">(
     "context"
   );
+  const convScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // Auto-scroll the conversation pane to the bottom whenever a new
+  // message arrives. Only fires when streaming so user-initiated
+  // scroll-up to re-read earlier messages isn't fought.
+  useEffect(() => {
+    if (!streaming) return;
+    const el = convScrollRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages.length, streaming]);
 
   const recipientFirst =
     recipientName.split(/\s+/)[0]?.trim() || recipientName;
@@ -304,6 +315,17 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
             gap: 28px;
             align-items: start;
           }
+          /* The right panel sticks to the top of the viewport on
+             desktop so the regenerate CTA + tab strip stay visible
+             while the conversation grows. Only the second .demo-panel
+             gets this — the first one (the conversation) scrolls
+             internally via its own .demo-conv max-height. */
+          .demo-shell > .demo-panel:nth-child(2) {
+            position: sticky;
+            top: 16px;
+            max-height: calc(100vh - 32px);
+            overflow-y: auto;
+          }
         }
         .demo-panel {
           position: relative;
@@ -377,11 +399,25 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           max-height: 640px;
           overflow-y: auto;
           padding-right: 4px;
+          scroll-behavior: smooth;
         }
         .demo-row {
           display: flex;
           align-items: flex-end;
           gap: 10px;
+          /* Pop in when a new bubble arrives — fade + lift + slight
+             scale. Triggers per-row on initial mount because each
+             message is keyed by its index, so React creates a fresh
+             node each time a bubble lands during streaming. */
+          animation: demo-bubble-in 320ms cubic-bezier(0.21, 1.02, 0.73, 1);
+          will-change: opacity, transform;
+        }
+        @keyframes demo-bubble-in {
+          from { opacity: 0; transform: translateY(8px) scale(0.985); }
+          to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .demo-row { animation: none; }
         }
         .demo-row.recipient { justify-content: flex-end; }
         .demo-avatar {
@@ -649,7 +685,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           </span>
         </div>
 
-        <div className="demo-conv">
+        <div className="demo-conv" ref={convScrollRef}>
           {messages.map((m, i) => {
             const mine = m.sender === "recipient";
             const isEditing = editing === i;

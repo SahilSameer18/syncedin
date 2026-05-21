@@ -5,6 +5,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
 import { NetworkDensity } from "../communities/NetworkDensity";
 import { DemoConversation } from "./DemoConversation";
+import { NetworkPreview } from "./NetworkPreview";
 
 // Force per-request render — Next.js was caching the Supabase fetch result
 // for missing-slug 404s, so even after a row was backfilled the page kept
@@ -147,13 +148,80 @@ export default async function InviteLandingPage({
   })();
 
   // Lookup the inviter's display name + avatar so the landing page reads naturally.
-  const { data: inviter } = await service
-    .from("profiles")
-    .select("id, display_name, email, avatar_url")
-    .eq("id", invite.inviter_user_id)
-    .maybeSingle();
+  // Also fetch up to 12 candidate other twins to power the NetworkPreview
+  // section — this is the recipient's "wait, my twin can talk to all
+  // these people too?" moment. We filter to non-test, non-inviter,
+  // hand-set display_name (so the rendered cards aren't blank) and
+  // pull their goal/blurb in a single follow-up query.
+  const [{ data: inviter }, { data: rawCandidates }] = await Promise.all([
+    service
+      .from("profiles")
+      .select("id, display_name, email, avatar_url")
+      .eq("id", invite.inviter_user_id)
+      .maybeSingle(),
+    service
+      .from("profiles")
+      .select("id, display_name, avatar_url, handle")
+      .eq("is_test_persona", false)
+      .neq("id", invite.inviter_user_id)
+      .not("display_name", "is", null)
+      .order("updated_at", { ascending: false })
+      .limit(24)
+  ]);
   const inviterName =
     inviter?.display_name || inviter?.email || "someone on SyncedIn";
+
+  // Pull a one-line blurb from twin_profiles.goals for each candidate.
+  // Done in a second batched query so the first lookup stays fast.
+  let candidates: Array<{
+    id: string;
+    handle: string | null;
+    displayName: string;
+    avatarUrl: string | null;
+    blurb: string;
+    matchHint?: string;
+  }> = [];
+  const candidateIds = (rawCandidates ?? []).map((r: any) => r.id);
+  if (candidateIds.length > 0) {
+    const { data: twins } = await service
+      .from("twin_profiles")
+      .select("user_id, goals, deal_preferences")
+      .in("user_id", candidateIds);
+    const blurbByUser = new Map<string, string>();
+    for (const t of (twins ?? []) as any[]) {
+      const goals = (t.goals || "").toString().trim();
+      const deals = (t.deal_preferences || "").toString().trim();
+      const blurb = (goals || deals).slice(0, 220);
+      if (blurb) blurbByUser.set(t.user_id, blurb);
+    }
+    // Only keep candidates with a real blurb — empty twin_profiles
+    // would render as "..." placeholder cards which hurt the pitch.
+    candidates = (rawCandidates ?? [])
+      .map((r: any, i: number) => {
+        const blurb = blurbByUser.get(r.id);
+        if (!blurb) return null;
+        // Deterministic per-pair hint (no real score yet because the
+        // recipient hasn't onboarded) — just a varied "looks aligned"
+        // copy so the cards feel less identical.
+        const hints = [
+          "looks aligned",
+          "shared territory",
+          "high-leverage match",
+          "could be a fit",
+          "worth a twin chat"
+        ];
+        return {
+          id: r.id,
+          handle: r.handle ?? null,
+          displayName: r.display_name as string,
+          avatarUrl: r.avatar_url ?? null,
+          blurb,
+          matchHint: hints[i % hints.length]
+        };
+      })
+      .filter(Boolean)
+      .slice(0, 6) as typeof candidates;
+  }
 
   const personName = invite.person_title?.split(/[-|,(·]/)[0]?.trim() ||
     "you";
@@ -544,6 +612,17 @@ export default async function InviteLandingPage({
             linkedinContext={linkedinContext}
           />
         </section>
+
+        {/* NETWORK PREVIEW — answers the most common recipient objection:
+            "if I only get one twin-to-twin chat, this is shallower."
+            Showing 6 other twins their twin could be running in parallel
+            converts the demo from "one shot" to "entry point." Sign-up
+            gated on click. */}
+        <NetworkPreview
+          slug={slug}
+          candidates={candidates}
+          recipientFirst={personFirst}
+        />
 
         <div className="invite-divider" />
 
