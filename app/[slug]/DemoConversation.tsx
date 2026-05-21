@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { BrandLogo } from "../BrandLogo";
 
 /**
  * Pre-auth simulated conversation. The recipient sees what a real
@@ -24,6 +25,7 @@ type StoredState = {
   linkedinAbout: string;
   igHandle: string;
   xHandle: string;
+  aiResponse: string;
 };
 
 function loadState(slug: string): StoredState | null {
@@ -88,11 +90,13 @@ export function DemoConversation({
   const [linkedinAbout, setLinkedinAbout] = useState<string>(linkedinContext);
   const [igHandle, setIgHandle] = useState<string>("");
   const [xHandle, setXHandle] = useState<string>("");
+  const [aiResponse, setAiResponse] = useState<string>("");
   const [editing, setEditing] = useState<number | null>(null);
   const [editDraft, setEditDraft] = useState<string>("");
   const [regenerating, setRegenerating] = useState(false);
   const [err, setErr] = useState<string>("");
   const [promptCopied, setPromptCopied] = useState(false);
+  const [streaming, setStreaming] = useState(false);
   const [activeTab, setActiveTab] = useState<"context" | "socials" | "ai">(
     "context"
   );
@@ -128,6 +132,8 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
       }
       if (typeof stored.igHandle === "string") setIgHandle(stored.igHandle);
       if (typeof stored.xHandle === "string") setXHandle(stored.xHandle);
+      if (typeof stored.aiResponse === "string")
+        setAiResponse(stored.aiResponse);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
@@ -139,9 +145,18 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
       extraContext,
       linkedinAbout,
       igHandle,
-      xHandle
+      xHandle,
+      aiResponse
     });
-  }, [slug, messages, extraContext, linkedinAbout, igHandle, xHandle]);
+  }, [
+    slug,
+    messages,
+    extraContext,
+    linkedinAbout,
+    igHandle,
+    xHandle,
+    aiResponse
+  ]);
 
   function buildContextBlob(): string {
     // Combine every signal the recipient has provided into one blob
@@ -154,35 +169,85 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
     }
     if (igHandle.trim()) parts.push(`Instagram: @${igHandle.trim().replace(/^@/, "")}`);
     if (xHandle.trim()) parts.push(`X / Twitter: @${xHandle.trim().replace(/^@/, "")}`);
+    if (aiResponse.trim()) {
+      parts.push(
+        `From their own AI tool (treat as authoritative — this is the user's own self-description):\n${aiResponse.trim()}`
+      );
+    }
     if (extraContext.trim()) {
       parts.push(`More from the user:\n${extraContext.trim()}`);
     }
     return parts.join("\n\n");
   }
 
+  /**
+   * Streams the simulated conversation from /api/demo-conversation as
+   * SSE events. Each completed message arrives as its own data: line so
+   * we can render bubbles progressively instead of waiting 8s for the
+   * whole 6-turn block. Falls back to the JSON path if the stream
+   * fails or is unsupported by the runtime.
+   */
   async function regenerate() {
     setRegenerating(true);
+    setStreaming(true);
     setErr("");
+    // Clear out old messages immediately so the user sees bubbles
+    // arriving fresh, not stacked on top of the previous draft.
+    setMessages([]);
     try {
       const edits = messages.map((m, i) => ({ index: i, text: m.text }));
-      const res = await fetch("/api/demo-conversation", {
+      const res = await fetch("/api/demo-conversation?stream=1", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          accept: "text/event-stream"
+        },
         body: JSON.stringify({
           slug,
           extra_context: buildContextBlob(),
           edits
         })
       });
-      const j = await res.json();
-      if (!res.ok || !Array.isArray(j.messages)) {
-        throw new Error(j.detail || j.error || `HTTP ${res.status}`);
+      if (!res.ok || !res.body) {
+        throw new Error(`HTTP ${res.status}`);
       }
-      setMessages(j.messages);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      const collected: Msg[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        // SSE events are separated by double newlines.
+        let split: number;
+        while ((split = buf.indexOf("\n\n")) !== -1) {
+          const raw = buf.slice(0, split).trim();
+          buf = buf.slice(split + 2);
+          if (!raw.startsWith("data:")) continue;
+          const payload = raw.slice(5).trim();
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.type === "message" && evt.text) {
+              const sender: "inviter" | "recipient" =
+                evt.sender === "recipient" ? "recipient" : "inviter";
+              collected.push({ sender, text: evt.text });
+              // Push a new copy of the array so React re-renders.
+              setMessages([...collected]);
+            } else if (evt.type === "error") {
+              throw new Error(evt.detail || "stream-error");
+            }
+          } catch {
+            /* malformed event — ignore */
+          }
+        }
+      }
     } catch (e: any) {
       setErr(e?.message || "Couldn't regenerate. Try again in a moment.");
     } finally {
       setRegenerating(false);
+      setStreaming(false);
     }
   }
 
@@ -293,6 +358,17 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           0%   { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0.5); }
           70%  { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
           100% { box-shadow: 0 0 0 0   rgba(34, 197, 94, 0); }
+        }
+        .demo-stream-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 999px;
+          background: #1f8bff;
+          animation: demo-stream-pulse 1s ease-in-out infinite;
+        }
+        @keyframes demo-stream-pulse {
+          0%, 100% { opacity: 0.35; transform: scale(0.8); }
+          50%      { opacity: 1;    transform: scale(1.2); }
         }
         .demo-conv {
           display: flex;
@@ -411,6 +487,10 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           cursor: pointer;
           letter-spacing: 0.02em;
           transition: all 0.15s ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
         }
         .ctx-tab.active {
           background: var(--panel-solid);
@@ -528,19 +608,29 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           color: #15803d;
           border-color: rgba(34, 197, 94, 0.35);
         }
+        .ai-prompt-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          margin-top: 10px;
+        }
         .ai-tools {
           display: flex;
           gap: 6px;
           flex-wrap: wrap;
-          margin-top: 10px;
+          margin-top: 12px;
         }
         .ai-tool-pill {
-          font-size: 11px;
-          padding: 4px 9px;
+          font-size: 11.5px;
+          padding: 5px 11px 5px 9px;
           border-radius: 999px;
           background: var(--panel-2);
           border: 1px solid var(--border);
-          color: var(--text-dim);
+          color: var(--text);
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-weight: 600;
         }
       `}</style>
 
@@ -656,7 +746,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
               </div>
             );
           })}
-          {messages.length === 0 && (
+          {messages.length === 0 && !streaming && (
             <div className="demo-empty">
               <p>
                 Add context on the right and tap{" "}
@@ -665,6 +755,24 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
                 </strong>{" "}
                 to simulate the conversation.
               </p>
+            </div>
+          )}
+          {streaming && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                padding: "8px 14px",
+                fontSize: 12,
+                color: "var(--text-dim)"
+              }}
+            >
+              <span
+                className="demo-stream-dot"
+                aria-hidden="true"
+              />
+              <span>twins thinking… messages stream in live</span>
             </div>
           )}
         </div>
@@ -711,7 +819,8 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
             onClick={() => setActiveTab("context")}
             aria-selected={activeTab === "context"}
           >
-            LinkedIn / Bio
+            <BrandLogo brand="linkedin" size={14} />
+            <span>Bio</span>
           </button>
           <button
             role="tab"
@@ -719,7 +828,13 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
             onClick={() => setActiveTab("socials")}
             aria-selected={activeTab === "socials"}
           >
-            Socials
+            <span
+              style={{ display: "inline-flex", gap: 4, alignItems: "center" }}
+            >
+              <BrandLogo brand="instagram" size={14} />
+              <BrandLogo brand="x" size={13} tone="mono" />
+            </span>
+            <span>Socials</span>
           </button>
           <button
             role="tab"
@@ -727,7 +842,11 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
             onClick={() => setActiveTab("ai")}
             aria-selected={activeTab === "ai"}
           >
-            From AI
+            <span style={{ display: "inline-flex", gap: 3 }}>
+              <BrandLogo brand="chatgpt" size={13} />
+              <BrandLogo brand="claude" size={13} />
+            </span>
+            <span>From AI</span>
           </button>
         </div>
 
@@ -779,12 +898,15 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
                 color: "var(--text-dim)",
-                display: "block",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
                 marginTop: 8,
                 marginBottom: 4
               }}
             >
-              Instagram
+              <BrandLogo brand="instagram" size={14} />
+              <span>Instagram</span>
             </label>
             <div className="ctx-row">
               <span className="ctx-prefix">@</span>
@@ -805,12 +927,15 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
                 color: "var(--text-dim)",
-                display: "block",
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
                 marginTop: 14,
                 marginBottom: 4
               }}
             >
-              X / Twitter
+              <BrandLogo brand="x" size={12} tone="mono" />
+              <span>X / Twitter</span>
             </label>
             <div className="ctx-row">
               <span className="ctx-prefix">@</span>
@@ -836,37 +961,60 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
 
         {activeTab === "ai" && (
           <div className="ctx-section">
-            <h4>Pull richer context from ChatGPT or Claude</h4>
+            <h4>Pull richer context from your AI of choice</h4>
             <p className="hint">
-              Already have an AI tool that knows you well? Copy this prompt,
-              paste it in, then paste the response into the bio panel.
+              Copy the prompt → paste into ChatGPT / Claude / Gemini /
+              Perplexity → paste the response in the box below. Twin sounds
+              like you in seconds.
             </p>
 
             <div className="ai-prompt-card">{aiPrompt}</div>
 
-            <button
-              type="button"
-              onClick={copyAiPrompt}
-              className={`copy-btn ${promptCopied ? "copied" : ""}`}
-            >
-              {promptCopied ? "✓ copied — now paste in your AI tool" : "⧉ copy prompt"}
-            </button>
-
-            <div className="ai-tools">
-              <span className="ai-tool-pill">ChatGPT</span>
-              <span className="ai-tool-pill">Claude</span>
-              <span className="ai-tool-pill">Gemini</span>
-              <span className="ai-tool-pill">Perplexity</span>
+            <div className="ai-prompt-actions">
+              <button
+                type="button"
+                onClick={copyAiPrompt}
+                className={`copy-btn ${promptCopied ? "copied" : ""}`}
+              >
+                {promptCopied
+                  ? "✓ copied — now paste in your AI tool"
+                  : "⧉ copy prompt"}
+              </button>
             </div>
 
-            <p
-              className="hint"
-              style={{ marginTop: 16, fontSize: 11 }}
-            >
-              Tip: paste the AI response into the LinkedIn / Bio tab&apos;s
-              first textarea — that&apos;s the primary context the twin
-              uses to sound like you.
+            <div className="ai-tools">
+              <span className="ai-tool-pill">
+                <BrandLogo brand="chatgpt" size={14} />
+                <span>ChatGPT</span>
+              </span>
+              <span className="ai-tool-pill">
+                <BrandLogo brand="claude" size={14} />
+                <span>Claude</span>
+              </span>
+              <span className="ai-tool-pill">
+                <BrandLogo brand="gemini" size={14} />
+                <span>Gemini</span>
+              </span>
+              <span className="ai-tool-pill">
+                <BrandLogo brand="perplexity" size={14} />
+                <span>Perplexity</span>
+              </span>
+            </div>
+
+            <h4 style={{ marginTop: 22 }}>Paste the response here</h4>
+            <p className="hint">
+              Paste whatever your AI tool came back with. We&apos;ll fold
+              it into the next regenerate.
             </p>
+            <textarea
+              value={aiResponse}
+              onChange={(e) => setAiResponse(e.target.value.slice(0, 4000))}
+              rows={6}
+              placeholder="Paste the AI's response here…"
+              className="ctx-textarea"
+              style={{ minHeight: 140 }}
+            />
+            <div className="ctx-count">{aiResponse.length}/4000</div>
           </div>
         )}
 

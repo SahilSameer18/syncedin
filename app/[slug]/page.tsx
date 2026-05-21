@@ -202,9 +202,16 @@ export default async function InviteLandingPage({
         .invite-shell {
           position: relative;
           min-height: 100vh;
-          padding: 18px clamp(16px, 4vw, 40px) 64px;
+          /* Tighter top padding on desktop — mobile keeps the breathing
+             room since the nav button doesn't have hover affordance. */
+          padding: 10px clamp(16px, 4vw, 40px) 64px;
           max-width: 1400px;
           margin: 0 auto;
+        }
+        @media (min-width: 900px) {
+          .invite-shell {
+            padding-top: 14px;
+          }
         }
         .invite-bg {
           position: absolute;
@@ -227,7 +234,7 @@ export default async function InviteLandingPage({
           padding: 6px 0 4px;
         }
         .invite-hero {
-          margin-top: 28px;
+          margin-top: 16px;
           display: grid;
           grid-template-columns: minmax(0, 1fr);
           gap: 18px;
@@ -235,6 +242,7 @@ export default async function InviteLandingPage({
         }
         @media (min-width: 900px) {
           .invite-hero {
+            margin-top: 12px;
             grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
             gap: 32px;
           }
@@ -380,7 +388,7 @@ export default async function InviteLandingPage({
           color: #1f8bff;
         }
         .invite-demo-wrap {
-          margin-top: 36px;
+          margin-top: 28px;
         }
         .invite-divider {
           margin: 56px auto 36px;

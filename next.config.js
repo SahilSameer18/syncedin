@@ -10,8 +10,8 @@ const nextConfig = {
       { source: "/press", destination: "/article", permanent: false },
       { source: "/launch", destination: "/article", permanent: false },
       { source: "/story", destination: "/article", permanent: false },
-      { source: "/blog", destination: "/article", permanent: false },
-      { source: "/articles", destination: "/article", permanent: false },
+      // /blog now has its own real index page — do NOT redirect.
+      { source: "/articles", destination: "/blog", permanent: false },
       { source: "/articles/syncedin-launch", destination: "/article", permanent: true },
       { source: "/articles/syncedin-launch.md", destination: "/article", permanent: true }
     ];
