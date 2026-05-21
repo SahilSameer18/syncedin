@@ -47,6 +47,35 @@ export type SyncBreakdown = {
 
 const filled = (s?: string | null) => !!(s && s.trim().length > 0);
 
+/**
+ * Graduated fullness — return a fraction 0..1 based on how much real content
+ * is in a text field, so the breakdown can show "2/4" or "3/4" instead of
+ * the binary 0/4 ↔ 4/4 jump. Short-form fields (deal prefs, comm style,
+ * deal breakers) should tally up as the user keeps adding detail.
+ *
+ * Thresholds picked so:
+ *   empty               → 0
+ *   one word / phrase   → 0.33
+ *   a sentence          → 0.66
+ *   a real paragraph    → 1.0
+ *
+ * Combined with the `max` for that bucket, this produces clean 2/4, 3/4
+ * style sub-scores without anyone needing to count characters.
+ */
+function fullness(s?: string | null): number {
+  const len = (s ?? "").trim().length;
+  if (len === 0) return 0;
+  if (len < 24) return 0.33;
+  if (len < 90) return 0.66;
+  return 1;
+}
+
+function scaledPoints(s: string | null | undefined, max: number): number {
+  // Round to nearest integer point so the breakdown reads as
+  // "2/4" / "3/4" — never a fraction.
+  return Math.round(fullness(s) * max);
+}
+
 export function computeSyncScore(inp: SyncInputs): SyncBreakdown {
   const blob = inp.ai_export_blob ?? "";
   const blobLen = blob.length;
@@ -71,6 +100,15 @@ export function computeSyncScore(inp: SyncInputs): SyncBreakdown {
   // 1 pt per 4 edits captured, max 6 — small but always nudges the meter.
   const editPts = Math.min(6, Math.floor(edits / 4));
 
+  // Goals + the short-form fields scale with content depth. A one-word goal
+  // gets 33% credit; a sentence gets 66%; a real paragraph fills the bucket.
+  // Name / location stay binary because there's no "deeper name" — you
+  // either have it or you don't.
+  const goalsPoints = scaledPoints(inp.goals, 10);
+  const dealPrefsPoints = scaledPoints(inp.deal_preferences, 4);
+  const commStylePoints = scaledPoints(inp.comm_style, 4);
+  const dealBreakersPoints = scaledPoints(inp.deal_breakers, 4);
+
   const parts: SyncBreakdown["parts"] = [
     {
       label: "Name",
@@ -80,9 +118,9 @@ export function computeSyncScore(inp: SyncInputs): SyncBreakdown {
     },
     {
       label: "Goals",
-      points: filled(inp.goals) ? 10 : 0,
+      points: goalsPoints,
       max: 10,
-      done: filled(inp.goals)
+      done: goalsPoints >= 10
     },
     {
       label: "Where you live",
@@ -98,21 +136,21 @@ export function computeSyncScore(inp: SyncInputs): SyncBreakdown {
     },
     {
       label: "Deal preferences",
-      points: filled(inp.deal_preferences) ? 4 : 0,
+      points: dealPrefsPoints,
       max: 4,
-      done: filled(inp.deal_preferences)
+      done: dealPrefsPoints >= 4
     },
     {
       label: "Communication style",
-      points: filled(inp.comm_style) ? 4 : 0,
+      points: commStylePoints,
       max: 4,
-      done: filled(inp.comm_style)
+      done: commStylePoints >= 4
     },
     {
       label: "Deal breakers",
-      points: filled(inp.deal_breakers) ? 4 : 0,
+      points: dealBreakersPoints,
       max: 4,
-      done: filled(inp.deal_breakers)
+      done: dealBreakersPoints >= 4
     },
     {
       label: "Voice / context blob",

@@ -258,10 +258,24 @@ export default async function DashboardPage() {
     )
   );
 
-  // For Sync %: count completed conversations + accepted agreements.
-  const completedConvIds = (conversations ?? [])
-    .filter((c) => c.status === "closed")
-    .map((c) => c.id);
+  // For Sync %: count REAL conversations + accepted agreements.
+  // Previously we only counted conversations.status === "closed", but that
+  // status field is rarely set even after sealed agreements + long
+  // exchanges — so a user with 3 sealed deals saw "Conversations had: 0/15"
+  // while "Sealed agreements: 18/18" was maxed. The fix: count any
+  // conversation where the user has actually sent ≥1 message. That's the
+  // strongest possible signal of "a real conversation happened".
+  const { data: myMessageConvs } = await service
+    .from("messages")
+    .select("conversation_id")
+    .eq("sender_user_id", user.id);
+  const completedConvIds = Array.from(
+    new Set(
+      ((myMessageConvs ?? []) as Array<{ conversation_id: string }>).map(
+        (m) => m.conversation_id
+      )
+    )
+  );
   const { count: acceptedAgreementsCount } = await service
     .from("agreement_responses")
     .select("id", { count: "exact", head: true })

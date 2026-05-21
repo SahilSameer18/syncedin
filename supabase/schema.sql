@@ -21,6 +21,21 @@ alter table public.profiles
   add column if not exists is_test_persona boolean not null default false;
 alter table public.profiles
   add column if not exists avatar_url text;
+-- Public portfolio fields. `handle` is the URL slug at /u/<handle> — auto-
+-- derived from display_name when the user finishes onboarding (see
+-- onboarding save action). `portfolio_about` is freeform MySpace-style
+-- copy the user can edit directly OR via the prompt-driven editor.
+-- `portfolio_theme` stores visual customization (accent color, banner emoji,
+-- vibe label) as JSONB so the prompt editor can rewrite it without schema
+-- changes.
+alter table public.profiles
+  add column if not exists handle text unique;
+alter table public.profiles
+  add column if not exists portfolio_about text;
+alter table public.profiles
+  add column if not exists portfolio_theme jsonb;
+create index if not exists profiles_handle_idx
+  on public.profiles (lower(handle));
 
 create index if not exists profiles_test_persona_idx
   on public.profiles (is_test_persona) where is_test_persona = true;

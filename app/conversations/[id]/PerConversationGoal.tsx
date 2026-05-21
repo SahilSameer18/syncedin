@@ -83,7 +83,7 @@ export function PerConversationGoal({
 
   return (
     <div
-      className="hidden lg:block mb-3"
+      className="block mb-3"
       style={{
         padding: "10px 12px",
         background: "var(--panel-2)",

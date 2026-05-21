@@ -80,7 +80,11 @@ export async function ConversationRail({
         className="flex lg:hidden"
         style={{
           position: "sticky",
-          top: 44,
+          // MobileShell's top bar is 56px tall (sticky, top: 0). The rail
+          // sits flush against the bottom of that bar — top: 56 prevents
+          // the rail from sliding UNDER the wordmark on scroll, which was
+          // creating the double-overlap you saw on mobile.
+          top: 56,
           zIndex: 6,
           alignItems: "center",
           gap: 8,
@@ -96,7 +100,8 @@ export async function ConversationRail({
         <Link
           href="/messages"
           prefetch={true}
-          aria-label="All messages"
+          aria-label="Back to all messages"
+          title="Back to all messages"
           style={{
             flex: "0 0 auto",
             display: "inline-flex",
@@ -107,12 +112,27 @@ export async function ConversationRail({
             borderRadius: 14,
             background: "var(--panel-2)",
             color: "var(--text-dim)",
-            textDecoration: "none",
-            fontSize: 12,
-            fontWeight: 700
+            textDecoration: "none"
           }}
         >
-          ☰
+          {/* Chat-bubble glyph instead of the second hamburger — the
+              hamburger was confusable with MobileShell's nav drawer
+              trigger right above it. This icon reads as "back to
+              messages list" with one glance. */}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            width="16"
+            height="16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+          </svg>
         </Link>
         {rows.map((c) => {
           const otherId =

@@ -40,13 +40,18 @@ export default async function OnboardingPage({
   // runs, so the % shown here matches the % shown on /dashboard exactly.
   // Without these the meter only saw form fields and was always lower.
   const service = createServiceClient();
-  const { data: myConvs } = await service
-    .from("conversations")
-    .select("id, status, participant_a, participant_b")
-    .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`);
-  const completedConversations = (myConvs ?? []).filter(
-    (c: any) => c.status === "closed"
-  ).length;
+  // Count REAL conversations — any conversation the user has sent ≥1
+  // message in. The old status==='closed' filter under-counted by ~100%
+  // because that status is rarely flipped even after sealed agreements.
+  const { data: myMessageConvs } = await service
+    .from("messages")
+    .select("conversation_id")
+    .eq("sender_user_id", user.id);
+  const completedConversations = new Set(
+    ((myMessageConvs ?? []) as Array<{ conversation_id: string }>).map(
+      (m) => m.conversation_id
+    )
+  ).size;
   const { count: acceptedAgreementsCount } = await service
     .from("agreement_responses")
     .select("id", { count: "exact", head: true })
