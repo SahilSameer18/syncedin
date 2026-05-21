@@ -65,7 +65,12 @@ function jaccard(a: string[], b: string[]): number {
   const setB = new Set(b);
   if (setA.size === 0 || setB.size === 0) return 0;
   let overlap = 0;
-  for (const w of setA) if (setB.has(w)) overlap += 1;
+  // Use Array.from for compatibility with the project's ES5 tsconfig
+  // target — direct `for (const x of set)` iteration requires
+  // downlevelIteration or es2015+ and fails the prod build.
+  Array.from(setA).forEach((w) => {
+    if (setB.has(w)) overlap += 1;
+  });
   const union = setA.size + setB.size - overlap;
   return union === 0 ? 0 : overlap / union;
 }

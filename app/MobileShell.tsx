@@ -175,12 +175,29 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             transform: open ? "translateX(0)" : "translateX(-100%)",
             transition: "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
             overflowY: "auto",
-            // Padding halved per Jack's third request — the drawer used
-            // to have a visible empty band above the nav list. 0 top, 6
-            // sides, 12 bottom is the tightest comfortable spec.
+            // Pulled top padding entirely; the sweep band below
+            // serves as the visual top edge and signals motion.
             padding: "0 6px 12px"
           }}
         >
+          {/* Animated brand-gradient sweep band — sits at the very top of
+              the drawer. Replaces the dead band of empty space the user
+              saw with a thin, always-moving accent that says "this app
+              is alive" without competing with the nav items below. 3px
+              tall, 4s linear loop, no perf cost (pure CSS background-
+              position shift). */}
+          <div
+            aria-hidden="true"
+            style={{
+              height: 3,
+              width: "100%",
+              background:
+                "linear-gradient(90deg, #1f8bff 0%, #6b2dc9 25%, #d83bff 50%, #6b2dc9 75%, #1f8bff 100%)",
+              backgroundSize: "200% 100%",
+              animation: "drawerSweep 4s linear infinite",
+              marginBottom: 6
+            }}
+          />
           {children}
         </div>
         <style>{`
@@ -209,6 +226,10 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           .syncedin-mobile-drawer > div > *:first-child > * {
             margin-top: 0 !important;
             padding-top: 0 !important;
+          }
+          @keyframes drawerSweep {
+            0%   { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
           }
         `}</style>
       </div>
