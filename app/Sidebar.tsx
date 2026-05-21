@@ -61,13 +61,16 @@ export function Sidebar({
         background: "var(--panel-solid)",
         border: "1px solid var(--border)",
         borderRadius: 14,
-        // Top + bottom halved from 14/14 → 7/7 per Jack's call. The
-        // wordmark sits flush against the profile block now.
-        padding: "2px 14px 7px",
+        // Top/bottom whitespace cut to under half per Jack's call.
+        // Was 2/7 → now 0/3. The wordmark also gets a hard height cap
+        // below so the PNG's internal transparent padding can't blow
+        // out the layout regardless of column width.
+        padding: "0 14px 3px",
         display: "flex",
         flexDirection: "column",
-        gap: 4,
-        minHeight: 480
+        gap: 4
+        // minHeight removed — was 480 which created huge bottom whitespace
+        // when the user has few nav items; let content size the sidebar.
       }}
     >
       {/* Wordmark — fills the sidebar width. Width:100% forces it to spread

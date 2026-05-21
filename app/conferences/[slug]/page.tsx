@@ -7,6 +7,7 @@ import { Avatar } from "../../Avatar";
 import { startConversationWithUser } from "../../dashboard/actions";
 import { BulkReachToolkit } from "../../BulkReachToolkit";
 import { ShareUrlBox } from "./ShareUrlBox";
+import { ScrollTopOnFlag } from "../../ScrollTopOnFlag";
 
 export async function generateMetadata({
   params
@@ -129,7 +130,16 @@ export default async function ConferencePage({
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";
-  const joinUrl = `${appUrl}/conferences/${slug}`;
+  // Communities and conferences share this page (next.config rewrites
+  // /communities/:slug → /conferences/:slug) — but the URL the user
+  // sees + shares should match the row's `kind`. Pick the prefix here
+  // and reuse it everywhere a URL is constructed below.
+  const kind = ((conf as any).kind || "conference") as
+    | "conference"
+    | "community";
+  const urlPrefix = kind === "community" ? "/communities" : "/conferences";
+  const kindLabel = kind === "community" ? "community" : "conference";
+  const joinUrl = `${appUrl}${urlPrefix}/${slug}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
     joinUrl
   )}`;
@@ -156,6 +166,11 @@ export default async function ConferencePage({
 
   return (
     <main className="max-w-5xl mx-auto px-6 pt-3 pb-8">
+      {/* Reset scroll when the page is reached via ?created=1 from the
+          new-conference / new-community redirect. Browser scroll-
+          restoration was dropping users at the bottom of the page on
+          load — what Jack hit after clicking "make conference". */}
+      <ScrollTopOnFlag flags={["created", "saved"]} />
       <div className="flex items-center justify-between">
         <Wordmark />
         <div className="flex items-center gap-4 text-sm">
@@ -164,7 +179,7 @@ export default async function ConferencePage({
           </Link>
           {isOwner && (
             <Link
-              href={`/conferences/${slug}/edit`}
+              href={`${urlPrefix}/${slug}/edit`}
               className="retro-dim hover:text-white"
             >
               edit
@@ -175,15 +190,16 @@ export default async function ConferencePage({
 
       {searchParams.created === "1" && (
         <p className="mt-4 retro-green text-sm">
-          ✓ Conference created. Share the link below — anyone who joins
-          through it becomes a member of {conf.name}.
+          ✓ {kindLabel.charAt(0).toUpperCase() + kindLabel.slice(1)} created.
+          Share the link below — anyone who joins through it becomes a
+          member of {conf.name}.
         </p>
       )}
 
       {/* HERO */}
       <section className="mt-8 grid lg:grid-cols-[1fr_240px] gap-8 items-start">
         <div className="min-w-0">
-          <div className="retro-label">conference</div>
+          <div className="retro-label">{kindLabel}</div>
           <h1 className="retro-h1 text-4xl mt-3 leading-tight">
             {conf.name}
           </h1>
@@ -262,11 +278,12 @@ export default async function ConferencePage({
             className="mt-2 text-base"
             style={{ color: "var(--text-dim)" }}
           >
-            Sign up below. You&apos;ll only see and be seen by other attendees
-            of this conference.
+            Sign up below. You&apos;ll only see and be seen by other{" "}
+            {kind === "community" ? "members" : "attendees"} of this{" "}
+            {kindLabel}.
           </p>
           <Link
-            href={`/login?conference=${slug}`}
+            href={`/login?${kind}=${slug}`}
             className="retro-btn retro-btn-primary mt-4 inline-block"
           >
             + Sign up &amp; join
@@ -277,10 +294,10 @@ export default async function ConferencePage({
       {user && !isMember && !isOwner && (
         <section className="mt-8 retro-panel p-6">
           <p className="text-base">
-            You&apos;re signed in but not a member of this conference yet.
+            You&apos;re signed in but not a member of this {kindLabel} yet.
           </p>
           <Link
-            href={`/conferences/${slug}/join`}
+            href={`${urlPrefix}/${slug}/join`}
             className="retro-btn retro-btn-primary mt-4 inline-block"
           >
             + Join {conf.name}
@@ -295,9 +312,9 @@ export default async function ConferencePage({
             host toolkit
           </div>
           <p className="retro-dim text-xs mt-1">
-            Invite attendees in bulk. Every link you generate carries the{" "}
-            {conf.name} conference tag so signups land them inside this
-            community automatically.
+            Invite {kind === "community" ? "members" : "attendees"} in bulk.
+            Every link you generate carries the {conf.name} {kindLabel}
+            tag so signups land them inside this {kindLabel} automatically.
           </p>
           <div className="mt-4">
             <BulkReachToolkit appUrl={joinUrl} variant="card" />

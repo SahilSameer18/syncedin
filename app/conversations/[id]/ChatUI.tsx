@@ -525,6 +525,10 @@ export function ChatUI({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [done, setDone] = useState(initialDone);
   const [running, setRunning] = useState(false);
+  // Whether the bottom-of-conversation compose textarea is open. Hidden
+  // by default after the twin loop finishes — user pops it open with
+  // the "+ add another message" button, closes via the X in the panel.
+  const [composeOpen, setComposeOpen] = useState(false);
   // The user_id of whoever's about to draft the next turn. Drives the
   // iMessage-style typing indicator's side + name. Falls back to the
   // "not the last sender" inference if the server didn't return it yet.
@@ -1230,14 +1234,29 @@ export function ChatUI({
           turn rather than only being able to edit prior messages. Posts
           via the existing send-message API as the user themselves; the
           counterpart's twin sees it on next runLoop. */}
-      {done && !running && !editingId && (
+      {done && !running && !editingId && composeOpen && (
         <ComposeAtEnd
           conversationId={conversationId}
           onSent={(msg) => {
             setMessages((prev) => [...prev, msg]);
             setDone(false);
           }}
+          onClose={() => setComposeOpen(false)}
         />
+      )}
+      {done && !running && !editingId && !composeOpen && (
+        <button
+          type="button"
+          onClick={() => setComposeOpen(true)}
+          className="retro-btn text-xs"
+          style={{
+            marginTop: 8,
+            marginBottom: 8,
+            alignSelf: "flex-start"
+          }}
+        >
+          + add another message
+        </button>
       )}
 
       {/* Per-conversation goal override (desktop only). Sits above the

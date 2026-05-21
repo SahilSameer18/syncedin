@@ -13,10 +13,14 @@ import type { Message } from "@/lib/types";
  */
 export function ComposeAtEnd({
   conversationId,
-  onSent
+  onSent,
+  onClose
 }: {
   conversationId: string;
   onSent: (m: Message) => void;
+  /** Called when the user dismisses the panel via the X. Optional —
+   *  if absent, the X is hidden. */
+  onClose?: () => void;
 }) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -28,12 +32,17 @@ export function ComposeAtEnd({
     setSending(true);
     setErr("");
     try {
+      // /api/send-message expects { conversation_id, original_draft,
+      // final_text } — the latter two are equal for a human-composed
+      // message (no AI draft preceded it), but both must be present
+      // or the route returns 400 missing_fields.
       const res = await fetch("/api/send-message", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           conversation_id: conversationId,
-          text: trimmed
+          original_draft: trimmed,
+          final_text: trimmed
         })
       });
       const j = await res.json();
@@ -63,10 +72,45 @@ export function ComposeAtEnd({
       }}
     >
       <div
-        className="retro-label"
-        style={{ color: "var(--text-dim)", fontSize: 11 }}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8
+        }}
       >
-        add another message
+        <div
+          className="retro-label"
+          style={{ color: "var(--text-dim)", fontSize: 11 }}
+        >
+          add another message
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="close compose"
+            title="close"
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 999,
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text-dim)",
+              cursor: "pointer",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 14,
+              lineHeight: 1,
+              padding: 0,
+              flexShrink: 0
+            }}
+          >
+            ×
+          </button>
+        )}
       </div>
       <textarea
         value={text}
