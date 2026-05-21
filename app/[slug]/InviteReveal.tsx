@@ -184,7 +184,7 @@ export function InviteReveal({
                 className="retro-btn retro-btn-primary text-center"
                 style={{ position: "relative" }}
               >
-                + sign up to unlock
+                + sign up &amp; auto-reply
               </Link>
               <Link
                 href={`/login?invite=${slug}`}

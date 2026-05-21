@@ -65,7 +65,7 @@ export function buildInviteCopy(opts: {
   const { inviterFullName, recipientShortName, snippet } = opts;
   const headline = `${recipientShortName}, it's time to get SyncedIn.`;
   const body = snippet
-    ? `${inviterFullName} saw ${snippet} — and is ready to have his agent find a plan with yours. Stay SyncedIn, together.`
-    : `${inviterFullName} thinks your twin is worth a conversation with his. Spin yours up and let the two clones find the win-win. Stay SyncedIn, together.`;
+    ? `${inviterFullName} saw ${snippet} — and is ready to have his agent find a plan with yours. Let's stay SyncedIn, together.`
+    : `${inviterFullName} thinks your twin is worth a conversation with his. Spin yours up and let the two clones find the win-win. Let's stay SyncedIn, together.`;
   return { headline, body };
 }

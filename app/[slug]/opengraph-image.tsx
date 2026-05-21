@@ -1,5 +1,9 @@
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/server";
+import {
+  observationSnippet as _observationSnippet,
+  buildInviteCopy as _buildInviteCopy
+} from "@/lib/invite-copy";
 
 export const runtime = "nodejs"; // service client needs node runtime
 export const alt = "Your twin started a conversation on SyncedIn";
@@ -40,61 +44,13 @@ function shortName(title: string): string {
  *   4. Truncate at a word boundary around 110 chars.
  *   5. Strip trailing punctuation so the template can chain into ", and..."
  */
-function observationSnippet(starter: string | null | undefined): string {
-  const s = (starter ?? "").trim();
-  if (!s) return "";
-  // Strip leading greeting (best-effort — Claude almost always starts the
-  // landing message with "Hey {firstName} — {sender} here.")
-  const noGreeting = s.replace(
-    /^hey\s+[A-Za-z][A-Za-z'.-]*\s*[—–-]\s*[^.!?]+[.!?]\s*/i,
-    ""
-  );
-  // Also strip a softer "{firstName}, " greeting if present.
-  const noComma = noGreeting.replace(/^[A-Za-z][A-Za-z'.-]+,\s+/, "");
-  // First sentence.
-  const sentences = noComma.split(/(?<=[.!?])\s+/);
-  let first = (sentences[0] ?? "").trim();
-  if (!first) return "";
-  // Drop "I noticed " / "I saw " / "What caught my eye is " filler.
-  first = first
-    .replace(/^(i\s+(noticed|saw|love|loved|like|liked)\s+(that\s+)?)/i, "")
-    .replace(/^(what\s+caught\s+my\s+eye\s+is\s+(that\s+)?)/i, "")
-    .replace(/\s+caught\s+my\s+eye\.?$/i, "")
-    .trim();
-  // Normalize first letter lowercase (it sits mid-sentence in the template).
-  if (first.length > 0 && /[A-Z]/.test(first[0])) {
-    first = first[0].toLowerCase() + first.slice(1);
-  }
-  // Make sure it starts with a possessive — "your X" reads naturally after
-  // "saw". If the snippet doesn't already, prepend "your".
-  if (!/^(your|the|how)\b/i.test(first)) {
-    first = "your " + first;
-  }
-  // Truncate cleanly.
-  const HARD = 130;
-  if (first.length > HARD) {
-    const cut = first.slice(0, HARD);
-    const lastSpace = cut.lastIndexOf(" ");
-    first = (lastSpace > 80 ? cut.slice(0, lastSpace) : cut).trim();
-  }
-  // Strip trailing punctuation so the template's continuation reads
-  // naturally: "{name} saw {snippet}, and is ready..."
-  first = first.replace(/[.,;:!?…\s]+$/g, "");
-  return first;
-}
-
-export function buildInviteCopy(opts: {
-  inviterFullName: string;
-  recipientShortName: string;
-  snippet: string;
-}): { headline: string; body: string } {
-  const { inviterFullName, recipientShortName, snippet } = opts;
-  const headline = `${recipientShortName}, it's time to get SyncedIn.`;
-  const body = snippet
-    ? `${inviterFullName} saw ${snippet} — and is ready to have his agent find a plan with yours. Stay SyncedIn, together.`
-    : `${inviterFullName} thinks your twin is worth a conversation with his. Spin yours up and let the two clones find the win-win. Stay SyncedIn, together.`;
-  return { headline, body };
-}
+// Re-export the shared helpers from lib/invite-copy so the OG card and
+// the landing-page animated hero never drift. The previous local copies
+// of observationSnippet + buildInviteCopy lived here and the same logic
+// was duplicated on the landing page — caused the "Stay" vs "Let's stay"
+// mismatch Jack flagged. Now: one source of truth.
+const observationSnippet = _observationSnippet;
+const buildInviteCopy = _buildInviteCopy;
 
 export default async function InviteOgImage({
   params

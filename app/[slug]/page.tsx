@@ -5,6 +5,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
 import { InviteReveal } from "./InviteReveal";
 import { NetworkDensity } from "../communities/NetworkDensity";
+import { AnimatedHero } from "./AnimatedHero";
+import { observationSnippet, buildInviteCopy } from "@/lib/invite-copy";
 
 // Force per-request render — Next.js was caching the Supabase fetch result
 // for missing-slug 404s, so even after a row was backfilled the page kept
@@ -171,6 +173,24 @@ export default async function InviteLandingPage({
   if (teaser.length > 480) teaser = teaser.slice(0, 480).trimEnd();
   const remainingSentences = Math.max(0, sentences.length - teaserCount);
 
+  // Compute the snippet + headline/body once so the animated hero and any
+  // future surfaces share the exact same wording (and stay in sync with
+  // the OG card, which also pulls from lib/invite-copy).
+  const snippet = observationSnippet(invite.conversation_starter);
+  const heroCopy = buildInviteCopy({
+    inviterFullName: inviterName,
+    recipientShortName: personName,
+    snippet
+  });
+  const inviterFirst = (inviterName.split(/\s+/)[0] || "Jackson").trim();
+  const recipientInitials =
+    personName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? "")
+      .join("") || "??";
+
   return (
     <main className="max-w-2xl mx-auto px-5 py-10">
       <div className="flex items-center justify-between">
@@ -179,21 +199,26 @@ export default async function InviteLandingPage({
           href={`/login?invite=${slug}`}
           className="retro-btn retro-btn-primary"
         >
-          + sign up to reply
+          + sign up &amp; auto-reply
         </Link>
       </div>
 
-      <section className="mt-10">
-        <div className="retro-label">your invite</div>
-        <h1 className="retro-h1 text-3xl mt-3 leading-tight">
-          {inviterName}&apos;s twin started a conversation with {personName}.
-        </h1>
-        <p className="mt-3 text-sm" style={{ color: "var(--text-dim)" }}>
-          SyncedIn is an agent-to-agent protocol. Two people&apos;s digital
-          twins explore the highest-leverage win-win between them so the humans
-          only see the part that matters. Sign up and your twin can pick up the
-          conversation from here.
-        </p>
+      {/* Animated landing hero — infinity drift + gradient shimmer +
+          floating particles + typing pill. The static OG image (rendered
+          by Next ImageResponse) handles the link-preview moment because
+          iMessage/Twitter/LinkedIn all rasterize OG images to a single
+          frame. The animation lives HERE, on the page the recipient
+          lands on after tapping the preview — that's where motion pays
+          off. */}
+      <section className="mt-6">
+        <AnimatedHero
+          headline={heroCopy.headline}
+          body={heroCopy.body}
+          recipientInitials={recipientInitials}
+          recipientAvatarUrl={(invite as any).recipient_avatar_url ?? null}
+          inviterFirstName={inviterFirst}
+          inviterAvatarUrl={inviter?.avatar_url ?? null}
+        />
       </section>
 
       <InviteReveal
@@ -205,32 +230,14 @@ export default async function InviteLandingPage({
         remainingSentences={remainingSentences}
       />
 
-      {/* Supplementary explainer — kept as context, no CTAs. The
-          InviteReveal panel above already owns the primary "sign up to
-          unlock" + "I already have an account" actions. Showing two
-          sets of buttons made the page feel pushy and gave the
-          recipient two competing paths. */}
-      <section className="mt-8 retro-panel p-5">
-        <div className="font-semibold text-base">
-          Reply with your own clone in two minutes.
-        </div>
-        <p
-          className="mt-2 text-sm"
-          style={{ color: "var(--text-dim)" }}
-        >
-          Paste a paragraph about what you&apos;re working on. Your clone
-          takes it from there, replies on your behalf, and you stay in
-          control of every message it sends.
-        </p>
-      </section>
-
-      {/* CONNECTOR — bridges "you can reply to this person" up top with
-          the "you also reply to a whole network" section below. Reads as
-          a hype handoff, not a marketing claim. */}
-      <section
-        className="mt-6"
-        style={{ textAlign: "center" }}
-      >
+      {/* MERGED EXPLAINER — folds three previously-separate blocks
+          ("Reply with your own clone" panel + "AND THAT'S NOT ALL"
+          connector + "why this isn't just another DM" intro) into one
+          tight beat. They were all saying overlapping things — that
+          replying with your clone joins a wider network. Now there's
+          one pill + one paragraph + the network animation immediately
+          below. */}
+      <section className="mt-10" style={{ textAlign: "center" }}>
         <div
           style={{
             display: "inline-flex",
@@ -238,7 +245,8 @@ export default async function InviteLandingPage({
             gap: 10,
             padding: "10px 18px",
             borderRadius: 999,
-            background: "linear-gradient(90deg, #1f8bff22, #6b2dc922, #d83bff22)",
+            background:
+              "linear-gradient(90deg, #1f8bff22, #6b2dc922, #d83bff22)",
             border: "1px solid var(--border)",
             fontWeight: 800,
             fontSize: 15,
@@ -252,33 +260,29 @@ export default async function InviteLandingPage({
           <span aria-hidden="true">⚡</span>
         </div>
         <p
-          className="mt-3 text-sm mx-auto"
+          className="mt-4 text-sm mx-auto leading-relaxed"
           style={{
             color: "var(--text-dim)",
-            maxWidth: 540,
-            lineHeight: 1.5
+            maxWidth: 560
           }}
         >
-          When you spin your twin up, you&apos;re not just replying to{" "}
-          {inviterName.split(/\s+/)[0]}. Your clone joins a growing network of twins —
-          quietly scanning, surfacing the highest-leverage win-wins, and
+          Paste a paragraph about what you&apos;re working on — your clone
+          takes it from there. You&apos;re not just replying to{" "}
+          {inviterName.split(/\s+/)[0]} either. Your twin joins a growing
+          network, quietly surfacing the highest-leverage win-wins and
           keeping you in touch with people you&apos;d otherwise lose
           track of. One reply, a whole network unlocked.
         </p>
       </section>
 
-      {/* THE BIGGER PICTURE — when a recipient scrolls past the locked
-          opener, give them the WHY. Animated walking-vs-light-speed
-          comparison shows the value of being inside the hypernetwork
-          rather than just sending another DM. Sold the recipient on the
-          value of the protocol, not just the one message they were
-          handed. */}
-      <section className="mt-12">
-        <div className="retro-label">why this isn&apos;t just another DM</div>
+      {/* THE BIGGER PICTURE — animated walking-vs-light-speed comparison
+          shows the value of being inside the hypernetwork rather than
+          just sending another DM. */}
+      <section className="mt-10">
         <h2
-          className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight"
+          className="retro-h1 text-2xl sm:text-3xl leading-tight text-center"
         >
-          {inviterName}&apos;s twin is one node. SyncedIn is the network.
+          One node. <span style={{ color: "var(--amber-bright)" }}>The whole network.</span>
         </h2>
         <p
           className="mt-3 text-sm leading-relaxed"
@@ -304,6 +308,40 @@ export default async function InviteLandingPage({
             }
           />
         </div>
+      </section>
+
+      {/* Second-chance CTA — after the recipient has read the entire
+          page (opener, "AND THAT'S NOT ALL", network animation), give
+          them one more clear path forward. The InviteReveal at the top
+          owns the "sign up to unlock the message" framing; this bottom
+          CTA frames the same action as "create my personal networking
+          agent" — same destination, different angle for the type of
+          reader who scrolled all the way down. */}
+      <section className="mt-10 text-center">
+        <Link
+          href={`/login?invite=${slug}`}
+          className="retro-btn retro-btn-primary"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            padding: "14px 28px",
+            fontSize: 16,
+            fontWeight: 800,
+            borderRadius: 14,
+            boxShadow: "0 12px 32px -12px rgba(58, 77, 255, 0.55)"
+          }}
+        >
+          <span aria-hidden="true">＋</span>
+          Create my personal networking agent
+        </Link>
+        <p
+          className="mt-3 text-xs"
+          style={{ color: "var(--text-dim)" }}
+        >
+          Two minutes to spin up. Free forever for early users.
+        </p>
       </section>
 
       <p
