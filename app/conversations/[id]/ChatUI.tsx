@@ -499,7 +499,8 @@ export function ChatUI({
   initialMessages,
   initialDone,
   initialMyResponse,
-  initialOtherResponse
+  initialOtherResponse,
+  otherLastReadAt
 }: {
   conversationId: string;
   selfUserId: string;
@@ -517,6 +518,9 @@ export function ChatUI({
   initialDone: boolean;
   initialMyResponse: ResponseState | null;
   initialOtherResponse: ResponseState | null;
+  /** Counterpart's most recent /api/conversations/[id]/read timestamp.
+   *  Used to render ✓✓ (read) vs ✓ (delivered) on outgoing bubbles. */
+  otherLastReadAt?: string | null;
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [done, setDone] = useState(initialDone);
@@ -544,6 +548,20 @@ export function ChatUI({
   // small "Deal sealed · open" pill and taps to expand.
   const [agreementCollapsed, setAgreementCollapsed] = useState(true);
   const [rejectReason, setRejectReason] = useState("");
+
+  // Read-receipt: stamp /api/conversations/[id]/read on mount and after
+  // every new message arrives, so the counterpart sees our ✓✓ next time
+  // they load. Fire-and-forget — failure shouldn't block the chat.
+  useEffect(() => {
+    fetch(`/api/conversations/${conversationId}/read`, {
+      method: "POST"
+    }).catch(() => {});
+  }, [conversationId, messages.length]);
+
+  // Counterpart's last_read timestamp as a Date for per-message
+  // comparison. Stays static from initial server render; refreshing the
+  // page re-reads the latest value.
+  const otherReadAt = otherLastReadAt ? new Date(otherLastReadAt) : null;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const startedRef = useRef(false);
@@ -1071,6 +1089,33 @@ export function ChatUI({
                       className="text-[10px] mt-0.5 flex items-center justify-end gap-2"
                       style={{ color: "var(--text-dim)" }}
                     >
+                      {/* WhatsApp-style read receipt. Single ✓ = delivered
+                          (message exists in our DB). Double ✓✓ in brand
+                          blue = the counterpart has loaded a fresh page
+                          AFTER this message was sent. Server-rendered
+                          snapshot only — for realtime ✓✓ updates we'd
+                          subscribe to last_read_* via Supabase realtime
+                          in a follow-up. */}
+                      {(() => {
+                        const sentAt = m.sent_at ? new Date(m.sent_at) : null;
+                        const read =
+                          otherReadAt && sentAt && otherReadAt >= sentAt;
+                        return (
+                          <span
+                            aria-label={read ? "read" : "delivered"}
+                            title={read ? "read" : "delivered"}
+                            style={{
+                              color: read
+                                ? "var(--amber-bright)"
+                                : "var(--text-dim)",
+                              fontSize: 11,
+                              lineHeight: 1
+                            }}
+                          >
+                            {read ? "✓✓" : "✓"}
+                          </span>
+                        );
+                      })()}
                       {m.edited && <span>✎ edited</span>}
                       <button
                         type="button"

@@ -165,6 +165,14 @@ export default async function ConversationPage({
       }}
       initialMessages={msgs}
       initialDone={done}
+      // Read receipt — counterpart's last_read_* timestamp. ChatUI
+      // compares each outgoing message's sent_at against this to choose
+      // between ✓ (delivered) and ✓✓ (read by counterpart).
+      otherLastReadAt={
+        ((conv as any)?.[
+          conv.participant_a === user.id ? "last_read_b" : "last_read_a"
+        ] as string | null) ?? null
+      }
       initialMyResponse={
         myResponse ? { response: myResponse.response } : null
       }

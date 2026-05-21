@@ -2,8 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { slugifyHandle } from "@/lib/handle";
+import { scrapePublicProfile } from "@/lib/scrape";
 
 function s(v: FormDataEntryValue | null): string | null {
   if (v === null) return null;
@@ -76,6 +77,49 @@ export async function saveTwin(formData: FormData) {
   await supabase
     .from("twin_profiles")
     .upsert(fields, { onConflict: "user_id" });
+
+  // Portfolio-from-LinkedIn auto-pull. If the user's blob contains a
+  // LinkedIn URL and they don't yet have portfolio_about set, scrape the
+  // profile and pre-fill it. Best-effort — never blocks the save. Lives
+  // here so the user's /u/<handle> portfolio page renders MEANINGFULLY
+  // the first time they visit it.
+  try {
+    const service = createServiceClient();
+    const { data: profRow } = await service
+      .from("profiles")
+      .select("portfolio_about")
+      .eq("id", user.id)
+      .maybeSingle();
+    const alreadyHasAbout =
+      ((profRow as any)?.portfolio_about ?? "").toString().trim().length > 40;
+    if (!alreadyHasAbout) {
+      const blob = (fields.ai_export_blob ?? "").toString();
+      const linkedInMatch = blob.match(
+        /https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-z0-9-]+\/?/i
+      );
+      if (linkedInMatch) {
+        try {
+          const scraped = await scrapePublicProfile(linkedInMatch[0]);
+          if (scraped && scraped.trim().length > 80) {
+            // Use the first ~700 chars of the cleaned scrape as the
+            // initial portfolio About copy. The user can edit any time.
+            const aboutSeed = scraped.trim().slice(0, 700);
+            await service
+              .from("profiles")
+              .update({ portfolio_about: aboutSeed })
+              .eq("id", user.id);
+          }
+        } catch (e) {
+          console.warn(
+            "[onboarding] portfolio LinkedIn pre-fill scrape failed",
+            e
+          );
+        }
+      }
+    }
+  } catch {
+    /* portfolio columns may not yet exist in prod — silent skip */
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/onboarding");

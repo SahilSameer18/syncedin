@@ -356,6 +356,14 @@ alter table public.conversations
 alter table public.conversations
   add column if not exists goal_override text;
 
+-- Read receipts (WhatsApp-style ✓✓). Stamped on mount by each
+-- participant. ChatUI uses these to render single-check (delivered) vs
+-- double-check (read by counterpart) glyphs on outgoing messages.
+alter table public.conversations
+  add column if not exists last_read_a timestamptz;
+alter table public.conversations
+  add column if not exists last_read_b timestamptz;
+
 -- Participants can UPDATE their conversations (needed for the excitement override).
 drop policy if exists "conv_update_participant" on public.conversations;
 create policy "conv_update_participant" on public.conversations
