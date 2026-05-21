@@ -617,6 +617,12 @@ export default async function HypernetworkPage() {
           <Link href="/dashboard" className="retro-btn">
             Go to dashboard
           </Link>
+          <Link href="/careers" className="retro-btn">
+            Careers ·{" "}
+            <span style={{ color: "var(--amber-bright)" }}>
+              hiring founding members
+            </span>
+          </Link>
         </div>
       </section>
     </>

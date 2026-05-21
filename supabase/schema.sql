@@ -332,6 +332,15 @@ alter table public.conversations
 alter table public.conversations
   add column if not exists excitement_locked boolean not null default false;
 
+-- Per-conversation goal override. Lets a single twin pivot what it's
+-- pitching for THIS specific recipient without rewriting the head goal.
+-- (Founder talking to investor → "raise"; same founder talking to candidate
+--  → "hire"; same founder talking to journalist → "story angle".)
+-- Null falls back to twin_profiles.goals. Set by the user from the
+-- conversation page; downstream prompt builders read this first.
+alter table public.conversations
+  add column if not exists goal_override text;
+
 -- Participants can UPDATE their conversations (needed for the excitement override).
 drop policy if exists "conv_update_participant" on public.conversations;
 create policy "conv_update_participant" on public.conversations

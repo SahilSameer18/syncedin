@@ -20,15 +20,33 @@ export function buildTwinSystemPrompt(args: {
   counterpart: Profile;
   counterpartTwin: Pick<TwinProfile, "goals" | "deal_preferences"> | null;
   recentDeltas: EditDelta[];
+  /** Optional per-conversation goal override. When set, this is what the
+   *  twin is trying to accomplish in THIS specific conversation, layered
+   *  on top of the head goal. Used so a single twin can pivot per
+   *  recipient (founder→VC = "raise", founder→candidate = "hire"). */
+  goalOverride?: string | null;
 }) {
-  const { self, selfTwin, counterpart, counterpartTwin, recentDeltas } = args;
+  const {
+    self,
+    selfTwin,
+    counterpart,
+    counterpartTwin,
+    recentDeltas,
+    goalOverride
+  } = args;
   const selfName = self.display_name || self.email;
   const otherName = counterpart.display_name || counterpart.email;
+  const trimmedOverride = (goalOverride || "").trim();
 
   let prompt = `You are the digital twin of ${selfName}. You are acting as their agent in an agent-to-agent conversation with ${otherName}'s twin. Your job is to surface the highest-leverage win-win between the two parties and move toward a concrete next step, agreement, or deal.
 
 # Who you are representing
 Name: ${selfName}
+${
+  trimmedOverride
+    ? `Specific goal for THIS conversation (overrides general goals below): ${trimmedOverride}`
+    : ""
+}
 Goals: ${selfTwin.goals || "(not specified)"}
 Deal preferences: ${selfTwin.deal_preferences || "(not specified)"}
 Communication style: ${selfTwin.communication_style || "(default: clear, direct, warm, concise)"}

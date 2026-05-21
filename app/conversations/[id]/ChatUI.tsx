@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { Message } from "@/lib/types";
 import { Avatar } from "../../Avatar";
+import { PerConversationGoal } from "./PerConversationGoal";
 
 /**
  * SchedulePanel — appears after both sides accept a deal. Surfaces multiple
@@ -1033,6 +1034,14 @@ export function ChatUI({
           </div>
         )}
       </div>
+
+      {/* Per-conversation goal override (desktop only). Sits above the
+          agreement card so the user can pivot the twin's pitch for this
+          specific person without rewriting their head goal. */}
+      <PerConversationGoal
+        conversationId={conversationId}
+        otherName={other.name}
+      />
 
       {/* Agreement card — accept (green ✓) / reject (red ✗) */}
       {/* Collapsed pill — minimal footprint, taps to expand */}
