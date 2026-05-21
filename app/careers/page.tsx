@@ -117,6 +117,17 @@ export default function CareersPage() {
           >
             Build your twin →
           </Link>
+          {/* Direct path for candidates who'd rather skip the twin loop
+              and just get on Jack's calendar. Opens Calendly in a new
+              tab so the careers page stays alive behind it. */}
+          <a
+            href="https://calendly.com/JackJay"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="retro-btn"
+          >
+            📅 Book a call with Jack
+          </a>
           <Link href="/hypernetwork" className="retro-btn">
             Read the hypernetwork manifesto
           </Link>
