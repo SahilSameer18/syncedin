@@ -529,6 +529,8 @@ export function ChatUI({
   // by default after the twin loop finishes — user pops it open with
   // the "+ add another message" button, closes via the X in the panel.
   const [composeOpen, setComposeOpen] = useState(false);
+  // Same pattern for the per-conversation goal override panel.
+  const [goalOpen, setGoalOpen] = useState(false);
   // The user_id of whoever's about to draft the next turn. Drives the
   // iMessage-style typing indicator's side + name. Falls back to the
   // "not the last sender" inference if the server didn't return it yet.
@@ -1229,11 +1231,68 @@ export function ChatUI({
         })()}
       </div>
 
-      {/* COMPOSE-AT-END — Jack's call: once the twin loop is done, give
-          the user a real textarea to add a message ON TOP of the last
-          turn rather than only being able to edit prior messages. Posts
-          via the existing send-message API as the user themselves; the
-          counterpart's twin sees it on next runLoop. */}
+      {/* 3-button action row — visible after the twin loop ends, sits
+          ABOVE both pop-out panels so the buttons stay anchored at
+          the top of the affordance and panels expand below them.
+          Per Jack's call: continue conversation · add another message
+          · add a specific goal, all three on the same line. */}
+      {done && !running && !editingId && (
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            flexWrap: "wrap",
+            marginTop: 8,
+            marginBottom: 8
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => runLoop()}
+            className="retro-btn retro-btn-primary text-xs"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+            title="Have the twins generate one more turn"
+          >
+            ↻ continue conversation
+          </button>
+          <button
+            type="button"
+            onClick={() => setComposeOpen((v) => !v)}
+            className="retro-btn text-xs"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              borderColor: composeOpen ? "#1f8bff" : undefined,
+              color: composeOpen ? "#1f8bff" : undefined
+            }}
+            title="Add a message in your own voice; twin picks it up from there"
+          >
+            {composeOpen ? "× " : "+ "}
+            add another message
+          </button>
+          <button
+            type="button"
+            onClick={() => setGoalOpen((v) => !v)}
+            className="retro-btn text-xs"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              borderColor: goalOpen ? "#1f8bff" : undefined,
+              color: goalOpen ? "#1f8bff" : undefined
+            }}
+            title="Set a goal that's specific to this conversation"
+          >
+            {goalOpen ? "× " : "🎯 "}
+            add a specific goal
+          </button>
+        </div>
+      )}
+
+      {/* COMPOSE-AT-END panel — mounts under the action row when the
+          user toggles "add another message" on. Posts via the
+          send-message API as the human themselves. */}
       {done && !running && !editingId && composeOpen && (
         <ComposeAtEnd
           conversationId={conversationId}
@@ -1244,28 +1303,17 @@ export function ChatUI({
           onClose={() => setComposeOpen(false)}
         />
       )}
-      {done && !running && !editingId && !composeOpen && (
-        <button
-          type="button"
-          onClick={() => setComposeOpen(true)}
-          className="retro-btn text-xs"
-          style={{
-            marginTop: 8,
-            marginBottom: 8,
-            alignSelf: "flex-start"
-          }}
-        >
-          + add another message
-        </button>
-      )}
 
-      {/* Per-conversation goal override (desktop only). Sits above the
-          agreement card so the user can pivot the twin's pitch for this
-          specific person without rewriting their head goal. */}
-      <PerConversationGoal
-        conversationId={conversationId}
-        otherName={other.name}
-      />
+      {/* Per-conversation goal override — mounts under the action row
+          when the user toggles "add a specific goal" on. The component
+          still has its own internal collapse logic for the case where
+          a saved value pre-exists. */}
+      {goalOpen && (
+        <PerConversationGoal
+          conversationId={conversationId}
+          otherName={other.name}
+        />
+      )}
 
       {/* Agreement card — accept (green ✓) / reject (red ✗) */}
       {/* Collapsed pill — taps to expand. Pulses subtly to read as
