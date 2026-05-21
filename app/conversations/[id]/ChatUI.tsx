@@ -1054,18 +1054,23 @@ export function ChatUI({
           // next_turn_user_id; if it hasn't responded yet, fall back to
           // "whoever's NOT the last sender" so the indicator still picks
           // a side on the very first turn.
+          //
+          // NB: must use `selfUserId` / `selfName` here, NOT a `self`
+          // object — this component's props are flat (selfUserId,
+          // selfName, ...). The bare identifier `self` resolves to the
+          // browser's `window.self` global and breaks the type check.
           const lastSenderId = messages.length
             ? messages[messages.length - 1].sender_user_id
             : null;
           const typerId =
             nextTurnUserId ??
-            (lastSenderId === self.id
+            (lastSenderId === selfUserId
               ? other.id
               : lastSenderId === other.id
-                ? self.id
+                ? selfUserId
                 : other.id);
-          const isMine = typerId === self.id;
-          const typerFirstName = (isMine ? self.name : other.name)
+          const isMine = typerId === selfUserId;
+          const typerFirstName = (isMine ? selfName : other.name)
             .split(/\s+/)[0];
           return (
             <div
