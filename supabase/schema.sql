@@ -49,6 +49,40 @@ alter table public.profiles
   add column if not exists facebook_url text;
 alter table public.profiles
   add column if not exists website_url text;
+
+-- Funny mode flag — when ON for a conversation, the twin prompt
+-- builder swaps to personality-first wiring (more emojis, lighter
+-- tone, still drives toward outcome but in a much more fun
+-- register). Per-conversation override only; head-toggle TBD.
+alter table public.conversations
+  add column if not exists funny_mode boolean not null default false;
+
+-- Account-report table for the in-app "report user" flow. Anyone
+-- signed-in can flag another account; jacksonjezio@gmail.com reviews
+-- via /admin/reports (followup). Categories enforced at the API
+-- layer rather than via a check constraint so we can add new ones
+-- without a migration.
+create table if not exists public.account_reports (
+  id uuid primary key default uuid_generate_v4(),
+  reporter_user_id uuid references public.profiles(id) on delete set null,
+  reported_user_id uuid not null references public.profiles(id) on delete cascade,
+  category text not null,
+  reason text,
+  status text not null default 'open', -- open | reviewed | dismissed | actioned
+  created_at timestamptz not null default now()
+);
+create index if not exists account_reports_reported_idx
+  on public.account_reports (reported_user_id, created_at desc);
+create index if not exists account_reports_status_idx
+  on public.account_reports (status, created_at desc);
+alter table public.account_reports enable row level security;
+drop policy if exists "reports_insert_signed_in" on public.account_reports;
+create policy "reports_insert_signed_in" on public.account_reports
+  for insert with check (auth.uid() is not null);
+drop policy if exists "reports_select_self" on public.account_reports;
+create policy "reports_select_self" on public.account_reports
+  for select using (auth.uid() = reporter_user_id);
+
 create index if not exists profiles_handle_idx
   on public.profiles (lower(handle));
 

@@ -15,6 +15,7 @@ import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
 import { computePairScore } from "@/lib/pair-score";
 import { QuickFeedbackWidget } from "./QuickFeedbackWidget";
+import { PremiumProgressCard } from "./PremiumProgressCard";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -574,6 +575,44 @@ export default async function DashboardPage() {
           )}
         </section>
       )}
+
+          {/* Premium-unlock progress — 3 completed referrals = Premium
+              free. Counts pulled best-effort: any user who claimed an
+              invite from this user AND has a non-null twin_profiles.goals
+              counts as "completed". Wrapped in try/catch so the card
+              just shows 0 if the underlying tables aren't reachable. */}
+          {await (async () => {
+            let completedReferrals = 0;
+            try {
+              const { data: claimedRows } = await service
+                .from("pending_invites")
+                .select("claimed_by_user_id")
+                .eq("inviter_user_id", user.id)
+                .not("claimed_by_user_id", "is", null);
+              const ids = Array.from(
+                new Set(
+                  ((claimedRows ?? []) as any[])
+                    .map((r) => r.claimed_by_user_id)
+                    .filter(Boolean)
+                )
+              );
+              if (ids.length > 0) {
+                const { data: completedTwins } = await service
+                  .from("twin_profiles")
+                  .select("user_id")
+                  .in("user_id", ids)
+                  .not("goals", "is", null);
+                completedReferrals = (completedTwins ?? []).length;
+              }
+            } catch {
+              /* silent — card shows 0/3 */
+            }
+            return (
+              <PremiumProgressCard
+                completedReferrals={completedReferrals}
+              />
+            );
+          })()}
 
           {/* Invite */}
           <section>

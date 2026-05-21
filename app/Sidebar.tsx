@@ -41,12 +41,16 @@ export function Sidebar({
   const items: Array<{ href: string; label: string; icon: string }> = [
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "💬" },
+    { href: "/proposals", label: "Proposals", icon: "🤝" },
     { href: "/invite", label: "Invite", icon: "💌" },
     { href: "/poll", label: "Poll", icon: "📊" },
+    { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
     { href: "/conferences/new", label: "Sync a conference", icon: "🎤" },
     { href: "/communities/new", label: "Sync a community", icon: "👥" },
     { href: "/onboarding", label: "Edit twin", icon: "🧬" },
-    { href: "/settings/notifications", label: "Notifications", icon: "🔔" },
+    // Settings now points at the unified hub (notifications + password +
+    // delete account + portfolio link), not the lone notifications page.
+    { href: "/settings", label: "Settings", icon: "⚙️" },
     { href: "/feedback", label: "Feedback", icon: "💡" },
     // The Hypernetwork sits at the bottom as the destination — every other
     // action above feeds into it. Renamed from "Hypernetwork" so the label
