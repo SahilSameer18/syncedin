@@ -30,13 +30,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { conversation_id?: string };
+  let body: { conversation_id?: string; force?: boolean };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
   const conversation_id = body.conversation_id;
+  const force = !!body.force;
   if (!conversation_id) {
     return NextResponse.json(
       { error: "missing_conversation_id" },
@@ -64,12 +65,17 @@ export async function POST(req: Request) {
     .order("sent_at", { ascending: true });
   const msgs = (messages as Message[]) ?? [];
 
-  // Stop conditions
-  if (msgs.length >= MAX_AUTO_TURNS) {
-    return NextResponse.json({ done: true, reason: "turn_cap" });
-  }
-  if (msgs.length > 0 && hasAgreement(msgs[msgs.length - 1].final_text)) {
-    return NextResponse.json({ done: true, reason: "agreement" });
+  // Stop conditions — skipped when the client passes force=true. The
+  // re-run button uses force when the conversation is already done, so
+  // adding a per-conv goal mid-flight actually fires one fresh turn that
+  // picks up the new goal_override.
+  if (!force) {
+    if (msgs.length >= MAX_AUTO_TURNS) {
+      return NextResponse.json({ done: true, reason: "turn_cap" });
+    }
+    if (msgs.length > 0 && hasAgreement(msgs[msgs.length - 1].final_text)) {
+      return NextResponse.json({ done: true, reason: "agreement" });
+    }
   }
 
   // Whose turn? Whoever did NOT send the last message. Empty → participant_a.

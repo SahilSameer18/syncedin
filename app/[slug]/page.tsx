@@ -224,6 +224,49 @@ export default async function InviteLandingPage({
         </p>
       </section>
 
+      {/* CONNECTOR — bridges "you can reply to this person" up top with
+          the "you also reply to a whole network" section below. Reads as
+          a hype handoff, not a marketing claim. */}
+      <section
+        className="mt-6"
+        style={{ textAlign: "center" }}
+      >
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "10px 18px",
+            borderRadius: 999,
+            background: "linear-gradient(90deg, #1f8bff22, #6b2dc922, #d83bff22)",
+            border: "1px solid var(--border)",
+            fontWeight: 800,
+            fontSize: 15,
+            letterSpacing: "0.02em",
+            color: "var(--amber-bright)",
+            textTransform: "uppercase"
+          }}
+        >
+          <span aria-hidden="true">⚡</span>
+          <span>and that&apos;s not all!</span>
+          <span aria-hidden="true">⚡</span>
+        </div>
+        <p
+          className="mt-3 text-sm mx-auto"
+          style={{
+            color: "var(--text-dim)",
+            maxWidth: 540,
+            lineHeight: 1.5
+          }}
+        >
+          When you spin your twin up, you&apos;re not just replying to{" "}
+          {inviterName.split(/\s+/)[0]}. Your clone joins a growing network of twins —
+          quietly scanning, surfacing the highest-leverage win-wins, and
+          keeping you in touch with people you&apos;d otherwise lose
+          track of. One reply, a whole network unlocked.
+        </p>
+      </section>
+
       {/* THE BIGGER PICTURE — when a recipient scrolls past the locked
           opener, give them the WHY. Animated walking-vs-light-speed
           comparison shows the value of being inside the hypernetwork

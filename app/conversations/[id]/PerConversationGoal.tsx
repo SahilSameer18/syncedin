@@ -123,13 +123,26 @@ export function PerConversationGoal({
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="retro-dim"
+              aria-label="Close goal panel"
+              title="Close"
               style={{
-                fontSize: 10,
+                // Bumped from a 10px text glyph with no padding (mobile
+                // tap-target was ~14px, miss-tap city) to a proper 28px
+                // hit zone with visible border.
+                width: 28,
+                height: 28,
+                borderRadius: 14,
                 background: "transparent",
-                border: 0,
+                border: "1px solid var(--border)",
                 cursor: "pointer",
-                padding: 0
+                padding: 0,
+                fontSize: 14,
+                lineHeight: 1,
+                color: "var(--text-dim)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0
               }}
             >
               ✕

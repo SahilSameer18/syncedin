@@ -568,7 +568,10 @@ export function DiscoverSearch({
                     {/* Small X — dismiss this user from the directory. Stays
                         hidden across page loads via localStorage. Stops
                         form propagation so it doesn't accidentally fire
-                        startConversationWithUser. */}
+                        startConversationWithUser.
+                        Positioned at the TOP-LEFT corner (not top-right)
+                        so it can't visually overlap the "{score}% sync"
+                        label and "connect >" button stacked on the right. */}
                     <button
                       type="button"
                       aria-label={`Dismiss ${p.display_name || p.email}`}
@@ -581,20 +584,31 @@ export function DiscoverSearch({
                       style={{
                         position: "absolute",
                         top: 6,
-                        right: 6,
-                        width: 22,
-                        height: 22,
-                        borderRadius: 11,
+                        left: 6,
+                        width: 20,
+                        height: 20,
+                        borderRadius: 10,
                         border: "1px solid var(--border)",
-                        background: "transparent",
+                        background: "var(--panel-solid)",
                         color: "var(--text-dim)",
                         cursor: "pointer",
-                        fontSize: 12,
+                        fontSize: 11,
                         lineHeight: 1,
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        padding: 0
+                        padding: 0,
+                        // Sits above the avatar circle; very low opacity
+                        // until row-hover so it doesn't dominate. Mobile
+                        // taps still hit it via the 20×20 target.
+                        opacity: 0.55,
+                        transition: "opacity 120ms ease"
+                      }}
+                      onMouseEnter={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.opacity = "1";
+                      }}
+                      onMouseLeave={(e) => {
+                        (e.currentTarget as HTMLButtonElement).style.opacity = "0.55";
                       }}
                     >
                       ✕

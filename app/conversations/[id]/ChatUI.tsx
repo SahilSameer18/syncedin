@@ -563,15 +563,27 @@ export function ChatUI({
   }
 
   // Auto-run the conversation: keep generating turns until the server says done.
+  // If the user clicks re-run while done=true (typically after adding a per-
+  // convo goal), pass `force: true` so the server skips its "already at turn
+  // cap" / "already agreed" early-exit and actually fires another turn with
+  // the new goal_override pulled fresh from the DB.
   const runLoop = useCallback(async () => {
+    const forceNext = done;
     setRunning(true);
     setError(null);
+    setDone(false);
     try {
       for (let i = 0; i < CLIENT_TURN_CAP; i++) {
         const res = await fetch("/api/run-conversation", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ conversation_id: conversationId })
+          body: JSON.stringify({
+            conversation_id: conversationId,
+            // Only force on the FIRST iteration of the loop — once we've
+            // generated one fresh turn the natural early-exit logic
+            // should resume.
+            force: forceNext && i === 0
+          })
         });
         if (!res.ok) throw new Error(await readError(res));
         const json = await res.json();
@@ -1131,38 +1143,103 @@ export function ChatUI({
       />
 
       {/* Agreement card — accept (green ✓) / reject (red ✗) */}
-      {/* Collapsed pill — minimal footprint, taps to expand */}
+      {/* Collapsed pill — taps to expand. Pulses subtly to read as
+          actionable; the static version was getting missed because users
+          read it as a status badge, not a button. */}
       {lastAgreement && agreementCollapsed && (
-        <button
-          type="button"
-          onClick={() => setAgreementCollapsed(false)}
-          className="retro-panel mb-2 w-full text-left"
-          style={{
-            borderColor: bothAccepted ? "var(--green)" : "var(--amber)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 8,
-            padding: "10px 12px",
-            fontSize: 13,
-            cursor: "pointer"
-          }}
-        >
-          <span
+        <>
+          <style>{`
+            @keyframes synced-destination-pulse {
+              0%, 100% {
+                box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.55);
+              }
+              50% {
+                box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+              }
+            }
+            @keyframes synced-destination-pulse-sealed {
+              0%, 100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.55);
+              }
+              50% {
+                box-shadow: 0 0 0 6px rgba(34, 197, 94, 0);
+              }
+            }
+            .synced-destination-pill {
+              animation: synced-destination-pulse 2.4s ease-in-out infinite;
+              transition: transform 120ms ease;
+            }
+            .synced-destination-pill.sealed {
+              animation: synced-destination-pulse-sealed 2.4s ease-in-out infinite;
+            }
+            .synced-destination-pill:hover,
+            .synced-destination-pill:active {
+              transform: scale(1.01);
+            }
+            .synced-destination-check {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              width: 22px;
+              height: 22px;
+              border-radius: 11px;
+              flex-shrink: 0;
+              font-size: 13px;
+              font-weight: 800;
+              line-height: 1;
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .synced-destination-pill { animation: none !important; }
+            }
+          `}</style>
+          <button
+            type="button"
+            onClick={() => setAgreementCollapsed(false)}
+            className={`retro-panel mb-2 w-full text-left synced-destination-pill${
+              bothAccepted ? " sealed" : ""
+            }`}
             style={{
-              color: bothAccepted ? "var(--green)" : "var(--amber-bright)",
-              fontWeight: 600
+              borderColor: bothAccepted ? "var(--green)" : "var(--amber)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              padding: "10px 12px",
+              fontSize: 13,
+              cursor: "pointer"
             }}
           >
-            {bothAccepted ? "✓ deal sealed" : "// proposed destination"}
-          </span>
-          <span
-            className="retro-dim"
-            style={{ fontSize: 11 }}
-          >
-            tap to {bothAccepted ? "schedule" : "review & accept"} →
-          </span>
-        </button>
+            <span
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 10,
+                color: bothAccepted ? "var(--green)" : "var(--amber-bright)",
+                fontWeight: 700
+              }}
+            >
+              <span
+                className="synced-destination-check"
+                aria-hidden="true"
+                style={{
+                  background: bothAccepted
+                    ? "var(--green)"
+                    : "var(--amber-bright)",
+                  color: "#0a0c14"
+                }}
+              >
+                ✓
+              </span>
+              {bothAccepted ? "deal sealed" : "proposed destination"}
+            </span>
+            <span
+              className="retro-dim"
+              style={{ fontSize: 11, whiteSpace: "nowrap" }}
+            >
+              tap to {bothAccepted ? "schedule" : "review & accept"} →
+            </span>
+          </button>
+        </>
       )}
       {lastAgreement && !agreementCollapsed && (
         <div
