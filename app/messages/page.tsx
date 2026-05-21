@@ -6,6 +6,7 @@ import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
 import { ConversationPrefetch } from "./ConversationPrefetch";
 import { startConversationWithUser } from "../dashboard/actions";
+import { computePairScore } from "@/lib/pair-score";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -141,17 +142,8 @@ export default async function MessagesPage() {
       return hasGoals || hasDealPrefs || hasBlob;
     })
     .map((p: any) => {
-      const t = twinByUserMsg.get(p.id);
-      const theirBlob = [
-        t?.goals ?? "",
-        (t as any)?.deal_preferences ?? "",
-        (t as any)?.communication_style ?? "",
-        (t as any)?.ai_export_blob ?? ""
-      ]
-        .filter(Boolean)
-        .join(" ");
-      const raw = score(myBlob, theirBlob);
-      const blob = (t as any)?.ai_export_blob || "";
+      const t = twinByUserMsg.get(p.id) as any;
+      const blob = (t?.ai_export_blob || "") as string;
       const headlineFromBlob =
         blob && typeof blob === "string"
           ? blob
@@ -159,6 +151,10 @@ export default async function MessagesPage() {
               .map((l: string) => l.trim())
               .find((l: string) => l.length > 20 && l.length < 200) || ""
           : "";
+      // Deterministic 4-signal pair score (unigram + bigram + goals +
+      // complementary fit). No more "everyone shows 12% because the
+      // raw jaccard rounded to 2 and the floor took over."
+      const connection_score = computePairScore(myTwinForScore ?? {}, t ?? {});
       return {
         id: p.id,
         display_name: p.display_name as string | null,
@@ -166,7 +162,7 @@ export default async function MessagesPage() {
         avatar_url: p.avatar_url as string | null,
         goals: (t?.goals as string | null) ?? null,
         headline_fallback: headlineFromBlob,
-        connection_score: Math.max(raw, theirBlob.length > 40 ? 12 : 0)
+        connection_score
       };
     })
     .sort((a, b) => b.connection_score - a.connection_score);

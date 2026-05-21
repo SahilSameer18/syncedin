@@ -291,3 +291,18 @@ select {
     }
   }
 }
+
+/* iMessage-style typing-indicator dots used by ChatUI while the
+   counterpart twin is drafting the next turn. Each dot eases up + back
+   down; the three dots are staggered 180ms apart for the classic
+   "...  ...  ..." rhythm. */
+@keyframes twinTypingDot {
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.35;
+  }
+  30% {
+    transform: translateY(-3px);
+    opacity: 1;
+  }
+}

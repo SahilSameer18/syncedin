@@ -13,6 +13,7 @@ import { DiscoverSearch } from "./DiscoverSearch";
 import { ScrollTopOnSaved } from "./ScrollTopOnSaved";
 import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
+import { computePairScore } from "@/lib/pair-score";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -197,23 +198,11 @@ export default async function DashboardPage() {
 
   const directory = (allRealUsers ?? [])
     .map((p) => {
-      const t = twinByUser.get(p.id);
-      const theirBlob = [
-        t?.goals ?? "",
-        t?.deal_preferences ?? "",
-        (t as any)?.communication_style ?? "",
-        (t as any)?.ai_export_blob ?? ""
-      ]
-        .filter(Boolean)
-        .join(" ");
-      // Score floor: 12 so even thin matches read as "small overlap" not
-      // "no overlap" — most twin pairs do share *some* surface area.
-      const raw = jaccardScore(myBlob, theirBlob);
-      const score = Math.max(raw, theirBlob.length > 40 ? 12 : 0);
+      const t = twinByUser.get(p.id) as any;
       // Headline fallback: first line of ai_export_blob if goals is
       // missing or placeholder (Sydney / Nicole had empty cards because
       // goals was stale, but their ai_export_blob still has substance).
-      const blob = (t as any)?.ai_export_blob || "";
+      const blob = (t?.ai_export_blob || "") as string;
       const headlineFromBlob =
         blob && typeof blob === "string"
           ? blob
@@ -221,12 +210,16 @@ export default async function DashboardPage() {
               .map((l: string) => l.trim())
               .find((l: string) => l.length > 20 && l.length < 200) || ""
           : "";
+      // Deterministic 4-signal pair score replacing the old "every twin
+      // shows 12% because the raw jaccard rounded to 2 and the floor took
+      // over." See lib/pair-score.ts for the math.
+      const connection_score = computePairScore(twin ?? {}, t ?? {});
       return {
         ...p,
         goals: t?.goals ?? null,
         deal_preferences: t?.deal_preferences ?? null,
         headline_fallback: headlineFromBlob,
-        connection_score: score
+        connection_score
       };
     })
     // Only show twins who have ACTUALLY put data into onboarding.

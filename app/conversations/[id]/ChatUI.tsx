@@ -506,6 +506,10 @@ export function ChatUI({
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [done, setDone] = useState(initialDone);
   const [running, setRunning] = useState(false);
+  // The user_id of whoever's about to draft the next turn. Drives the
+  // iMessage-style typing indicator's side + name. Falls back to the
+  // "not the last sender" inference if the server didn't return it yet.
+  const [nextTurnUserId, setNextTurnUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
@@ -534,7 +538,12 @@ export function ChatUI({
       top: scrollerRef.current.scrollHeight,
       behavior: "smooth"
     });
-  }, [messages.length, running, editingId]);
+    // Intentionally NOT depending on editingId — entering edit mode on a
+    // message in the middle of the thread should keep the user's scroll
+    // position so they can see the textarea they just opened. The earlier
+    // version dragged the viewport to the bottom every time edit was
+    // tapped, which hid the field the user was about to type into.
+  }, [messages.length, running]);
 
   // Dismiss the context menu on any outside click / escape.
   useEffect(() => {
@@ -568,6 +577,11 @@ export function ChatUI({
         const json = await res.json();
         if (json.message) {
           setMessages((m) => [...m, json.message]);
+        }
+        // Server hands back who's typing next so the indicator can render
+        // on the correct side with the right name.
+        if (typeof json.next_turn_user_id !== "undefined") {
+          setNextTurnUserId(json.next_turn_user_id ?? null);
         }
         if (json.done) {
           setDone(true);
@@ -1035,21 +1049,72 @@ export function ChatUI({
           );
         })}
 
-        {running && (
-          <div className="text-left">
+        {running && (() => {
+          // Figure out whose twin is mid-draft. Server tells us via
+          // next_turn_user_id; if it hasn't responded yet, fall back to
+          // "whoever's NOT the last sender" so the indicator still picks
+          // a side on the very first turn.
+          const lastSenderId = messages.length
+            ? messages[messages.length - 1].sender_user_id
+            : null;
+          const typerId =
+            nextTurnUserId ??
+            (lastSenderId === self.id
+              ? other.id
+              : lastSenderId === other.id
+                ? self.id
+                : other.id);
+          const isMine = typerId === self.id;
+          const typerFirstName = (isMine ? self.name : other.name)
+            .split(/\s+/)[0];
+          return (
             <div
-              className="inline-block px-3.5 py-2.5 text-sm"
-              style={{
-                background: "var(--bubble-them, #e5e5ea)",
-                borderRadius: 18,
-                color: "var(--bubble-them-text-dim, #6c6c70)"
-              }}
+              className={isMine ? "text-right" : "text-left"}
+              style={{ marginTop: 6 }}
             >
-              twins are drafting the next turn
-              <span className="retro-cursor" />
+              <div
+                className="inline-flex items-center gap-2 px-3.5 py-2.5 text-sm"
+                style={{
+                  background: isMine
+                    ? "var(--bubble-me, #007aff)"
+                    : "var(--bubble-them, #e5e5ea)",
+                  borderRadius: 18,
+                  color: isMine
+                    ? "var(--bubble-me-text-dim, #cfe1ff)"
+                    : "var(--bubble-them-text-dim, #6c6c70)"
+                }}
+              >
+                <span style={{ fontSize: 12 }}>
+                  {typerFirstName}&apos;s twin
+                </span>
+                {/* Three-dot animated indicator. Keyframes defined in
+                    globals.css as @keyframes twinTypingDot. */}
+                <span
+                  aria-label="typing"
+                  style={{
+                    display: "inline-flex",
+                    gap: 3,
+                    alignItems: "center"
+                  }}
+                >
+                  {[0, 1, 2].map((i) => (
+                    <span
+                      key={i}
+                      style={{
+                        width: 5,
+                        height: 5,
+                        borderRadius: "50%",
+                        background: "currentColor",
+                        opacity: 0.7,
+                        animation: `twinTypingDot 1.2s ${i * 0.18}s infinite ease-in-out`
+                      }}
+                    />
+                  ))}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Per-conversation goal override (desktop only). Sits above the
