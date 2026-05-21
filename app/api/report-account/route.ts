@@ -90,12 +90,14 @@ export async function POST(req: Request) {
         (reportedProf as any)?.display_name ||
         (reportedProf as any)?.email ||
         reported;
+      // sendEmail signature is { to, subject, text?, html?, replyTo? }.
+      // Pass html (not body) and append the review link inline since
+      // there's no footerNote param.
       await sendEmail({
         to: "jacksonjezio@gmail.com",
         subject: `[SyncedIn report] ${cat} — ${reportedName}`,
-        text: `Reporter: ${reporterName} (${user.id})\nReported: ${reportedName} (${reported})\nCategory: ${cat}\n\nReason:\n${reason || "(no reason given)"}`,
-        body: `<p><strong>Category:</strong> ${cat}</p><p><strong>Reporter:</strong> ${reporterName} (${user.id})</p><p><strong>Reported:</strong> ${reportedName} (${reported})</p><p><strong>Reason:</strong></p><pre style="white-space:pre-wrap;font-family:inherit">${(reason || "(no reason given)").replace(/</g, "&lt;")}</pre>`,
-        footerNote: "Review at /admin/reports"
+        text: `Reporter: ${reporterName} (${user.id})\nReported: ${reportedName} (${reported})\nCategory: ${cat}\n\nReason:\n${reason || "(no reason given)"}\n\nReview at https://syncedin.org/admin/reports`,
+        html: `<p><strong>Category:</strong> ${cat}</p><p><strong>Reporter:</strong> ${reporterName} (${user.id})</p><p><strong>Reported:</strong> ${reportedName} (${reported})</p><p><strong>Reason:</strong></p><pre style="white-space:pre-wrap;font-family:inherit">${(reason || "(no reason given)").replace(/</g, "&lt;")}</pre><p style="font-size:12px;color:#888;margin-top:14px;">Review at <a href="https://syncedin.org/admin/reports">/admin/reports</a></p>`
       });
     } catch (e) {
       console.warn("[report-account] notify email failed", e);
