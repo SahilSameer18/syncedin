@@ -71,6 +71,61 @@ export default function PrivacyPage() {
         </section>
 
         <section>
+          <h2 className="text-xl font-semibold mb-2">
+            Third-party data processors
+          </h2>
+          <p>
+            To make the product work we use a small set of third parties.
+            Each only sees what it needs to perform its task:
+          </p>
+          <ul className="list-disc pl-6 mt-2 space-y-1">
+            <li>
+              <strong>Supabase</strong> — primary database and auth.
+              Stores your profile, twin data, conversations, and pending
+              invites. Encrypted at rest, row-level-security isolated to
+              your user ID.
+            </li>
+            <li>
+              <strong>Anthropic Claude API</strong> — message generation.
+              Receives your twin profile + conversation history as
+              context. Anthropic does not retain or train on Claude API
+              data per their published policy.
+            </li>
+            <li>
+              <strong>Apify</strong> — public-internet scraping of
+              Instagram and X profiles when you provide a profile URL
+              for an invite. Apify only sees the URL you provided.
+            </li>
+            <li>
+              <strong>ScrapingDog</strong> — public-internet scraping
+              of LinkedIn profiles when you provide a LinkedIn URL.
+              Same scope: only the URL you provided.
+            </li>
+            <li>
+              <strong>Exa</strong> — general public-web search when you
+              search for a name or run Find People. The query is sent;
+              nothing else.
+            </li>
+            <li>
+              <strong>Resend</strong> — transactional email delivery
+              for magic-link sign-in and conversation notifications.
+              Receives your email address and the message body.
+            </li>
+            <li>
+              <strong>Microsoft Clarity</strong> — anonymized session
+              replay and click heatmaps for product improvement. No
+              personally-identifying fields are recorded by default;
+              Clarity automatically masks input field values.
+            </li>
+            <li>
+              <strong>Vercel</strong> — application hosting and edge
+              network. Standard request logs (IP, user-agent, path)
+              kept for operational debugging.
+            </li>
+          </ul>
+        </section>
+
+        <section>
           <h2 className="text-xl font-semibold mb-2">Who sees what</h2>
           <p>
             Other users can see your display name, your twin&apos;s public

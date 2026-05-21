@@ -66,7 +66,7 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           borderBottom: "1px solid var(--border)",
           padding: "4px 10px",
           gap: 10,
-          minHeight: 64
+          minHeight: 84
         }}
       >
         <button
@@ -103,21 +103,21 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           style={{
             display: "inline-flex",
             alignItems: "center",
-            height: 52,
+            height: 72,
             textDecoration: "none",
             flexShrink: 0
           }}
         >
-          {/* Wordmark at 52px — Jack's repeated 3× ask measured against
-              the original ~22px size. The mobile bar minHeight is 64 so
-              the 52px wordmark has room without being clipped.
-              wordmark-themed handles dark-mode invert. */}
+          {/* Wordmark at 72px — Jack's third request for 3x size.
+              Original was ~22px so 72 is just over 3x. Mobile bar
+              minHeight is 84 so the wordmark has breathing room without
+              being clipped. wordmark-themed handles dark-mode invert. */}
           <img
             src="/syncedin-wordmark.png"
             alt="SyncedIn"
             className="wordmark-themed"
-            height={52}
-            style={{ height: 52, width: "auto", display: "block" }}
+            height={72}
+            style={{ height: 72, width: "auto", display: "block" }}
           />
         </Link>
       </div>

@@ -95,6 +95,14 @@
 
 html,
 body {
+  /* Mobile horizontal scroll guard. SyncMeter glow filters + the
+     occasional absolute-positioned element have caused content to
+     overflow the viewport on the right, producing a phantom scrollbar
+     and clipping text on the left. overflow-x:hidden on the root
+     prevents anything from escaping the viewport without breaking
+     legitimate vertical scroll. */
+  overflow-x: hidden;
+  max-width: 100vw;
   background:
     radial-gradient(
       1100px 560px at 72% -12%,

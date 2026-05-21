@@ -27,6 +27,9 @@ export function Footer() {
         <Link href="/terms" className="hover:text-white">
           Terms
         </Link>
+        <Link href="/support" className="hover:text-white">
+          Support
+        </Link>
         <a
           href="mailto:jacksonjezio@gmail.com"
           className="hover:text-white"
