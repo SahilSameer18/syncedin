@@ -281,8 +281,10 @@ export function DiscoverSearch({
       const j = await r.json();
       const url = (j.invite_url ?? "") as string;
       let short = (j.short_message ?? "") as string;
-      if (short.length > 300) {
-        short = short.slice(0, 297).trimEnd() + "…";
+      // LinkedIn caps free-tier connection notes at 200 characters. Hard
+      // truncate so the copy-to-clipboard text is paste-safe everywhere.
+      if (short.length > 200) {
+        short = short.slice(0, 197).trimEnd() + "…";
       }
       setDraft(p.url, {
         draftText: j.message ?? "",
@@ -886,7 +888,7 @@ export function DiscoverSearch({
                                           color: "var(--amber-bright)"
                                         }}
                                       >
-                                        connection note · {d.shortText.length}/300
+                                        connection note · {d.shortText.length}/200
                                       </div>
                                       <textarea
                                         value={d.shortText}
@@ -894,13 +896,13 @@ export function DiscoverSearch({
                                           setDraft(p.url, {
                                             shortText: e.target.value.slice(
                                               0,
-                                              300
+                                              200
                                             )
                                           })
                                         }
                                         rows={3}
                                         className="retro-input mt-1 text-sm"
-                                        maxLength={300}
+                                        maxLength={200}
                                         onClick={(e) => e.stopPropagation()}
                                       />
                                       <div className="flex items-center gap-2 mt-2 flex-nowrap">
@@ -1148,7 +1150,7 @@ export function DiscoverSearch({
                                   >
                                     <span>
                                       connection note ·{" "}
-                                      {d.shortText.length}/300
+                                      {d.shortText.length}/200
                                     </span>
                                   </div>
                                   <textarea
@@ -1163,7 +1165,7 @@ export function DiscoverSearch({
                                     }
                                     rows={3}
                                     className="retro-input mt-1 text-sm"
-                                    maxLength={300}
+                                    maxLength={200}
                                     onClick={(e) => e.stopPropagation()}
                                   />
                                   <div className="flex items-center gap-2 mt-2 flex-nowrap">

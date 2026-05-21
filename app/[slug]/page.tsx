@@ -6,6 +6,7 @@ import { Wordmark } from "../Wordmark";
 import { InviteReveal } from "./InviteReveal";
 import { NetworkDensity } from "../communities/NetworkDensity";
 import { AnimatedHero } from "./AnimatedHero";
+import { DemoConversation } from "./DemoConversation";
 import { observationSnippet, buildInviteCopy } from "@/lib/invite-copy";
 
 // Force per-request render — Next.js was caching the Supabase fetch result
@@ -221,6 +222,30 @@ export default async function InviteLandingPage({
         />
       </section>
 
+      {/* PRE-AUTH DEMO CONVERSATION — the big shift. Instead of locking
+          the recipient out of the message until they sign up, we now
+          render a full simulated twin-to-twin conversation built from
+          the LinkedIn scrape we already have on the invite row. The
+          recipient can paste more context on the right, edit any line,
+          and regenerate — sign-in is moved to "open the final deal
+          proposal" only. The old InviteReveal still ships below as a
+          secondary collapsed teaser of the inviter's actual drafted
+          opener, but the demo above is the primary surface. */}
+      <section className="mt-6">
+        <DemoConversation
+          slug={slug}
+          initialMessages={[]}
+          inviterName={inviterName}
+          recipientName={personName}
+          inviterAvatarUrl={inviter?.avatar_url ?? null}
+          recipientAvatarUrl={(invite as any).recipient_avatar_url ?? null}
+        />
+      </section>
+
+      {/* Existing inviter-drafted opener stays as secondary context —
+          collapsed by default, the demo above is the primary surface
+          now. Keeps recipients who scrolled the original CTA flow
+          unbroken while the new demo carries the main attention. */}
       <InviteReveal
         slug={slug}
         inviterId={inviter?.id ?? invite.inviter_user_id}

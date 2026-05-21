@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Message } from "@/lib/types";
 import { Avatar } from "../../Avatar";
 import { PerConversationGoal } from "./PerConversationGoal";
+import { ComposeAtEnd } from "./ComposeAtEnd";
 
 /**
  * SchedulePanel — appears after both sides accept a deal. Surfaces multiple
@@ -567,8 +568,12 @@ export function ChatUI({
   // convo goal), pass `force: true` so the server skips its "already at turn
   // cap" / "already agreed" early-exit and actually fires another turn with
   // the new goal_override pulled fresh from the DB.
-  const runLoop = useCallback(async () => {
-    const forceNext = done;
+  // `proposeNow` (default false) is wired through to the prompt builder so a
+  // dedicated "propose destination" button can trigger the wrap-up turn
+  // without waiting for the twin to decide on its own — twins were ending
+  // conversations too fast before this gate existed.
+  const runLoop = useCallback(async (opts?: { proposeNow?: boolean }) => {
+    const forceNext = done || !!opts?.proposeNow;
     setRunning(true);
     setError(null);
     setDone(false);
@@ -582,7 +587,9 @@ export function ChatUI({
             // Only force on the FIRST iteration of the loop — once we've
             // generated one fresh turn the natural early-exit logic
             // should resume.
-            force: forceNext && i === 0
+            force: forceNext && i === 0,
+            // Same scoping: propose_now only applies to the first turn.
+            propose_now: !!opts?.proposeNow && i === 0
           })
         });
         if (!res.ok) throw new Error(await readError(res));
@@ -884,13 +891,38 @@ export function ChatUI({
               </div>
             </div>
             {!running && (
-              <button
-                onClick={runLoop}
-                className="retro-btn text-xs shrink-0"
-                title="Continue / re-run"
-              >
-                {messages.length === 0 ? "start" : done ? "re-run" : "continue"}
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                {/* Propose destination — explicit manual trigger so the
+                    twin doesn't end conversations on its own discretion.
+                    Only shown once there's been ≥3 exchanges (after a
+                    real opener round-trip) and the conversation isn't
+                    already sealed. */}
+                {messages.length >= 3 && !done && (
+                  <button
+                    type="button"
+                    onClick={() => runLoop({ proposeNow: true })}
+                    className="retro-btn text-xs"
+                    title="Have your twin wrap up with a concrete proposal now"
+                    style={{
+                      borderColor: "var(--amber)",
+                      color: "var(--amber-bright)"
+                    }}
+                  >
+                    🎯 propose destination
+                  </button>
+                )}
+                <button
+                  onClick={() => runLoop()}
+                  className="retro-btn text-xs"
+                  title="Continue / re-run"
+                >
+                  {messages.length === 0
+                    ? "start"
+                    : done
+                      ? "re-run"
+                      : "continue"}
+                </button>
+              </div>
             )}
           </header>
         );
@@ -1133,6 +1165,21 @@ export function ChatUI({
           );
         })()}
       </div>
+
+      {/* COMPOSE-AT-END — Jack's call: once the twin loop is done, give
+          the user a real textarea to add a message ON TOP of the last
+          turn rather than only being able to edit prior messages. Posts
+          via the existing send-message API as the user themselves; the
+          counterpart's twin sees it on next runLoop. */}
+      {done && !running && !editingId && (
+        <ComposeAtEnd
+          conversationId={conversationId}
+          onSent={(msg) => {
+            setMessages((prev) => [...prev, msg]);
+            setDone(false);
+          }}
+        />
+      )}
 
       {/* Per-conversation goal override (desktop only). Sits above the
           agreement card so the user can pivot the twin's pitch for this

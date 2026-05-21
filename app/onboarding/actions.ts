@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { slugifyHandle } from "@/lib/handle";
 
 function s(v: FormDataEntryValue | null): string | null {
   if (v === null) return null;
@@ -35,6 +36,36 @@ export async function saveTwin(formData: FormData) {
   const profileUpdate: Record<string, string | null> = {};
   if (display_name !== null) profileUpdate.display_name = display_name;
   if (avatar_url !== null) profileUpdate.avatar_url = avatar_url;
+
+  // Auto-generate the portfolio handle (URL slug for /u/<handle>) if the
+  // user doesn't have one yet. Best-effort uniqueness — fall back to a
+  // random suffix on collision so we never block the onboarding save on
+  // this. The user can change it later from the portfolio edit panel.
+  try {
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("handle")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!(existing as any)?.handle && display_name) {
+      let candidate = slugifyHandle(display_name);
+      for (let attempt = 0; attempt < 4; attempt++) {
+        const { data: collide } = await supabase
+          .from("profiles")
+          .select("id")
+          .ilike("handle", candidate)
+          .maybeSingle();
+        if (!collide) break;
+        candidate = `${slugifyHandle(display_name)}-${Math.random()
+          .toString(36)
+          .slice(2, 6)}`;
+      }
+      profileUpdate.handle = candidate;
+    }
+  } catch {
+    /* handle column may not yet exist in prod — skip silently */
+  }
+
   if (Object.keys(profileUpdate).length > 0) {
     await supabase
       .from("profiles")

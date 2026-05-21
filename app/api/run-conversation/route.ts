@@ -30,7 +30,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { conversation_id?: string; force?: boolean };
+  let body: {
+    conversation_id?: string;
+    force?: boolean;
+    propose_now?: boolean;
+  };
   try {
     body = await req.json();
   } catch {
@@ -38,6 +42,7 @@ export async function POST(req: Request) {
   }
   const conversation_id = body.conversation_id;
   const force = !!body.force;
+  const proposeNow = !!body.propose_now;
   if (!conversation_id) {
     return NextResponse.json(
       { error: "missing_conversation_id" },
@@ -139,7 +144,8 @@ export async function POST(req: Request) {
     counterpartTwin:
       (otherTwin as Pick<TwinProfile, "goals" | "deal_preferences">) ?? null,
     recentDeltas: (deltas as EditDelta[]) ?? [],
-    goalOverride: (conv as any)?.goal_override ?? null
+    goalOverride: (conv as any)?.goal_override ?? null,
+    proposeNow
   });
 
   const history = buildConversationHistory(msgs, turnUserId);

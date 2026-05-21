@@ -127,11 +127,11 @@ export default async function InviteOgImage({
         style={{
           width: "100%",
           height: "100%",
-          // Placeholder gradient — Jack is picking from 4 background
-          // mockups before we lock the style. Update this block once a
-          // variant is chosen.
+          // Infinity night sky — locked from variant B / matches the
+          // animated landing hero so the recipient gets visual
+          // continuity between the iMessage preview and the live page.
           background:
-            "linear-gradient(135deg, #f5f7ff 0%, #ffffff 50%, #f3eefe 100%)",
+            "linear-gradient(135deg, #0a0c24 0%, #1c2050 55%, #3a1a6b 100%)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -153,12 +153,20 @@ export default async function InviteOgImage({
             width: "100%"
           }}
         >
-          <img
-            src={`${SITE_URL}/syncedin-wordmark-tight.png`}
-            alt="SyncedIn"
-            height={86}
-            style={{ height: 86, width: "auto" }}
-          />
+          {/* Inline white wordmark — the PNG is dark-on-light and would
+              be invisible on the night-sky background. Plain text in the
+              brand color reads cleanly. */}
+          <div
+            style={{
+              fontSize: 56,
+              fontWeight: 800,
+              letterSpacing: "-0.02em",
+              color: "#ffffff",
+              display: "flex"
+            }}
+          >
+            Synced<span style={{ color: "#a06bff" }}>In</span>
+          </div>
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
             {recipientAvatar ? (
               <img
@@ -214,13 +222,13 @@ export default async function InviteOgImage({
           </div>
         </div>
 
-        {/* HEADLINE + BODY — bigger now that the top row is one band. */}
+        {/* HEADLINE + BODY — light text on the night-sky background. */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div
             style={{
               fontSize: 64,
               fontWeight: 800,
-              color: "#0a0c14",
+              color: "#ffffff",
               lineHeight: 1.1,
               letterSpacing: "-0.02em",
               maxWidth: 1020,
@@ -233,7 +241,7 @@ export default async function InviteOgImage({
             style={{
               marginTop: 28,
               fontSize: 32,
-              color: "#434a5e",
+              color: "#cfd5ff",
               lineHeight: 1.35,
               maxWidth: 1020,
               display: "flex"

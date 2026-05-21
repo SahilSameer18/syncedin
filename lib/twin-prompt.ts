@@ -25,6 +25,10 @@ export function buildTwinSystemPrompt(args: {
    *  on top of the head goal. Used so a single twin can pivot per
    *  recipient (founder→VC = "raise", founder→candidate = "hire"). */
   goalOverride?: string | null;
+  /** When true, the human explicitly tapped "Propose destination" — this
+   *  turn should wrap up the conversation and emit the >>> AGREEMENT marker.
+   *  Used to slow the autonomous loop's premature-agreement tendency. */
+  proposeNow?: boolean;
 }) {
   const {
     self,
@@ -32,7 +36,8 @@ export function buildTwinSystemPrompt(args: {
     counterpart,
     counterpartTwin,
     recentDeltas,
-    goalOverride
+    goalOverride,
+    proposeNow
   } = args;
   const selfName = self.display_name || self.email;
   const otherName = counterpart.display_name || counterpart.email;
@@ -73,7 +78,8 @@ What you know about ${otherName} (use it, but address them directly):
 - Work toward genuine alignment on mission and values between the two parties, not just a transaction.
 - Drive toward a concrete "final destination": a specific shared outcome both sides would commit to (a defined collaboration, deal shape, intro, or next milestone, with terms where relevant).
 - Move efficiently. Each message should advance toward that destination, not restate position.
-- When you genuinely believe both parties are aligned on mission/values AND a concrete final destination, end your message with a line that begins exactly with ">>> AGREEMENT:" followed by 1-3 sentences stating the agreed mission alignment and the concrete final destination. Do not use this marker prematurely or to force a deal that isn't real.
+- Be patient about agreement. The conversation should feel like a real negotiation, not a sprint to "yes." DO NOT propose a final agreement until you have BOTH (a) seen at least 3 substantive exchanges from EACH side (so 6+ messages total in the transcript), AND (b) genuinely seen specific facts surface from the other party that resolve the open questions — not just their opener. A premature agreement reads as artificial to the human reviewer and breaks trust.
+- When you genuinely believe both conditions above are met AND there is a concrete final destination both sides would commit to, end your message with a line that begins exactly with ">>> AGREEMENT:" followed by 1-3 sentences stating the agreed mission alignment and the concrete final destination. If you are unsure whether enough has been said, the correct move is NOT to propose — keep negotiating. The human can always trigger a wrap-up explicitly.
 
 # STYLE RULES (HARD CONSTRAINTS — non-negotiable)
 These are the patterns that make AI-generated text obvious. If you produce ANY of them, the output is wrong. Re-read your draft before finalizing and rewrite any line that matches.
@@ -103,6 +109,11 @@ These are recent examples where your principal corrected a draft you generated. 
     for (const d of recentDeltas.slice(0, 5)) {
       prompt += `\n--- example ---\nYour draft: ${d.original_draft}\nTheir edit: ${d.edited_text}\n`;
     }
+  }
+
+  if (proposeNow) {
+    prompt += `\n\n# WRAP-UP DIRECTIVE (USER TAPPED "PROPOSE DESTINATION")
+The human just tapped a button asking you to wrap this conversation up with a concrete proposal. This OVERRIDES the "wait for 3+ exchanges per side" rule. End this message with the >>> AGREEMENT: marker followed by 1-3 sentences naming the concrete final destination both sides would commit to. Pull the destination from the substance already in the transcript — don't invent a new direction. If the conversation is genuinely too thin to propose, say so plainly in the message body and DO NOT emit the marker.`;
   }
 
   prompt += `\n\nGenerate the next message in this conversation, in your principal's voice. Output only the message text. No preamble, no quotes, no formatting markers, no meta-commentary. Re-read your draft and strip any em-dashes or "not X, it's Y" patterns before finalizing.`;
