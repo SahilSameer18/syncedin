@@ -240,7 +240,7 @@ export function DemoConversation({
               .split(/\s+/)
               .filter(Boolean)
               .slice(0, 2)
-              .map((p) => p[0]?.toUpperCase() ?? "")
+              .map((p: string) => p[0]?.toUpperCase() ?? "")
               .join("");
             return (
               <div key={i} className={`demo-row ${m.sender}`}>

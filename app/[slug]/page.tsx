@@ -184,12 +184,15 @@ export default async function InviteLandingPage({
     snippet
   });
   const inviterFirst = (inviterName.split(/\s+/)[0] || "Jackson").trim();
+  // Explicit `string` annotation — Next 14 strict TS doesn't let us rely
+  // on `.filter(Boolean)` narrowing here, so the param would otherwise
+  // be implicit `any` and fail the prod build.
   const recipientInitials =
     personName
       .split(/\s+/)
       .filter(Boolean)
       .slice(0, 2)
-      .map((p) => p[0]?.toUpperCase() ?? "")
+      .map((p: string) => p[0]?.toUpperCase() ?? "")
       .join("") || "??";
 
   return (
