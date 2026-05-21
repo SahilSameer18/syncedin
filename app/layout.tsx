@@ -21,7 +21,7 @@ const CLARITY_PROJECT_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
 const SITE_URL =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://syncedin.org";
 const SITE_TITLE =
-  "SyncedIn — an agent-to-agent protocol between people";
+  "SyncedIn | Where staying Synced to your network is seamless";
 const SITE_DESCRIPTION =
   "Build a digital twin. Your twin talks to theirs. The two clones find the highest win-win between you, while you stay in control of every message.";
 

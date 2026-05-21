@@ -558,6 +558,16 @@ create table if not exists public.notification_preferences (
   updated_at timestamptz not null default now()
 );
 
+-- New-match notifications: fires when someone new finishes their twin AND
+-- their pair score against this user is above match_threshold. Default
+-- threshold is 65 — high enough to feel like a real match alert, not a
+-- "someone joined" firehose. Existing users who don't run the new schema
+-- migration get the default via the COALESCE in lib/notify.
+alter table public.notification_preferences
+  add column if not exists on_new_match boolean not null default true;
+alter table public.notification_preferences
+  add column if not exists match_threshold integer not null default 65;
+
 alter table public.notification_preferences enable row level security;
 
 drop policy if exists "notif_prefs_select_own" on public.notification_preferences;

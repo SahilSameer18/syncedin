@@ -184,21 +184,26 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
         <style>{`
-          .syncedin-mobile-drawer img.wordmark-themed {
-            display: none;
-          }
-          /* Kill the wordmark Link, all sidebar padding, and first-child
-             margins. Drawer should open with nav items immediately at the
-             top — no empty band, no logo space reservation. Jack flagged
-             this empty padding multiple times. */
-          .syncedin-mobile-drawer > div > a[aria-label="SyncedIn — home"] {
-            display: none;
+          /* Kill the desktop Sidebar's wordmark + its empty space when it
+             renders inside the mobile drawer. The mobile top bar already
+             shows the wordmark — duplicating it in the drawer wastes
+             ~300px of vertical room (Jack flagged this with screenshots
+             multiple times). Descendant selectors (no '>') so this still
+             matches even when the Sidebar wraps in additional divs. */
+          .syncedin-mobile-drawer img.wordmark-themed,
+          .syncedin-mobile-drawer img[src*="syncedin-wordmark"],
+          .syncedin-mobile-drawer a[aria-label="SyncedIn — home"] {
+            display: none !important;
+            height: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
           }
           .syncedin-mobile-drawer > div {
             padding-top: 0 !important;
             padding-left: 0 !important;
             padding-right: 0 !important;
             margin-top: 0 !important;
+            gap: 2px !important;
           }
           .syncedin-mobile-drawer > div > *:first-child,
           .syncedin-mobile-drawer > div > *:first-child > * {

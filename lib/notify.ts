@@ -15,6 +15,7 @@
 
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, renderEmailHtml } from "@/lib/email";
+import { computePairScore, type TwinSnapshot } from "@/lib/pair-score";
 
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
@@ -27,6 +28,8 @@ type Prefs = {
   on_new_message: boolean;
   on_agreement_accepted: boolean;
   on_call_scheduled: boolean;
+  on_new_match: boolean;
+  match_threshold: number;
 };
 
 type ProfileRow = {
@@ -58,7 +61,15 @@ async function loadRecipient(
     on_new_connection: prefs?.on_new_connection ?? true,
     on_new_message: prefs?.on_new_message ?? true,
     on_agreement_accepted: prefs?.on_agreement_accepted ?? true,
-    on_call_scheduled: prefs?.on_call_scheduled ?? true
+    on_call_scheduled: prefs?.on_call_scheduled ?? true,
+    // New-match alert defaults: ON, threshold 65. Existing prefs rows
+    // without these columns (pre-migration) get the defaults via the ??
+    // so notifications keep working through the rollout window.
+    on_new_match: prefs?.on_new_match ?? true,
+    match_threshold:
+      typeof prefs?.match_threshold === "number"
+        ? Math.max(0, Math.min(100, prefs.match_threshold))
+        : 65
   };
   return { profile: profile as ProfileRow, prefs: effectivePrefs };
 }
