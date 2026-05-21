@@ -105,13 +105,18 @@ export default async function InvitePage() {
       //      (PostgREST doesn't accept OR over ilike for a long array).
       if (recipientHandles.length > 0) {
         const handleHits = await Promise.all(
-          recipientHandles.slice(0, 50).map((h) =>
+          // PostgrestFilterBuilder is a PromiseLike (no .catch). Use the
+          // two-arg form of .then(onFulfilled, onRejected) which works on
+          // PromiseLike — equivalent to .catch() but type-safe.
+          recipientHandles.slice(0, 50).map((h: string) =>
             service
               .from("profiles")
               .select("id", { count: "exact", head: true })
               .ilike("email", `${h}@%`)
-              .then((r) => r.count ?? 0)
-              .catch(() => 0)
+              .then(
+                (r) => r.count ?? 0,
+                () => 0
+              )
           )
         );
         const handleSum = handleHits.reduce((a, b) => a + b, 0);
