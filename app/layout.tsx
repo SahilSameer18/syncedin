@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Footer } from "./Footer";
+import { ChunkErrorRecovery } from "./ChunkErrorRecovery";
 
 // Microsoft Clarity — session-replay + heatmap analytics. Free, no PII
 // collection by default, gives us watch-real-people-use-the-product
@@ -135,6 +136,10 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen">
+        {/* Catches ChunkLoadError on stale tabs that survived a deploy
+            and forces a one-time hard reload so users never see the
+            empty React-#418/#423 hydration error screen. */}
+        <ChunkErrorRecovery />
         {children}
         <Footer />
         {/* Microsoft Clarity — loads only when the env var is set, so
