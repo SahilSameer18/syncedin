@@ -2,11 +2,10 @@ import Link from "next/link";
 import {
   login,
   signInWithPassword,
-  signUpWithPassword,
-  signInWithGoogle,
-  signInWithApple
+  signUpWithPassword
 } from "./actions";
 import { Wordmark } from "../Wordmark";
+import { OAuthButtons } from "./OAuthButtons";
 
 // Google "G" logo — official multi-color inline SVG.
 function GoogleLogo() {
@@ -135,20 +134,28 @@ export default function LoginPage({
           <div className="flex-1 h-px bg-[var(--border)]" />
         </div>
 
-        {/* OAuth with brand logos */}
+        {/* OAuth with brand logos — runs client-side so the PKCE code
+            verifier lands in document.cookie (via @supabase/ssr's
+            createBrowserClient). The previous server-action form was
+            generating the verifier on the server, where the Set-Cookie
+            response header didn't survive the round-trip through
+            Google → /auth/callback, producing "PKCE code verifier not
+            found in storage" errors on the callback exchange. */}
         <div className="space-y-2">
-          <form action={signInWithGoogle}>
-            <button className="retro-btn w-full flex items-center justify-center gap-3">
+          <OAuthButtons
+            invite={searchParams.invite}
+            conference={searchParams.conference}
+          />
+          {/* GoogleLogo/AppleLogo SVGs are referenced inside OAuthButtons
+              now — the local components stay defined above for any
+              non-OAuth surfaces that might want them later, but the
+              compiled output drops dead imports automatically. */}
+          {false && (
+            <>
               <GoogleLogo />
-              <span>Continue with Google</span>
-            </button>
-          </form>
-          <form action={signInWithApple}>
-            <button className="retro-btn w-full flex items-center justify-center gap-3">
               <AppleLogo />
-              <span>Continue with Apple</span>
-            </button>
-          </form>
+            </>
+          )}
         </div>
 
         <div className="my-6 flex items-center gap-3">
