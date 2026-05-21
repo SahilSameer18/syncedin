@@ -61,7 +61,9 @@ export function Sidebar({
         background: "var(--panel-solid)",
         border: "1px solid var(--border)",
         borderRadius: 14,
-        padding: "4px 14px 14px",
+        // Top + bottom halved from 14/14 → 7/7 per Jack's call. The
+        // wordmark sits flush against the profile block now.
+        padding: "2px 14px 7px",
         display: "flex",
         flexDirection: "column",
         gap: 4,

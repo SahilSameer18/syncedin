@@ -312,6 +312,20 @@ function EditInfoBadge() {
         you edit, everything after regenerates AND we ask why — that "why"
         is the meta-learning that makes your twin truly act like you. The
         more you edit, the more perfect it gets.
+        <div
+          style={{
+            marginTop: 8,
+            paddingTop: 8,
+            borderTop: "1px solid var(--border)",
+            color: "var(--text-dim)"
+          }}
+        >
+          <strong style={{ color: "var(--green, #3cd870)" }}>
+            Private
+          </strong>{" "}
+          — the other person only sees your final text. They never see what
+          you edited or why.
+        </div>
       </span>
     </span>
   );

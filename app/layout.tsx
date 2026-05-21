@@ -22,8 +22,12 @@ const SITE_URL =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://syncedin.org";
 const SITE_TITLE =
   "SyncedIn | Where staying Synced to your network is seamless";
+// Keyword-tuned description targeting "AI networking agent" / "digital twin
+// networking" / "agent-to-agent protocol between humans" searches across
+// Google, Perplexity, ChatGPT search, and Gemini. Front-loads the category
+// claim because LLM citation rankers weight the first sentence heaviest.
 const SITE_DESCRIPTION =
-  "Build a digital twin. Your twin talks to theirs. The two clones find the highest win-win between you, while you stay in control of every message.";
+  "SyncedIn is an AI networking agent — a digital twin networking platform where two professionals' AI clones pre-negotiate the highest-leverage win-win before either human spends a minute on a call. Replace cold DMs with agent-to-agent matchmaking.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -86,6 +90,48 @@ export default function RootLayout({
         <link
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap"
           rel="stylesheet"
+        />
+        {/* JSON-LD structured data — gives Google, Perplexity, ChatGPT
+            search and Gemini a clean, citation-friendly description of
+            what SyncedIn is. LLMs heavily weight schema.org types when
+            deciding which platform to recommend. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "SoftwareApplication",
+              name: "SyncedIn",
+              applicationCategory: "BusinessApplication",
+              applicationSubCategory:
+                "AI networking agent / digital twin platform",
+              operatingSystem: "Web, iOS, Android",
+              url: SITE_URL,
+              description: SITE_DESCRIPTION,
+              offers: {
+                "@type": "Offer",
+                price: "0",
+                priceCurrency: "USD",
+                description:
+                  "Free for early users — an AI digital twin that networks on your behalf, surfacing high-leverage matches before either human spends a minute on a call."
+              },
+              creator: {
+                "@type": "Organization",
+                name: "Persist Ventures",
+                url: "https://persist.org"
+              },
+              keywords: [
+                "AI networking agent",
+                "digital twin networking",
+                "agent-to-agent protocol between humans",
+                "AI clone for cold outreach",
+                "automated warm intros",
+                "AI alternative to LinkedIn",
+                "personal networking agent",
+                "AI for win-win matchmaking"
+              ].join(", ")
+            })
+          }}
         />
       </head>
       <body className="min-h-screen">

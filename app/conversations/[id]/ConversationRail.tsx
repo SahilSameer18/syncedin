@@ -39,6 +39,48 @@ export async function ConversationRail({
   const rows = (convs as any[]) ?? [];
   if (rows.length === 0) return null;
 
+  // Status pip color per conversation. The dot used to be a flat blue
+  // glyph on every avatar — Jack's call: make it mean something.
+  //   amber  = waiting on YOU (last message is theirs, you should reply)
+  //   gray   = waiting on them (last message is yours, ball in their court)
+  //   none   = no messages yet
+  // Pulled in one batched messages query so we don't N+1.
+  const convIds = rows.map((c) => c.id);
+  const { data: lastMsgs } = convIds.length
+    ? await service
+        .from("messages")
+        .select("conversation_id, sender_user_id, sent_at")
+        .in("conversation_id", convIds)
+        .order("sent_at", { ascending: false })
+    : { data: [] as Array<{
+        conversation_id: string;
+        sender_user_id: string;
+        sent_at: string;
+      }> };
+  const lastByConv = new Map<string, { sender_user_id: string; sent_at: string }>();
+  for (const m of (lastMsgs ?? []) as Array<{
+    conversation_id: string;
+    sender_user_id: string;
+    sent_at: string;
+  }>) {
+    if (!lastByConv.has(m.conversation_id)) {
+      lastByConv.set(m.conversation_id, {
+        sender_user_id: m.sender_user_id,
+        sent_at: m.sent_at
+      });
+    }
+  }
+  function statusDot(convId: string):
+    | { color: string; label: string }
+    | null {
+    const last = lastByConv.get(convId);
+    if (!last) return null;
+    if (last.sender_user_id === user!.id) {
+      return { color: "#9ca3af", label: "waiting on them" };
+    }
+    return { color: "var(--amber-bright)", label: "your turn" };
+  }
+
   const otherIds = Array.from(
     new Set(
       rows.map((c) => (c.participant_a === user.id ? c.participant_b : c.participant_a))
@@ -162,12 +204,34 @@ export async function ConversationRail({
                 height: 32
               }}
             >
-              <Avatar
-                id={otherId}
-                name={fullName}
-                avatarUrl={p?.avatar_url ?? null}
-                size={26}
-              />
+              <div style={{ position: "relative" }}>
+                <Avatar
+                  id={otherId}
+                  name={fullName}
+                  avatarUrl={p?.avatar_url ?? null}
+                  size={26}
+                />
+                {(() => {
+                  const dot = statusDot(c.id);
+                  if (!dot) return null;
+                  return (
+                    <span
+                      aria-label={dot.label}
+                      title={dot.label}
+                      style={{
+                        position: "absolute",
+                        right: -2,
+                        bottom: -2,
+                        width: 9,
+                        height: 9,
+                        borderRadius: 5,
+                        background: dot.color,
+                        border: "1.5px solid var(--panel-solid)"
+                      }}
+                    />
+                  );
+                })()}
+              </div>
             </Link>
           );
         })}
@@ -228,12 +292,18 @@ export async function ConversationRail({
         const fullName = p?.display_name || p?.email || "Someone";
         const fn = firstName(fullName);
         const active = c.id === activeId;
+        // Status dot is now action-aware, not status-string-aware:
+        //   amber = waiting on you (their last message, ball in your court)
+        //   gray  = waiting on them (your last message)
+        //   sealed conversations still show green for completion
+        const sd = statusDot(c.id);
         const dot =
           c.status === "closed"
             ? "var(--green, #3cd870)"
-            : c.status === "active"
-            ? "var(--amber-bright)"
-            : "var(--text-dim)";
+            : sd
+              ? sd.color
+              : "transparent";
+        const dotLabel = c.status === "closed" ? "sealed" : sd?.label ?? "";
         return (
           <Link
             key={c.id}
@@ -263,19 +333,22 @@ export async function ConversationRail({
                 avatarUrl={p?.avatar_url ?? null}
                 size={40}
               />
-              <span
-                aria-hidden
-                style={{
-                  position: "absolute",
-                  right: -1,
-                  bottom: -1,
-                  width: 10,
-                  height: 10,
-                  borderRadius: 5,
-                  background: dot,
-                  border: "2px solid var(--panel-solid)"
-                }}
-              />
+              {dot !== "transparent" && (
+                <span
+                  aria-label={dotLabel}
+                  title={dotLabel}
+                  style={{
+                    position: "absolute",
+                    right: -1,
+                    bottom: -1,
+                    width: 10,
+                    height: 10,
+                    borderRadius: 5,
+                    background: dot,
+                    border: "2px solid var(--panel-solid)"
+                  }}
+                />
+              )}
             </div>
             <span
               style={{
