@@ -212,9 +212,9 @@ export default async function InviteLandingPage({
           pointer-events: none;
           z-index: 0;
           background:
-            radial-gradient(900px 500px at 12% 8%, rgba(255, 176, 32, 0.10), transparent 60%),
-            radial-gradient(900px 600px at 88% 4%, rgba(31, 139, 255, 0.10), transparent 60%),
-            radial-gradient(700px 400px at 50% 100%, rgba(216, 59, 255, 0.06), transparent 60%);
+            radial-gradient(900px 500px at 12% 8%, rgba(31, 139, 255, 0.10), transparent 60%),
+            radial-gradient(900px 600px at 88% 4%, rgba(107, 45, 201, 0.08), transparent 60%),
+            radial-gradient(700px 400px at 50% 100%, rgba(31, 139, 255, 0.05), transparent 60%);
         }
         .invite-content {
           position: relative;
@@ -245,13 +245,13 @@ export default async function InviteLandingPage({
           gap: 8px;
           padding: 6px 12px;
           border-radius: 999px;
-          background: rgba(255, 176, 32, 0.08);
-          border: 1px solid rgba(255, 176, 32, 0.30);
+          background: rgba(31, 139, 255, 0.08);
+          border: 1px solid rgba(31, 139, 255, 0.30);
           font-size: 11px;
           font-weight: 700;
           letter-spacing: 0.12em;
           text-transform: uppercase;
-          color: var(--amber-bright);
+          color: #1f8bff;
         }
         .invite-eyebrow .dot {
           width: 6px;
@@ -269,7 +269,10 @@ export default async function InviteLandingPage({
         }
         .invite-headline em {
           font-style: normal;
-          background: linear-gradient(90deg, #ffb020, #ffd66b 70%, #fff0a8);
+          /* Brand blue accent — matches the wordmark + the primary CTA,
+             so the headline pulls in the same direction the eye is
+             already tracking. */
+          background: linear-gradient(90deg, #1f8bff, #3b6dff 60%, #6b2dc9);
           -webkit-background-clip: text;
           background-clip: text;
           color: transparent;
@@ -332,15 +335,15 @@ export default async function InviteLandingPage({
           text-transform: uppercase;
           color: var(--text-dim);
         }
-        /* Right-side hero card — anchored CTA + premise summary */
+        /* Right-side hero card — anchored CTA + premise summary.
+           Uses var(--panel-solid) so it adapts to light/dark mode
+           without forcing a dingy grey rectangle on a white bg. */
         .invite-hero-card {
-          background: linear-gradient(180deg, rgba(20, 20, 24, 0.6), rgba(20, 20, 24, 0.35));
+          background: var(--panel-solid);
           border: 1px solid var(--border);
           border-radius: 22px;
           padding: 22px;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          box-shadow: 0 24px 80px -36px rgba(0, 0, 0, 0.6);
+          box-shadow: 0 24px 80px -36px rgba(15, 23, 42, 0.18);
         }
         .invite-cta {
           display: flex;
@@ -353,8 +356,8 @@ export default async function InviteLandingPage({
           font-weight: 800;
           border-radius: 14px;
           box-shadow:
-            0 12px 36px -14px rgba(255, 176, 32, 0.55),
-            0 0 0 1px rgba(255, 176, 32, 0.35) inset;
+            0 12px 36px -14px rgba(31, 139, 255, 0.45),
+            0 0 0 1px rgba(31, 139, 255, 0.25) inset;
         }
         .invite-cta-secondary {
           display: flex;
@@ -374,7 +377,7 @@ export default async function InviteLandingPage({
           font-weight: 800;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: var(--amber-bright);
+          color: #1f8bff;
         }
         .invite-demo-wrap {
           margin-top: 36px;
@@ -391,8 +394,8 @@ export default async function InviteLandingPage({
           padding: 36px 24px;
           border-radius: 24px;
           background:
-            radial-gradient(600px 240px at 50% 0%, rgba(255, 176, 32, 0.10), transparent 70%),
-            linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
+            radial-gradient(600px 240px at 50% 0%, rgba(31, 139, 255, 0.08), transparent 70%),
+            var(--panel-solid);
           border: 1px solid var(--border);
         }
       `}</style>
@@ -551,7 +554,7 @@ export default async function InviteLandingPage({
               }}
             >
               One reply.{" "}
-              <span style={{ color: "var(--amber-bright)" }}>
+              <span style={{ color: "#1f8bff" }}>
                 The whole network unlocked.
               </span>
             </h2>
@@ -578,7 +581,7 @@ export default async function InviteLandingPage({
               tagline={
                 <>
                   Deeper connections,{" "}
-                  <span style={{ color: "var(--amber-bright)" }}>faster</span>.
+                  <span style={{ color: "#1f8bff" }}>faster</span>.
                 </>
               }
             />
@@ -623,7 +626,7 @@ export default async function InviteLandingPage({
                 fontWeight: 800,
                 borderRadius: 14,
                 boxShadow:
-                  "0 16px 48px -16px rgba(255, 176, 32, 0.55), 0 0 0 1px rgba(255, 176, 32, 0.35) inset"
+                  "0 16px 48px -16px rgba(31, 139, 255, 0.45), 0 0 0 1px rgba(31, 139, 255, 0.25) inset"
               }}
             >
               <span aria-hidden="true">＋</span>

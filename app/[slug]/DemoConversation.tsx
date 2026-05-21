@@ -242,13 +242,11 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
         }
         .demo-panel {
           position: relative;
-          background: linear-gradient(180deg, rgba(20, 20, 24, 0.55), rgba(20, 20, 24, 0.30));
+          background: var(--panel-solid);
           border: 1px solid var(--border);
           border-radius: 22px;
           padding: 22px;
-          backdrop-filter: blur(12px);
-          -webkit-backdrop-filter: blur(12px);
-          box-shadow: 0 24px 80px -36px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 16px 56px -28px rgba(15, 23, 42, 0.16);
         }
         .demo-header {
           display: flex;
@@ -264,7 +262,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           font-weight: 800;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          color: var(--amber-bright);
+          color: #1f8bff;
         }
         .demo-title-block .title {
           font-size: 16px;
@@ -325,7 +323,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           overflow: hidden;
         }
         .demo-avatar.recipient {
-          background: linear-gradient(135deg, #ffb020, #d83bff);
+          background: linear-gradient(135deg, #3b6dff, #d83bff);
         }
         .demo-avatar img { width: 100%; height: 100%; object-fit: cover; }
         .demo-bubble-wrap {
@@ -342,7 +340,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           letter-spacing: -0.005em;
         }
         .demo-bubble-inviter {
-          background: rgba(255, 255, 255, 0.05);
+          background: var(--panel-2);
           color: var(--text);
           border: 1px solid var(--border);
           border-bottom-left-radius: 6px;
@@ -373,7 +371,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           text-decoration: underline;
           letter-spacing: 0.04em;
         }
-        .demo-edit-btn:hover { color: var(--amber-bright); }
+        .demo-edit-btn:hover { color: #1f8bff; }
         .demo-empty {
           padding: 60px 20px;
           text-align: center;
@@ -396,7 +394,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           display: flex;
           gap: 6px;
           padding: 4px;
-          background: rgba(0, 0, 0, 0.25);
+          background: var(--panel-2);
           border: 1px solid var(--border);
           border-radius: 12px;
           margin-bottom: 16px;
@@ -415,7 +413,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           transition: all 0.15s ease;
         }
         .ctx-tab.active {
-          background: var(--bg);
+          background: var(--panel-solid);
           color: var(--text);
           box-shadow: 0 1px 0 var(--border);
         }
@@ -432,20 +430,20 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
         }
         .ctx-input, .ctx-textarea {
           width: 100%;
-          background: rgba(0, 0, 0, 0.25);
-          border: 1px solid var(--border);
+          background: var(--panel-solid);
+          border: 1.5px solid var(--border-bright);
           border-radius: 10px;
           padding: 10px 12px;
           font-size: 13.5px;
           color: var(--text);
           font-family: inherit;
           line-height: 1.5;
-          transition: border-color 0.15s ease, background 0.15s ease;
+          transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
         .ctx-input:focus, .ctx-textarea:focus {
           outline: none;
-          border-color: var(--amber-bright);
-          background: rgba(0, 0, 0, 0.4);
+          border-color: #1f8bff;
+          box-shadow: 0 0 0 4px rgba(31, 139, 255, 0.12);
         }
         .ctx-textarea { min-height: 110px; resize: vertical; }
         .ctx-row { display: flex; align-items: center; gap: 10px; }
@@ -454,8 +452,8 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           font-weight: 700;
           color: var(--text-dim);
           padding: 10px 0 10px 12px;
-          background: rgba(0, 0, 0, 0.25);
-          border: 1px solid var(--border);
+          background: var(--panel-2);
+          border: 1.5px solid var(--border-bright);
           border-right: none;
           border-radius: 10px 0 0 10px;
         }
@@ -489,18 +487,18 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           font-weight: 800;
           border-radius: 12px;
           text-align: center;
-          background: linear-gradient(135deg, #ffb020, #ff8a3d);
-          color: #1a1208;
-          box-shadow: 0 12px 32px -12px rgba(255, 176, 32, 0.6);
+          background: linear-gradient(135deg, #1f8bff, #3b6dff);
+          color: #ffffff;
+          box-shadow: 0 12px 32px -12px rgba(31, 139, 255, 0.55);
         }
         .ai-prompt-card {
-          background: rgba(0, 0, 0, 0.3);
-          border: 1px dashed var(--border);
+          background: var(--panel-2);
+          border: 1px dashed var(--border-bright);
           border-radius: 12px;
           padding: 12px;
           font-size: 12px;
           line-height: 1.5;
-          color: var(--text-dim);
+          color: var(--text);
           max-height: 180px;
           overflow-y: auto;
           white-space: pre-wrap;
@@ -515,19 +513,19 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           font-size: 12.5px;
           font-weight: 700;
           border-radius: 10px;
-          background: rgba(255, 176, 32, 0.12);
-          color: var(--amber-bright);
-          border: 1px solid rgba(255, 176, 32, 0.35);
+          background: rgba(31, 139, 255, 0.10);
+          color: #1f8bff;
+          border: 1px solid rgba(31, 139, 255, 0.30);
           cursor: pointer;
           transition: all 0.15s ease;
         }
         .copy-btn:hover {
-          background: rgba(255, 176, 32, 0.2);
+          background: rgba(31, 139, 255, 0.16);
           transform: translateY(-1px);
         }
         .copy-btn.copied {
           background: rgba(34, 197, 94, 0.15);
-          color: #4ade80;
+          color: #15803d;
           border-color: rgba(34, 197, 94, 0.35);
         }
         .ai-tools {
@@ -540,7 +538,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           font-size: 11px;
           padding: 4px 9px;
           border-radius: 999px;
-          background: rgba(255,255,255,0.04);
+          background: var(--panel-2);
           border: 1px solid var(--border);
           color: var(--text-dim);
         }
@@ -894,7 +892,7 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
               fontWeight: 800,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "var(--amber-bright)",
+              color: "#1f8bff",
               marginBottom: 10
             }}
           >
