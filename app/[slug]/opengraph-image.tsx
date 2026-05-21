@@ -24,30 +24,114 @@ function shortName(title: string): string {
   );
 }
 
+/**
+ * Pull the most specific observation snippet out of the personalized
+ * landing-page opener so the OG card can read like a real cold reach:
+ *   "Jackson saw your founding engineer work on WorkableCafes.com..."
+ * instead of the generic "I'm Jackson — my twin already drafted an opener
+ * for yours."
+ *
+ * Heuristic:
+ *   1. Drop a leading "Hey {name} — {sender} here." greeting if present.
+ *   2. Take the first remaining sentence.
+ *   3. Normalize first-person voice into third-person noun-phrase form
+ *      ("Your founding engineer work caught my eye" → "your founding
+ *      engineer work").
+ *   4. Truncate at a word boundary around 110 chars.
+ *   5. Strip trailing punctuation so the template can chain into ", and..."
+ */
+function observationSnippet(starter: string | null | undefined): string {
+  const s = (starter ?? "").trim();
+  if (!s) return "";
+  // Strip leading greeting (best-effort — Claude almost always starts the
+  // landing message with "Hey {firstName} — {sender} here.")
+  const noGreeting = s.replace(
+    /^hey\s+[A-Za-z][A-Za-z'.-]*\s*[—–-]\s*[^.!?]+[.!?]\s*/i,
+    ""
+  );
+  // Also strip a softer "{firstName}, " greeting if present.
+  const noComma = noGreeting.replace(/^[A-Za-z][A-Za-z'.-]+,\s+/, "");
+  // First sentence.
+  const sentences = noComma.split(/(?<=[.!?])\s+/);
+  let first = (sentences[0] ?? "").trim();
+  if (!first) return "";
+  // Drop "I noticed " / "I saw " / "What caught my eye is " filler.
+  first = first
+    .replace(/^(i\s+(noticed|saw|love|loved|like|liked)\s+(that\s+)?)/i, "")
+    .replace(/^(what\s+caught\s+my\s+eye\s+is\s+(that\s+)?)/i, "")
+    .replace(/\s+caught\s+my\s+eye\.?$/i, "")
+    .trim();
+  // Normalize first letter lowercase (it sits mid-sentence in the template).
+  if (first.length > 0 && /[A-Z]/.test(first[0])) {
+    first = first[0].toLowerCase() + first.slice(1);
+  }
+  // Make sure it starts with a possessive — "your X" reads naturally after
+  // "saw". If the snippet doesn't already, prepend "your".
+  if (!/^(your|the|how)\b/i.test(first)) {
+    first = "your " + first;
+  }
+  // Truncate cleanly.
+  const HARD = 130;
+  if (first.length > HARD) {
+    const cut = first.slice(0, HARD);
+    const lastSpace = cut.lastIndexOf(" ");
+    first = (lastSpace > 80 ? cut.slice(0, lastSpace) : cut).trim();
+  }
+  // Strip trailing punctuation so the template's continuation reads
+  // naturally: "{name} saw {snippet}, and is ready..."
+  first = first.replace(/[.,;:!?…\s]+$/g, "");
+  return first;
+}
+
+export function buildInviteCopy(opts: {
+  inviterFullName: string;
+  recipientShortName: string;
+  snippet: string;
+}): { headline: string; body: string } {
+  const { inviterFullName, recipientShortName, snippet } = opts;
+  const headline = `${recipientShortName}, it's time to get SyncedIn.`;
+  const body = snippet
+    ? `${inviterFullName} saw ${snippet} — and is ready to have his agent find a plan with yours. Stay SyncedIn, together.`
+    : `${inviterFullName} thinks your twin is worth a conversation with his. Spin yours up and let the two clones find the win-win. Stay SyncedIn, together.`;
+  return { headline, body };
+}
+
 export default async function InviteOgImage({
   params
 }: {
   params: { slug: string };
 }) {
   const slug = (params.slug || "").toLowerCase();
+  const SITE_URL =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    "https://syncedin.org";
 
   // If reserved or no record, fall back to the site-wide image-y layout.
   let inviterName = "Your twin";
   let personName = "you";
   let recipientAvatar: string | null = null;
   let inviterAvatar: string | null = null;
+  let starter: string = "";
   if (!RESERVED.has(slug)) {
     try {
       const service = createServiceClient();
       const { data: invite } = await service
         .from("pending_invites")
-        .select("inviter_user_id, person_title, recipient_avatar_url")
+        .select(
+          "inviter_user_id, person_title, recipient_avatar_url, conversation_starter, outbound_message"
+        )
         .eq("slug", slug)
         .maybeSingle();
       if (invite) {
         personName = shortName(invite.person_title ?? "you");
         recipientAvatar =
           (invite as any).recipient_avatar_url || null;
+        // Prefer the long landing-page message (scrape-driven Claude prose)
+        // over the short templated outbound DM for the snippet source.
+        starter =
+          ((invite as any).conversation_starter as string) ||
+          ((invite as any).outbound_message as string) ||
+          "";
         const { data: inviter } = await service
           .from("profiles")
           .select("display_name, email, avatar_url")
@@ -64,112 +148,96 @@ export default async function InviteOgImage({
     }
   }
 
+  const snippet = observationSnippet(starter);
+  const copy = buildInviteCopy({
+    inviterFullName: inviterName,
+    recipientShortName: personName,
+    snippet
+  });
+  // Initials fallback for when the LinkedIn scrape didn't surface a photo.
+  // Two letters from the person_title so the card always renders a face-
+  // shaped placeholder rather than a blank gap.
+  const initials =
+    personName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((p) => p[0]?.toUpperCase() ?? "")
+      .join("") || "??";
+
   return new ImageResponse(
     (
       <div
         style={{
           width: "100%",
           height: "100%",
+          // Placeholder gradient — Jack is picking from 4 background
+          // mockups before we lock the style. Update this block once a
+          // variant is chosen.
           background:
             "linear-gradient(135deg, #f5f7ff 0%, #ffffff 50%, #f3eefe 100%)",
           display: "flex",
           flexDirection: "column",
-          alignItems: "flex-start",
-          justifyContent: "center",
-          padding: "80px 100px",
+          justifyContent: "space-between",
+          padding: "70px 90px",
           fontFamily: "Inter, system-ui, sans-serif"
         }}
       >
+        {/* TOP ROW — real SyncedIn wordmark on the left, recipient avatar
+            on the right (with inviter avatar nested smaller below). This
+            replaces the old "tall stack of logo, then avatars, then
+            headline" layout that ate vertical space and made the body
+            text feel small. Wordmark image is served from /public, so
+            Satori loads it from the deployed URL. */}
         <div
           style={{
             display: "flex",
             alignItems: "center",
-            gap: 20,
-            marginBottom: 32
+            justifyContent: "space-between",
+            width: "100%"
           }}
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 100 100"
-            width="80"
-            height="80"
-          >
-            <defs>
-              <linearGradient id="slug_g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#1f8bff" />
-                <stop offset="55%" stopColor="#3a4dff" />
-                <stop offset="100%" stopColor="#8b3dff" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M 32 10 L 68 10 Q 92 14 92 50 Q 92 86 68 90 L 32 90 Q 8 86 8 50 Q 8 14 32 10 Z"
-              fill="none"
-              stroke="url(#slug_g)"
-              strokeWidth="11"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            <circle cx="38" cy="50" r="6.5" fill="#1f3bce" />
-            <circle cx="62" cy="50" r="6.5" fill="#6b2dc9" />
-          </svg>
-          <div
-            style={{
-              fontSize: 44,
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              color: "#0a0c14",
-              display: "flex"
-            }}
-          >
-            Synced<span style={{ color: "#3a4dff" }}>In</span>
-          </div>
-        </div>
-
-        {/* Interlocked avatars: recipient on the LEFT (face they recognize),
-            inviter on the right. Falls back to a placeholder ring if either
-            avatar URL is missing. Satori renders <img src="https://..."/>
-            inline as long as the host serves CORS-friendly bytes. */}
-        {(recipientAvatar || inviterAvatar) && (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              // Bigger gap below the avatars so the headline doesn't
-              // crash into them — earlier render had 28px which felt
-              // crowded once the avatar grew to 108. 56px buys real
-              // air between the face and the "your digital twin
-              // awaits" line.
-              marginBottom: 56,
-              marginTop: 4,
-              gap: 0
-            }}
-          >
-            {recipientAvatar && (
+          <img
+            src={`${SITE_URL}/syncedin-wordmark-tight.png`}
+            alt="SyncedIn"
+            height={86}
+            style={{ height: 86, width: "auto" }}
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+            {recipientAvatar ? (
               <img
                 src={recipientAvatar}
-                width={92}
-                height={92}
+                width={120}
+                height={120}
                 style={{
-                  width: 92,
-                  height: 92,
-                  borderRadius: 46,
-                  border: "4px solid #ffffff",
-                  boxShadow: "0 8px 24px -8px rgba(58,77,255,0.45)",
+                  width: 120,
+                  height: 120,
+                  borderRadius: 60,
+                  border: "5px solid #ffffff",
+                  boxShadow: "0 12px 32px -10px rgba(58,77,255,0.5)",
                   objectFit: "cover"
                 }}
               />
-            )}
-            {recipientAvatar && inviterAvatar && (
+            ) : (
               <div
                 style={{
-                  width: 14,
-                  height: 4,
-                  background: "#5e6eff",
-                  margin: "0 -8px",
-                  borderRadius: 2,
-                  zIndex: 1
+                  width: 120,
+                  height: 120,
+                  borderRadius: 60,
+                  border: "5px solid #ffffff",
+                  boxShadow: "0 12px 32px -10px rgba(58,77,255,0.5)",
+                  background:
+                    "linear-gradient(135deg, #1f8bff, #6b2dc9)",
+                  color: "#ffffff",
+                  fontSize: 46,
+                  fontWeight: 800,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center"
                 }}
-              />
+              >
+                {initials}
+              </div>
             )}
             {inviterAvatar && (
               <img
@@ -183,43 +251,40 @@ export default async function InviteOgImage({
                   border: "4px solid #ffffff",
                   boxShadow: "0 8px 24px -8px rgba(139,61,255,0.45)",
                   objectFit: "cover",
-                  marginLeft: recipientAvatar ? 0 : 0
+                  marginLeft: -18
                 }}
               />
             )}
           </div>
-        )}
-
-        <div
-          style={{
-            // Headline scaled down: long names (e.g., URL-slug-derived
-            // "Denisehontiveros") used to push the 72px size onto two
-            // lines and crowd the body text below. 54px keeps it
-            // single-line for most names AND leaves room for the body.
-            fontSize: 54,
-            fontWeight: 800,
-            color: "#0a0c14",
-            lineHeight: 1.15,
-            letterSpacing: "-0.02em",
-            maxWidth: 1000,
-            display: "flex"
-          }}
-        >
-          {personName}, your digital twin awaits.
         </div>
-        <div
-          style={{
-            marginTop: 32,
-            fontSize: 28,
-            color: "#434a5e",
-            lineHeight: 1.4,
-            maxWidth: 1000,
-            display: "flex"
-          }}
-        >
-          I&apos;m {inviterName} — my twin already drafted an opener for
-          yours. Sign up and let your clone reply. Two twins find the
-          win-win before our calendars ever do.
+
+        {/* HEADLINE + BODY — bigger now that the top row is one band. */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <div
+            style={{
+              fontSize: 64,
+              fontWeight: 800,
+              color: "#0a0c14",
+              lineHeight: 1.1,
+              letterSpacing: "-0.02em",
+              maxWidth: 1020,
+              display: "flex"
+            }}
+          >
+            {copy.headline}
+          </div>
+          <div
+            style={{
+              marginTop: 28,
+              fontSize: 32,
+              color: "#434a5e",
+              lineHeight: 1.35,
+              maxWidth: 1020,
+              display: "flex"
+            }}
+          >
+            {copy.body}
+          </div>
         </div>
       </div>
     ),

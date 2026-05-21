@@ -144,13 +144,24 @@ export default async function MessagesPage() {
     .map((p: any) => {
       const t = twinByUserMsg.get(p.id) as any;
       const blob = (t?.ai_export_blob || "") as string;
-      const headlineFromBlob =
-        blob && typeof blob === "string"
-          ? blob
-              .split(/[\n\r]/)
-              .map((l: string) => l.trim())
-              .find((l: string) => l.length > 20 && l.length < 200) || ""
-          : "";
+      // Skip markdown headers, bare URLs, and key-only lines so the row
+      // never shows "# Public footprint (https://...)" as the context.
+      const headlineFromBlob = (() => {
+        if (!blob || typeof blob !== "string") return "";
+        const lines = blob
+          .split(/[\n\r]/)
+          .map((l: string) => l.trim())
+          .filter(Boolean);
+        for (const l of lines) {
+          if (l.length < 28 || l.length > 220) continue;
+          if (l.startsWith("#")) continue;
+          if (/^https?:\/\/\S+\s*$/.test(l)) continue;
+          if (/^[a-zA-Z_][\w\s]{0,30}:\s*https?:\/\//.test(l)) continue;
+          if (l.split(/\s+/).length < 4) continue;
+          return l;
+        }
+        return "";
+      })();
       // Deterministic 4-signal pair score (unigram + bigram + goals +
       // complementary fit). No more "everyone shows 12% because the
       // raw jaccard rounded to 2 and the floor took over."

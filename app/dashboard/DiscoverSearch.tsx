@@ -5,6 +5,119 @@ import { useEffect, useRef, useState } from "react";
 import { startConversationWithUser } from "./actions";
 import { DotsLoader } from "../DotsLoader";
 
+/**
+ * Deterministic "cool default avatar" generator for directory rows
+ * where the user hasn't uploaded a photo. Hashes the user id into a
+ * 2-stop gradient pulled from the same palette family the SyncMeter
+ * uses, then overlays the user's initials. Same user always gets the
+ * same avatar — feels intentional, not random.
+ */
+const AVATAR_PALETTES: [string, string][] = [
+  ["#1f8bff", "#6b2dc9"], // signature blue → purple
+  ["#ff7849", "#d83bff"], // coral → magenta
+  ["#22c55e", "#0ea5e9"], // green → sky
+  ["#f59e0b", "#ef4444"], // amber → red
+  ["#a855f7", "#ec4899"], // violet → pink
+  ["#0ea5e9", "#22d3ee"], // sky → cyan
+  ["#7c3aed", "#2563eb"], // indigo
+  ["#10b981", "#84cc16"]  // emerald → lime
+];
+
+function paletteFor(id: string): [string, string] {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_PALETTES[h % AVATAR_PALETTES.length];
+}
+
+function initialsOf(name: string | null, email: string): string {
+  const src = (name || email || "").trim();
+  if (!src) return "??";
+  const parts = src.split(/[\s@.]+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return src.slice(0, 2).toUpperCase();
+}
+
+function DirectoryAvatar({
+  id,
+  displayName,
+  email,
+  avatarUrl,
+  size = 40
+}: {
+  id: string;
+  displayName: string | null;
+  email: string;
+  avatarUrl?: string | null;
+  size?: number;
+}) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt=""
+        width={size}
+        height={size}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          objectFit: "cover",
+          flexShrink: 0
+        }}
+      />
+    );
+  }
+  const [a, b] = paletteFor(id);
+  const initials = initialsOf(displayName, email);
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        background: `linear-gradient(135deg, ${a} 0%, ${b} 100%)`,
+        color: "#ffffff",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontWeight: 800,
+        fontSize: size * 0.4,
+        letterSpacing: "0.02em",
+        flexShrink: 0,
+        boxShadow: `0 4px 14px -4px ${a}55`
+      }}
+    >
+      {initials}
+    </div>
+  );
+}
+
+const DISMISSED_KEY = "syncedin.directoryDismissed";
+
+function loadDismissed(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem(DISMISSED_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw);
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissed(s: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(DISMISSED_KEY, JSON.stringify(Array.from(s)));
+  } catch {
+    /* ignore quota */
+  }
+}
+
 type DirectoryUser = {
   id: string;
   display_name: string | null;
@@ -216,6 +329,21 @@ export function DiscoverSearch({
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [intent, setIntent] = useState("");
   const [lastIntent, setLastIntent] = useState("");
+  // Locally-persisted set of user IDs the viewer has dismissed from the
+  // "already on SyncedIn" directory. Stored in localStorage so dismissals
+  // stay hidden across page loads without needing a server table.
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setDismissed(loadDismissed());
+  }, []);
+  function dismissUser(id: string) {
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      saveDismissed(next);
+      return next;
+    });
+  }
 
   // Cycling placeholder examples — rotate every ~3s so users see different
   // ways to use the freeform intent box.
@@ -360,72 +488,124 @@ export function DiscoverSearch({
           surface (zero invite friction) so they get top placement, even
           before the "your twin says" recommendations. Each row shows the
           connection score on the right. */}
-      {!searching && directory.length > 0 && (
-        <div className="mt-4">
-          <div className="flex items-baseline justify-between">
-            <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
-              already on SyncedIn
+      {!searching && (() => {
+        const visible = directory.filter((p) => !dismissed.has(p.id));
+        if (visible.length === 0) return null;
+        return (
+          <div className="mt-4">
+            <div className="flex items-baseline justify-between">
+              <div
+                className="retro-label"
+                style={{ color: "var(--amber-bright)" }}
+              >
+                already on SyncedIn
+              </div>
+              <div className="retro-dim text-xs">
+                {visible.length} {visible.length === 1 ? "twin" : "twins"} you
+                haven&apos;t talked to yet
+              </div>
             </div>
-            <div className="retro-dim text-xs">
-              {directory.length} {directory.length === 1 ? "twin" : "twins"} you
-              haven&apos;t talked to yet
-            </div>
-          </div>
-          <div className="mt-3 space-y-2">
-            {directory.slice(0, 12).map((p) => {
-              const blurb =
-                (looksLikeRealBio(p.goals) ? p.goals : null) ||
-                p.headline_fallback ||
-                "";
-              const score = p.connection_score ?? 0;
-              const scoreColor =
-                score >= 50
-                  ? "var(--amber-bright)"
-                  : score >= 25
-                    ? "var(--text)"
-                    : "var(--text-dim)";
-              return (
-                <form
-                  action={startConversationWithUser}
-                  key={p.id}
-                  className="retro-panel retro-panel-hover p-4 flex items-start justify-between gap-4"
-                >
-                  <div className="min-w-0">
-                    <div className="font-semibold text-sm">
-                      {p.display_name || p.email}
-                    </div>
-                    {blurb && (
-                      <div className="retro-dim text-xs mt-1 line-clamp-2">
-                        {blurb}
+            <div className="mt-3 space-y-2">
+              {visible.slice(0, 12).map((p) => {
+                const blurb =
+                  (looksLikeRealBio(p.goals) ? p.goals : null) ||
+                  p.headline_fallback ||
+                  "";
+                const score = p.connection_score ?? 0;
+                const scoreColor =
+                  score >= 50
+                    ? "var(--amber-bright)"
+                    : score >= 25
+                      ? "var(--text)"
+                      : "var(--text-dim)";
+                return (
+                  <form
+                    action={startConversationWithUser}
+                    key={p.id}
+                    className="retro-panel retro-panel-hover p-4 flex items-start gap-3"
+                    style={{ position: "relative" }}
+                  >
+                    {/* Avatar — uploaded photo if available, otherwise a
+                        deterministic 2-stop gradient circle with initials.
+                        Same user always renders to the same gradient. */}
+                    <DirectoryAvatar
+                      id={p.id}
+                      displayName={p.display_name}
+                      email={p.email}
+                      avatarUrl={p.avatar_url}
+                      size={44}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-sm">
+                        {p.display_name || p.email}
                       </div>
-                    )}
-                  </div>
-                  <input type="hidden" name="userId" value={p.id} />
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <div
-                      className="text-xs font-mono"
-                      style={{
-                        color: scoreColor,
-                        letterSpacing: "0.04em",
-                        fontWeight: 700
-                      }}
-                      title="Estimated connection score: how much of your twin's profile overlaps with theirs. Updates as both twins add context."
-                    >
-                      {score}% sync
+                      {blurb && (
+                        <div className="retro-dim text-xs mt-1 line-clamp-2">
+                          {blurb}
+                        </div>
+                      )}
                     </div>
+                    <input type="hidden" name="userId" value={p.id} />
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <div
+                        className="text-xs font-mono"
+                        style={{
+                          color: scoreColor,
+                          letterSpacing: "0.04em",
+                          fontWeight: 700
+                        }}
+                        title="Estimated connection score: how much of your twin's profile overlaps with theirs. Updates as both twins add context."
+                      >
+                        {score}% sync
+                      </div>
+                      <button
+                        type="submit"
+                        className="retro-btn retro-btn-primary text-xs"
+                      >
+                        connect &gt;
+                      </button>
+                    </div>
+                    {/* Small X — dismiss this user from the directory. Stays
+                        hidden across page loads via localStorage. Stops
+                        form propagation so it doesn't accidentally fire
+                        startConversationWithUser. */}
                     <button
-                      type="submit"
-                      className="retro-btn retro-btn-primary text-xs"
+                      type="button"
+                      aria-label={`Dismiss ${p.display_name || p.email}`}
+                      title="Not interested — hide this person"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dismissUser(p.id);
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: 6,
+                        right: 6,
+                        width: 22,
+                        height: 22,
+                        borderRadius: 11,
+                        border: "1px solid var(--border)",
+                        background: "transparent",
+                        color: "var(--text-dim)",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        lineHeight: 1,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: 0
+                      }}
                     >
-                      connect &gt;
+                      ✕
                     </button>
-                  </div>
-                </form>
-              );
-            })}
+                  </form>
+                );
+              })}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Twin-recommended connections */}
       {!searching && (
@@ -481,35 +661,91 @@ export function DiscoverSearch({
             <div className="mt-4 space-y-5">
               {suggestions.map((s, idx) => (
                 <div key={idx}>
-                  {/* Cleaner suggestion header: rationale only, search
-                      query collapsed behind a tooltip. The old layout had
-                      'your twin says' + 'searched: long-query-string' on
-                      two stacked rows which felt cluttered. Now: one
-                      compact row + a small 'find more like this' button
-                      that re-runs the query for fresh matches. */}
-                  <div className="flex items-baseline justify-between gap-3 flex-wrap">
+                  {/*
+                    Redesigned intent header. Old version used `retro-label`
+                    which is the site-wide all-caps mono treatment meant
+                    for section TAGS, not actual content — when the
+                    rationale was a real sentence ("I need hungry
+                    operators who...") it read as scary terminal output
+                    and crowded the results below. Now: a rounded "your
+                    twin's read" quote card with normal-case prose +
+                    a real pill button for re-running the search.
+                  */}
+                  <div
+                    className="rounded-xl p-3"
+                    style={{
+                      background: "var(--panel-2)",
+                      border: "1px solid var(--border)",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 12
+                    }}
+                  >
                     <div
-                      className="retro-label"
-                      style={{ color: "var(--amber-bright)" }}
-                      title={`searched: ${s.search_query}`}
+                      aria-hidden="true"
+                      style={{
+                        flexShrink: 0,
+                        width: 28,
+                        height: 28,
+                        borderRadius: "50%",
+                        background: "var(--amber-bright)33",
+                        color: "var(--amber-bright)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 13,
+                        fontWeight: 800,
+                        fontFamily: "Georgia, serif",
+                        lineHeight: 1
+                      }}
                     >
-                      {s.rationale}
+                      ‟
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        className="text-xs"
+                        style={{
+                          color: "var(--text-dim)",
+                          textTransform: "uppercase",
+                          letterSpacing: "0.08em",
+                          fontWeight: 700,
+                          marginBottom: 4
+                        }}
+                      >
+                        your twin&apos;s read
+                      </div>
+                      <div
+                        className="text-sm"
+                        style={{
+                          color: "var(--text)",
+                          lineHeight: 1.5
+                        }}
+                        title={`searched: ${s.search_query}`}
+                      >
+                        {s.rationale}
+                      </div>
                     </div>
                     <button
                       type="button"
                       onClick={() => askTwin(s.search_query)}
                       disabled={suggesting}
-                      className="retro-dim text-xs hover:text-white"
+                      title="Re-run this intent to surface fresh matches"
                       style={{
-                        background: "transparent",
-                        border: "none",
-                        cursor: "pointer",
-                        textDecoration: "underline",
-                        padding: 0
+                        flexShrink: 0,
+                        alignSelf: "center",
+                        padding: "6px 12px",
+                        borderRadius: 999,
+                        border: "1px solid var(--border-bright)",
+                        background: "var(--panel-solid)",
+                        color: "var(--text)",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: suggesting ? "default" : "pointer",
+                        opacity: suggesting ? 0.5 : 1,
+                        whiteSpace: "nowrap"
                       }}
-                      title="Run the same intent again to surface fresh matches"
                     >
-                      find more like this →
+                      ↻ find more
                     </button>
                   </div>
                   {s.people.length === 0 ? (
@@ -555,32 +791,51 @@ export function DiscoverSearch({
                                   </div>
                                 )}
                               </div>
-                              <div className="flex items-center gap-2 shrink-0">
+                              <div
+                                className="flex items-center gap-2 shrink-0"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleExpand(p.url);
+                                  onClick={() => toggleExpand(p.url)}
+                                  title={isOpen ? "Collapse details" : "See the full scrape"}
+                                  aria-label={
+                                    isOpen ? "Collapse details" : "Expand details"
+                                  }
+                                  style={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: 999,
+                                    border: "1px solid var(--border)",
+                                    background: "transparent",
+                                    color: "var(--text-dim)",
+                                    cursor: "pointer",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 14,
+                                    lineHeight: 1
                                   }}
-                                  className="retro-dim text-xs hover:text-white"
                                 >
-                                  {isOpen ? "− collapse" : "+ expand"}
+                                  {isOpen ? "−" : "+"}
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    draftOutreach(p);
-                                  }}
+                                  onClick={() => draftOutreach(p)}
                                   disabled={!!getDraft(p.url)?.generating}
-                                  className="retro-btn text-sm"
+                                  // Primary CTA — promote the "draft invite"
+                                  // action so it's visually the strongest
+                                  // affordance on the row, not the equal
+                                  // weight retro-btn it was.
+                                  className="retro-btn retro-btn-primary text-sm"
+                                  style={{ whiteSpace: "nowrap" }}
                                 >
                                   {getDraft(p.url)?.generating ? (
                                     <DotsLoader label="Drafting" />
                                   ) : getDraft(p.url)?.draftText ? (
                                     "Redraft"
                                   ) : (
-                                    "Draft invite"
+                                    "✎ Draft invite"
                                   )}
                                 </button>
                               </div>

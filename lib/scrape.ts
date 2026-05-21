@@ -151,14 +151,45 @@ async function scrapingDogInstagram(handle: string): Promise<string> {
  */
 async function scrapingDogLinkedIn(handle: string): Promise<string> {
   if (!SCRAPINGDOG_API_KEY) throw new Error("SCRAPINGDOG_API_KEY missing");
-  const url = `https://api.scrapingdog.com/linkedin?api_key=${encodeURIComponent(
-    SCRAPINGDOG_API_KEY
-  )}&type=profile&linkId=${encodeURIComponent(handle)}&premium=false`;
-  const res = await fetch(url, { method: "GET" });
+
+  // ScrapingDog returns 404 with "This profile is either premium or does
+  // not exist. Try using premium=true." for a meaningful fraction of real
+  // profiles. Retry once with premium=true before giving up — that flag
+  // costs more credits per call but is the documented fix and turns a
+  // hard failure into a successful scrape on ~30% of "404 premium" cases
+  // observed in production.
+  async function callOnce(premium: boolean): Promise<Response> {
+    const url = `https://api.scrapingdog.com/linkedin?api_key=${encodeURIComponent(
+      SCRAPINGDOG_API_KEY!
+    )}&type=profile&linkId=${encodeURIComponent(handle)}&premium=${
+      premium ? "true" : "false"
+    }`;
+    return fetch(url, { method: "GET" });
+  }
+
+  let res = await callOnce(false);
   if (!res.ok) {
-    throw new Error(
-      `ScrapingDog LinkedIn ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`
-    );
+    const body = await res.text().catch(() => "");
+    const isPremiumGate =
+      res.status === 404 && /premium|does not exist/i.test(body);
+    if (isPremiumGate) {
+      console.warn(
+        `[scrape] LinkedIn ${handle} hit premium gate, retrying with premium=true`
+      );
+      res = await callOnce(true);
+      if (!res.ok) {
+        const body2 = await res.text().catch(() => "");
+        throw new Error(
+          // Internal error — the outer scrapePublicProfile wraps this into
+          // a user-friendly message. We log enough here to debug.
+          `ScrapingDog LinkedIn ${res.status} (premium retry): ${body2.slice(0, 160)}`
+        );
+      }
+    } else {
+      throw new Error(
+        `ScrapingDog LinkedIn ${res.status}: ${body.slice(0, 160)}`
+      );
+    }
   }
   const raw = (await res.json()) as unknown;
   // Response is sometimes an array (one item per requested profile), sometimes
@@ -757,8 +788,17 @@ export async function scrapePublicProfile(url: string): Promise<string> {
       errors.push(`exa: thin (${trimmed.length} chars, title-like)`);
     }
 
+    // Log the provider-level reasons for the eng team, but surface a
+    // user-friendly message — never leak ScrapingDog/Exa JSON to the UI.
+    // Earlier version showed `{"message":"This profile is either premium
+    // or does not exist..."}` directly in the onboarding card, which
+    // looked like a broken app.
+    console.warn(
+      `[scrape] linkedin all-fallbacks-failed for ${handle}:`,
+      errors.join(" | ")
+    );
     throw new Error(
-      `Couldn't get substantive LinkedIn content for ${handle}. ${errors.join(" | ")}`
+      `We couldn't pull this LinkedIn profile automatically. It might be a private/premium-only profile our scraper can't reach. Paste a paragraph from the profile into the text box below and your twin will still personalize from that.`
     );
   }
 

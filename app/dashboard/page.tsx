@@ -199,17 +199,30 @@ export default async function DashboardPage() {
   const directory = (allRealUsers ?? [])
     .map((p) => {
       const t = twinByUser.get(p.id) as any;
-      // Headline fallback: first line of ai_export_blob if goals is
-      // missing or placeholder (Sydney / Nicole had empty cards because
-      // goals was stale, but their ai_export_blob still has substance).
+      // Headline fallback: first SUBSTANTIVE line of ai_export_blob. The
+      // earlier picker accepted the first 20-200 char line — which often
+      // matched "# Public footprint (https://...)", a markdown source
+      // header, and showed up on contact rows as the "context". Now we
+      // skip: markdown headers (#), bare URLs, key:value scaffolding
+      // lines, and anything under 4 words.
       const blob = (t?.ai_export_blob || "") as string;
-      const headlineFromBlob =
-        blob && typeof blob === "string"
-          ? blob
-              .split(/[\n\r]/)
-              .map((l: string) => l.trim())
-              .find((l: string) => l.length > 20 && l.length < 200) || ""
-          : "";
+      const headlineFromBlob = (() => {
+        if (!blob || typeof blob !== "string") return "";
+        const lines = blob
+          .split(/[\n\r]/)
+          .map((l: string) => l.trim())
+          .filter(Boolean);
+        for (const l of lines) {
+          if (l.length < 28 || l.length > 220) continue;
+          if (l.startsWith("#")) continue; // markdown header
+          if (/^https?:\/\/\S+\s*$/.test(l)) continue; // bare URL line
+          if (/^[a-zA-Z_][\w\s]{0,30}:\s*https?:\/\//.test(l)) continue; // "key: https://..."
+          const words = l.split(/\s+/);
+          if (words.length < 4) continue;
+          return l;
+        }
+        return "";
+      })();
       // Deterministic 4-signal pair score replacing the old "every twin
       // shows 12% because the raw jaccard rounded to 2 and the floor took
       // over." See lib/pair-score.ts for the math.
