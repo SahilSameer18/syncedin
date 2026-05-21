@@ -107,15 +107,26 @@ export function OAuthButtons({
         <GoogleLogo />
         <span>{busy === "google" ? "Connecting…" : "Continue with Google"}</span>
       </button>
-      <button
-        type="button"
-        onClick={() => go("apple")}
-        disabled={busy !== null}
-        className="retro-btn w-full flex items-center justify-center gap-3"
-      >
-        <AppleLogo />
-        <span>{busy === "apple" ? "Connecting…" : "Continue with Apple"}</span>
-      </button>
+      {/*
+        Apple sign-in is hidden until the provider is configured in
+        Supabase (Authentication → Providers → Apple → needs Service ID,
+        Key ID, Team ID, .p8 key from the Apple Developer Program).
+        Without that config Supabase returns 400 "provider is not
+        enabled" the moment a user taps it, which looks like a broken
+        app. Flip APPLE_OAUTH_ENABLED to true here once the provider is
+        live in Supabase.
+      */}
+      {false && (
+        <button
+          type="button"
+          onClick={() => go("apple")}
+          disabled={busy !== null}
+          className="retro-btn w-full flex items-center justify-center gap-3"
+        >
+          <AppleLogo />
+          <span>{busy === "apple" ? "Connecting…" : "Continue with Apple"}</span>
+        </button>
+      )}
       {err && (
         <div
           className="text-xs"
