@@ -6,6 +6,13 @@ import { Wordmark } from "../Wordmark";
 import { InviteReveal } from "./InviteReveal";
 import { NetworkDensity } from "../communities/NetworkDensity";
 
+// Force per-request render — Next.js was caching the Supabase fetch result
+// for missing-slug 404s, so even after a row was backfilled the page kept
+// serving 404 from the function-level data cache. Marking the route
+// fully-dynamic guarantees a fresh Supabase lookup every visit.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Reserved top-level paths that should NOT be treated as invite slugs. Keep in
 // sync with the actual routes in app/.
 const RESERVED = new Set([
@@ -151,14 +158,17 @@ export default async function InviteLandingPage({
   const personName = invite.person_title?.split(/[-|,(·]/)[0]?.trim() ||
     "you";
 
-  // Compute the teaser (first ~2 sentences capped at 280 chars) up front so
-  // the client typing component knows what to type and how much remains
-  // locked behind sign-up.
+  // Compute the teaser up front so the client typing component knows what
+  // to type and how much remains locked behind sign-up. The landing-page
+  // message is now LONGER (5-8 sentences of scrape-driven personalization,
+  // not 3 sentences of generic platform-intro), so we let ~3 sentences /
+  // 480 chars through before the lock — enough to prove this is real
+  // personalization, not enough to remove the reason to sign up.
   const fullMsg = invite.conversation_starter || "";
   const sentences = fullMsg.split(/(?<=[.!?])\s+/);
-  const teaserCount = Math.min(2, sentences.length);
+  const teaserCount = Math.min(3, sentences.length);
   let teaser = sentences.slice(0, teaserCount).join(" ");
-  if (teaser.length > 280) teaser = teaser.slice(0, 280).trimEnd();
+  if (teaser.length > 480) teaser = teaser.slice(0, 480).trimEnd();
   const remainingSentences = Math.max(0, sentences.length - teaserCount);
 
   return (

@@ -273,22 +273,57 @@ Right:
   "Lucas Chu": "Saw your LinkedIn..."
 }
 
-Each opener follows EXACTLY this three-beat structure:
+Each opener follows a five-beat structure. The recipient SEES this on their
+landing page (syncedin.org/<slug>) after clicking through from a short DM —
+so they're already past the "is this spam?" filter and are looking for
+substance about themselves and the proposed value. Give them the substance.
 
-BEAT 1 — about the RECIPIENT (always first). Reference a concrete detail from their Profile block (a project, post, line in their bio, where they work, something they shipped). If the Profile block is empty, acknowledge them by name and reference whatever signal IS present (the platform — LinkedIn / X / Instagram — or note). Never lead with "${selfName}'s twin reached out" or any variant.
+BEAT 1 — about the RECIPIENT (always first). Reference a concrete detail from
+their Profile block — a project they shipped, a company they joined, a post
+they wrote, a thesis they hold. The more specific, the better. NEVER open
+with anything about ${selfName}. If the Profile block is empty, acknowledge
+them by name + the platform they came from (LinkedIn / X / Instagram) +
+something honest about why this is still worth their attention.
 
-BEAT 2 — the bridge (one sentence). Why their work + ${selfName}'s goals are a real win-win. Connect specific to specific.
+BEAT 2 — a second specific observation (one sentence). A pattern across two
+things they've done, or a detail that signals you actually read past the
+headline. This is what separates "real personalization" from "scraped + LLM".
 
-BEAT 3 — the question (one sentence). A genuine ask that invites their reply.
+BEAT 3 — the bridge (one or two sentences). Why their work + ${selfName}'s
+work intersect. Connect specific to specific. If they're a VC mention the
+venture ${selfName} is building that fits their thesis. If they're a
+founder, mention the overlap or the resource trade. If they're a hire-type
+operator, mention the projects ${selfName} has ready to hand off.
+
+BEAT 4 — the platform setup (one sentence). One soft beat introducing
+SyncedIn: "this is reaching you because my digital twin already started a
+conversation with yours / spun up an opener for yours" — keep it light. The
+recipient should feel curious about the protocol, not pitched on it.
+
+BEAT 5 — the question (one sentence). A genuine ask that invites their reply.
+Not "want to chat?" — something that signals you have a specific reason to
+talk and want to know if it lands.
 
 Hard constraints:
-- 3 sentences total. First person from ${selfName}'s twin.
-- First sentence MUST be about the recipient. If it mentions ${selfName} before the recipient, the output is wrong.
-- It's fine to mention that "my twin is reaching out" once, near the end of beat 2 — but never as the lead.
+- 5 to 8 sentences total. Two short paragraphs are fine; a single block of
+  text is also fine. NO bullet lists.
+- First person from ${selfName}'s twin.
+- First sentence MUST be about the recipient. If it mentions ${selfName}
+  before the recipient, the output is wrong.
 - NO em-dashes, NO en-dashes, NO markdown, NO bullets, NO emojis.
-- NEVER reference follower counts, audience size, "your X followers," "your reach," or any quantitative social-metric flattery. Lead with substance — what they're building, who they back, what they've shipped.
-- If the recipient's name appears to be a URL slug (lowercase, jammed-together, e.g. "chulucas"), use just their first name in a natural casing. If unsure, skip the name and address them directly ("Saw your work on...").
-- HEDGE INFERENCES: Any time you assert someone's role, employer, current focus, or affiliations from a scrape, you MUST soften the claim. Use phrases like "correct me if I'm wrong" / "looks like" / "if I'm reading this right" / "from what I can tell". A scrape can be stale or about a different person with the same name — the worst outcome is asserting a wrong fact confidently and burning trust on first contact. Better to be tentative and accurate than confident and wrong.`;
+- NEVER reference follower counts, audience size, "your X followers," "your
+  reach," or any quantitative social-metric flattery. Lead with substance —
+  what they're building, who they back, what they've shipped.
+- If the recipient's name appears to be a URL slug (lowercase, jammed-together,
+  e.g. "chulucas"), use just their first name in a natural casing. If unsure,
+  skip the name and address them directly ("Saw your work on...").
+- HEDGE INFERENCES: Any time you assert someone's role, employer, current
+  focus, or affiliations from a scrape, you MUST soften the claim. Use
+  phrases like "correct me if I'm wrong" / "looks like" / "if I'm reading
+  this right" / "from what I can tell". A scrape can be stale or about a
+  different person with the same name — the worst outcome is asserting a
+  wrong fact confidently and burning trust on first contact. Better to be
+  tentative and accurate than confident and wrong.`;
     const userContent = `${selfName}'s goals: ${t?.goals || "(not specified)"}
 ${selfName}'s deal preferences: ${t?.deal_preferences || "(not specified)"}
 
@@ -312,7 +347,10 @@ ${contacts
 Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     const r = await anthropic.messages.create({
       model: TWIN_MODEL,
-      max_tokens: Math.min(3000, 200 + contacts.length * 120),
+      // Each opener is now 5-8 sentences (~150-220 tokens) instead of 3
+      // (~80-110 tokens). Lift the per-contact budget so a bulk run with
+      // a dozen contacts doesn't get truncated mid-message.
+      max_tokens: Math.min(6000, 400 + contacts.length * 260),
       system,
       messages: [{ role: "user", content: userContent }]
     });
@@ -381,22 +419,28 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     const firstName = c.name.split(" ")[0] || c.name;
     const selfFirst = (selfName || "").split(/\s+/)[0] || selfName;
 
-    // OUTBOUND DM — what the inviter copies and sends via
-    // SMS / WhatsApp / Email / LinkedIn. This IS the personalized
-    // role-aware cold message generated by Claude (or the recipient-first
-    // fallback). It talks about THE RECIPIENT'S work.
-    const outboundMessage =
-      starters[c.name] ||
-      `${firstName}, I saw your profile and wanted to reach out before sending a generic invite. I'm ${selfName}'s twin — there's probably a real overlap between what you're working on and what we're focused on. What would be useful for you to hear about first?`;
+    // SWAP (2026-05): Jack's call to flip these. The personalized
+    // scrape-driven content moves to the LANDING page where the recipient
+    // is already past the "is this spam?" filter and is scanning for
+    // substance. The short platform-intro becomes the OUTBOUND DM — its
+    // only job is to earn a click. Long personalized prose in a cold DM
+    // gets ignored; the click-bait short intro performs better and the
+    // deep personalization rewards the click.
 
-    // LANDING-PAGE OPENER — what the recipient sees once they click
-    // through to /<slug>. Same recipient, but post-click their question
-    // shifts from "why is this person reaching out?" to "what is this
-    // platform?" So this message explains SyncedIn in one warm beat
-    // rather than re-pitching the recipient on themselves. Templated
-    // (not LLM-generated) so it's fast, deterministic, and never echoes
-    // the outbound DM.
-    const landingStarter = `Hey ${firstName} — ${selfFirst} here. SyncedIn is a new platform where two people's digital twins talk to each other first, so we can surface the most useful win-wins between us before either of us spends a minute on a live call. Your twin will live on this exact page once you spin it up. Curious what it would say to mine.`;
+    // LANDING-PAGE OPENER (was outbound) — long, scrape-focused,
+    // Claude-generated. 5-8 sentences referencing the recipient's actual
+    // work. This is what they read after clicking through, so length is
+    // a feature not a bug.
+    const landingStarter =
+      starters[c.name] ||
+      `${firstName}, ${selfFirst} here. I saw your profile and wanted to reach out before any kind of generic invite. There's probably a real overlap between what you're working on and what I'm focused on — but I'd rather you tell me which angle of that is actually useful for you than guess. My twin already drafted what it would say to yours, and you can reply with your own clone in two minutes once you sign up. What would be most useful for you to hear about first?`;
+
+    // OUTBOUND DM (was landing) — short, platform-context, templated.
+    // The recipient's question at this stage is "why is this person
+    // reaching out?" not "what is the platform?" — so the DM gives them
+    // just enough to click. The rich personalized prose lives on the
+    // landing page they get to next.
+    const outboundMessage = `Hey ${firstName} — ${selfFirst} here. SyncedIn is a new platform where two people's digital twins talk to each other first, so we can surface the most useful win-wins between us before either of us spends a minute on a live call. Your twin will live on this exact page once you spin it up. Curious what it would say to mine.`;
     // Stash the scraped profile as a highlight so the public landing page
     // can render a "we know who you are" preview.
     const highlights: string[] = [];
@@ -428,7 +472,10 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     //
     // v4-hedged-roleaware (2026-05): role-aware framing (VC/founder/operator/
     // customer/journalist) + hedge inferred claims about role/employer.
-    const messageVariant = "v4-hedged-roleaware";
+    // v5-swap (2026-05): swap landing↔outbound. Long Claude personalization
+    // now lives on the LANDING page, short platform-intro is the outbound
+    // DM. Teaser bumped to 3 sentences on the page.
+    const messageVariant = "v5-swap";
 
     // Pull a handle out of the profile URL so we can credit the inviter
     // later if the recipient signs up via the front door instead of the
@@ -442,26 +489,54 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
       if (m && m[1]) handleFromUrl = m[1].toLowerCase();
     }
 
-    await service.from("pending_invites").insert({
+    // The full row we'd LIKE to insert. Some of these columns may not yet
+    // exist in production if the schema migration hasn't been run — in that
+    // case the first insert errors with "column X does not exist" and we
+    // retry with a minimal safe column set. This used to silently fail and
+    // hand the inviter a URL that 404'd; now the row always lands.
+    const fullRow: Record<string, unknown> = {
       slug,
       inviter_user_id: user.id,
       person_title: c.name,
       person_url: c.profile_url ?? null,
       person_highlights: highlights,
-      // Landing-page opener (platform-context, what the recipient sees
-      // after clicking through).
       conversation_starter: landingStarter,
-      // Outbound DM (personalized cold message, what the inviter sends
-      // before the recipient ever clicks).
       outbound_message: outboundMessage,
       recipient_avatar_url: avatar_url,
       message_variant: messageVariant,
-      // Capture identifiers so we can later credit this invite when the
-      // recipient signs up via syncedin.org directly (no /claim link).
       recipient_email: c.email?.toLowerCase() ?? null,
       recipient_phone: c.phone ?? null,
       recipient_handle: handleFromUrl ?? c.handle?.toLowerCase() ?? null
-    });
+    };
+    let insertErr = (
+      await service.from("pending_invites").insert(fullRow)
+    ).error;
+    if (insertErr && /column .* does not exist/i.test(insertErr.message)) {
+      // Retry without the optional columns that the migration adds. The
+      // landing page only requires slug + inviter_user_id + person_title +
+      // conversation_starter, so this is the safe minimum that still
+      // produces a working /<slug> page.
+      const minimalRow: Record<string, unknown> = {
+        slug,
+        inviter_user_id: user.id,
+        person_title: c.name,
+        person_url: c.profile_url ?? null,
+        person_highlights: highlights,
+        conversation_starter: landingStarter
+      };
+      insertErr = (
+        await service.from("pending_invites").insert(minimalRow)
+      ).error;
+    }
+    if (insertErr) {
+      // Surface the error rather than silently telling the caller their
+      // invite is live when the row never landed.
+      console.error("[bulk-invite] insert failed for", slug, insertErr);
+      return NextResponse.json(
+        { error: "insert_failed", slug, detail: insertErr.message },
+        { status: 500 }
+      );
+    }
     results.push({
       contact: c,
       slug,

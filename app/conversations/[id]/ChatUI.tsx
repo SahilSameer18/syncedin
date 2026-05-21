@@ -890,12 +890,24 @@ export function ChatUI({
                   <textarea
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
+                    /* Row count: take the max of explicit newlines AND a
+                       wrapping estimate (~35 chars/line for the narrow
+                       mobile bubble). The old formula only counted hard
+                       newlines, so a 400-char paragraph with 0 newlines
+                       collapsed to rows={2} even though it visibly spans
+                       12+ wrapped lines. Min 4 so even short edits get
+                       breathing room; cap 16 so massive blobs don't push
+                       the keyboard offscreen. */
                     rows={Math.min(
-                      12,
-                      Math.max(2, editText.split("\n").length)
+                      16,
+                      Math.max(
+                        4,
+                        editText.split("\n").length,
+                        Math.ceil(editText.length / 35)
+                      )
                     )}
                     autoFocus
-                    className="inline-block w-[80%] max-w-md px-3.5 py-2 text-[15px] leading-snug outline-none resize-none align-bottom"
+                    className="inline-block w-[90%] max-w-md px-3.5 py-2 text-[15px] leading-snug outline-none resize-none align-bottom"
                     style={{
                       fontFamily: MSG_FONT,
                       borderRadius: 18,
@@ -903,7 +915,12 @@ export function ChatUI({
                       color: mine ? "#ffffff" : "var(--bubble-them-text, #1c1c1e)",
                       borderBottomRightRadius: mine ? 5 : 18,
                       borderBottomLeftRadius: mine ? 18 : 5,
-                      boxShadow: "0 0 0 2px var(--amber)"
+                      boxShadow: "0 0 0 2px var(--amber)",
+                      // Safety floor so even mis-computed rows can't
+                      // shrink below ~5 visible lines. Keyboard takes
+                      // ~half the viewport on mobile — anything tighter
+                      // than this and the user can't see their text.
+                      minHeight: "140px"
                     }}
                   />
                   <div
