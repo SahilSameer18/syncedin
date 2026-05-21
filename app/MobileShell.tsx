@@ -65,8 +65,8 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           background: "var(--panel-solid)",
           borderBottom: "1px solid var(--border)",
           padding: "4px 10px",
-          gap: 8,
-          minHeight: 52
+          gap: 10,
+          minHeight: 64
         }}
       >
         <button
@@ -74,18 +74,25 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           onClick={() => setOpen((v) => !v)}
           aria-label="Open menu"
           style={{
-            width: 30,
-            height: 30,
-            borderRadius: 7,
+            width: 40,
+            height: 40,
+            borderRadius: 10,
             border: "1px solid var(--border-bright)",
             background: "transparent",
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
+            // line-height:1 + matching font-size makes the glyph render
+            // optically centered in the box (default line-height was
+            // pushing the ☰ glyph slightly above center).
+            lineHeight: 1,
             cursor: "pointer",
             color: "var(--text)",
-            fontSize: 16,
-            flexShrink: 0
+            fontSize: 20,
+            flexShrink: 0,
+            // Equal padding on all sides so the SVG glyph sits dead
+            // center regardless of font-metric quirks.
+            padding: 0
           }}
         >
           {open ? "✕" : "☰"}
@@ -96,21 +103,21 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           style={{
             display: "inline-flex",
             alignItems: "center",
-            height: 40,
+            height: 52,
             textDecoration: "none",
             flexShrink: 0
           }}
         >
-          {/* Wordmark at 40px (3× the original 14px feel Jack flagged).
-              We bump the top-bar minHeight to fit so the wordmark has
-              room without being clipped. wordmark-themed handles
-              dark-mode invert. */}
+          {/* Wordmark at 52px — Jack's repeated 3× ask measured against
+              the original ~22px size. The mobile bar minHeight is 64 so
+              the 52px wordmark has room without being clipped.
+              wordmark-themed handles dark-mode invert. */}
           <img
             src="/syncedin-wordmark.png"
             alt="SyncedIn"
             className="wordmark-themed"
-            height={40}
-            style={{ height: 40, width: "auto", display: "block" }}
+            height={52}
+            style={{ height: 52, width: "auto", display: "block" }}
           />
         </Link>
       </div>
@@ -160,7 +167,7 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             transform: open ? "translateX(0)" : "translateX(-100%)",
             transition: "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
             overflowY: "auto",
-            padding: "6px 8px 16px"
+            padding: "0 8px 16px"
           }}
         >
           {children}
@@ -169,10 +176,22 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           .syncedin-mobile-drawer img.wordmark-themed {
             display: none;
           }
-          /* The wordmark Link is the first child of the Sidebar — its
-             padding wrapper adds ~6px we can also reclaim by collapsing. */
+          /* The wordmark Link is the first child of the Sidebar — kill
+             both the link AND any vertical padding/margin it brings so
+             the nav items start near the top of the drawer instead of
+             80-100px down. Jack flagged the empty band repeatedly. */
           .syncedin-mobile-drawer > div > a[aria-label="SyncedIn — home"] {
             display: none;
+          }
+          .syncedin-mobile-drawer > div {
+            padding-top: 4px !important;
+            margin-top: 0 !important;
+          }
+          /* Collapse the first nav item's top spacing too — many sidebar
+             layouts add a divider-like margin that compounds with the
+             drawer's own padding. */
+          .syncedin-mobile-drawer > div > *:first-child {
+            margin-top: 0 !important;
           }
         `}</style>
       </div>

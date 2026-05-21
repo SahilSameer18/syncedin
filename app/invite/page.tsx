@@ -48,6 +48,42 @@ export default async function InvitePage() {
       .eq("inviter_user_id", user.id)
       .not("claimed_by_user_id", "is", null);
     claimed = claimedCount ?? 0;
+
+    // FALLBACK: also count people who signed up via the front door
+    // (syncedin.org/login → magic link) whose email matches a recipient
+    // address on one of this inviter's pending_invites. The strict
+    // claim-flow only fires when the recipient clicks /claim/<slug>,
+    // which under-reports real conversions by a lot — Jack flagged
+    // 'twins onboarded: 0' on 48 drafted invites because the people he
+    // invited signed up directly instead of going through the link.
+    try {
+      const { data: recipientEmailRows } = await service
+        .from("pending_invites")
+        .select("recipient_email")
+        .eq("inviter_user_id", user.id)
+        .not("recipient_email", "is", null);
+      const recipientEmails = Array.from(
+        new Set(
+          ((recipientEmailRows ?? []) as any[])
+            .map((r) => (r.recipient_email || "").toLowerCase())
+            .filter(Boolean)
+        )
+      );
+      if (recipientEmails.length > 0) {
+        const { count: emailMatchCount } = await service
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .in("email", recipientEmails);
+        // Take the MAX of the two metrics so we don't double-count the
+        // same person if they both clicked /claim AND got matched by
+        // email. (Email match is a superset of the strict claim count
+        // in practice.)
+        claimed = Math.max(claimed, emailMatchCount ?? 0);
+      }
+    } catch {
+      /* recipient_email column may not exist yet — fall back to the
+         strict claim count */
+    }
     // visit_count + first_visit_at may not exist yet in prod (schema
     // migration pending). Use a defensive try.
     try {

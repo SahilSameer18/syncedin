@@ -430,6 +430,18 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     // customer/journalist) + hedge inferred claims about role/employer.
     const messageVariant = "v4-hedged-roleaware";
 
+    // Pull a handle out of the profile URL so we can credit the inviter
+    // later if the recipient signs up via the front door instead of the
+    // /claim/<slug> flow. Match by handle is a fallback for cases where
+    // we didn't get an email.
+    let handleFromUrl: string | null = null;
+    if (c.profile_url) {
+      const m = c.profile_url.match(
+        /(?:linkedin\.com\/(?:in|pub)\/|x\.com\/|twitter\.com\/|instagram\.com\/|facebook\.com\/)([^\/?#]+)/i
+      );
+      if (m && m[1]) handleFromUrl = m[1].toLowerCase();
+    }
+
     await service.from("pending_invites").insert({
       slug,
       inviter_user_id: user.id,
@@ -443,7 +455,12 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
       // before the recipient ever clicks).
       outbound_message: outboundMessage,
       recipient_avatar_url: avatar_url,
-      message_variant: messageVariant
+      message_variant: messageVariant,
+      // Capture identifiers so we can later credit this invite when the
+      // recipient signs up via syncedin.org directly (no /claim link).
+      recipient_email: c.email?.toLowerCase() ?? null,
+      recipient_phone: c.phone ?? null,
+      recipient_handle: handleFromUrl ?? c.handle?.toLowerCase() ?? null
     });
     results.push({
       contact: c,

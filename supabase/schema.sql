@@ -459,6 +459,21 @@ alter table public.pending_invites
 alter table public.pending_invites
   add column if not exists message_variant text;
 
+-- Recipient contact captured at draft time. Lets us credit the original
+-- inviter when the recipient signs up via the front door (syncedin.org/
+-- login) instead of the /claim/<slug> link. Without these we could only
+-- count claim-flow conversions, which under-reports real conversions by
+-- a lot.
+alter table public.pending_invites
+  add column if not exists recipient_email text;
+alter table public.pending_invites
+  add column if not exists recipient_phone text;
+alter table public.pending_invites
+  add column if not exists recipient_handle text;
+
+create index if not exists pending_invites_recipient_email_idx
+  on public.pending_invites (recipient_email);
+
 alter table public.pending_invites enable row level security;
 
 -- Anyone can read by slug — these are public landing pages.

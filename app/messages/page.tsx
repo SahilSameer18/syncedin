@@ -127,7 +127,19 @@ export default async function MessagesPage() {
     .filter(Boolean)
     .join(" ");
   const platformDirectory = (platformUsers ?? [])
-    .filter((p: any) => !existingConvIds.has(p.id))
+    .filter((p: any) => {
+      if (existingConvIds.has(p.id)) return false;
+      // Substance gate — hide twins who signed up but never seeded any
+      // onboarding data. Without this filter, the directory shows raw
+      // emails as names + 0% sync, which reads as a dead-end.
+      const t = twinByUserMsg.get(p.id);
+      const hasGoals = ((t as any)?.goals ?? "").trim().length > 5;
+      const hasDealPrefs =
+        ((t as any)?.deal_preferences ?? "").trim().length > 5;
+      const hasBlob =
+        ((t as any)?.ai_export_blob ?? "").trim().length > 80;
+      return hasGoals || hasDealPrefs || hasBlob;
+    })
     .map((p: any) => {
       const t = twinByUserMsg.get(p.id);
       const theirBlob = [

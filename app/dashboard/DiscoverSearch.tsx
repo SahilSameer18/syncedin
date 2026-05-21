@@ -597,9 +597,18 @@ export function DiscoverSearch({
                               if (!d || !d.draftText) return null;
                               return (
                                 <div
-                                  className="mt-3 space-y-3"
+                                  className="mt-3"
                                   onClick={(e) => e.stopPropagation()}
                                 >
+                                  {/* Find People rows previously rendered both
+                                      a short LinkedIn connection note AND a
+                                      long DM with the invite URL. Jack's call
+                                      to drop the long DM: these recipients
+                                      haven't connected on LinkedIn yet, so a
+                                      long DM isn't actionable — the
+                                      connection-note path IS the move.
+                                      Mobile-friendly two-button row keeps
+                                      everything on one line. */}
                                   {d.shortText && (
                                     <div>
                                       <div
@@ -625,7 +634,7 @@ export function DiscoverSearch({
                                         maxLength={300}
                                         onClick={(e) => e.stopPropagation()}
                                       />
-                                      <div className="flex flex-wrap gap-2 mt-2">
+                                      <div className="flex items-center gap-2 mt-2 flex-nowrap">
                                         <button
                                           type="button"
                                           onClick={(e) => {
@@ -633,6 +642,7 @@ export function DiscoverSearch({
                                             copy(d.shortText);
                                           }}
                                           className="retro-btn text-sm"
+                                          style={{ flex: "1 1 auto", minWidth: 0 }}
                                         >
                                           Copy connection note
                                         </button>
@@ -648,95 +658,31 @@ export function DiscoverSearch({
                                             }}
                                             className="retro-btn retro-btn-primary text-sm"
                                             title="Note copied. LinkedIn opens — click Connect → Add a note → Paste"
+                                            aria-label="Open LinkedIn profile"
+                                            style={{
+                                              flex: "0 0 auto",
+                                              display: "inline-flex",
+                                              alignItems: "center",
+                                              gap: 6,
+                                              padding: "8px 12px"
+                                            }}
                                           >
-                                            Open LinkedIn (note copied)
+                                            <img
+                                              src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=32"
+                                              alt=""
+                                              width={16}
+                                              height={16}
+                                              style={{
+                                                display: "block",
+                                                borderRadius: 3
+                                              }}
+                                            />
+                                            <span>Open profile</span>
                                           </button>
                                         )}
                                       </div>
-                                      {isLinkedInUrl(p.url) && (
-                                        <p
-                                          className="text-xs mt-1.5"
-                                          style={{ color: "var(--text-dim)" }}
-                                        >
-                                          LinkedIn doesn&apos;t allow apps to
-                                          pre-fill the connect modal. Click
-                                          the button: note is copied, profile
-                                          opens, hit Connect → Add a note →
-                                          paste.
-                                        </p>
-                                      )}
                                     </div>
                                   )}
-                                  <div>
-                                    <div
-                                      className="retro-label"
-                                      style={{
-                                        color: "var(--amber-bright)"
-                                      }}
-                                    >
-                                      direct message (with invite link)
-                                    </div>
-                                    <textarea
-                                      value={d.draftText}
-                                      onChange={(e) =>
-                                        setDraft(p.url, {
-                                          draftText: e.target.value
-                                        })
-                                      }
-                                      rows={6}
-                                      className="retro-input mt-1 text-sm"
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          copy(d.draftText);
-                                        }}
-                                        className="retro-btn text-sm"
-                                      >
-                                        Copy DM
-                                      </button>
-                                      {d.inviteUrl && (
-                                        <>
-                                          <button
-                                            type="button"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              copy(d.inviteUrl);
-                                            }}
-                                            className="retro-btn retro-btn-primary text-sm"
-                                            title={d.inviteUrl}
-                                          >
-                                            🔗 Copy invite URL
-                                          </button>
-                                          <a
-                                            href={d.inviteUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            onClick={(e) =>
-                                              e.stopPropagation()
-                                            }
-                                            className="retro-btn text-sm"
-                                          >
-                                            Preview →
-                                          </a>
-                                        </>
-                                      )}
-                                    </div>
-                                    {d.inviteUrl && (
-                                      <div
-                                        className="text-xs mt-1.5"
-                                        style={{
-                                          color: "var(--text-dim)",
-                                          wordBreak: "break-all"
-                                        }}
-                                      >
-                                        {d.inviteUrl}
-                                      </div>
-                                    )}
-                                  </div>
                                 </div>
                               );
                             })()}
@@ -951,7 +897,7 @@ export function DiscoverSearch({
                                     maxLength={300}
                                     onClick={(e) => e.stopPropagation()}
                                   />
-                                  <div className="flex flex-wrap gap-2 mt-2">
+                                  <div className="flex items-center gap-2 mt-2 flex-nowrap">
                                     <button
                                       type="button"
                                       onClick={(e) => {
@@ -959,8 +905,9 @@ export function DiscoverSearch({
                                         copy(d.shortText);
                                       }}
                                       className="retro-btn text-sm"
+                                      style={{ flex: "1 1 auto", minWidth: 0 }}
                                     >
-                                      Copy note
+                                      Copy connection note
                                     </button>
                                     {isLinkedInUrl(p.url) && (
                                       <button
@@ -974,85 +921,37 @@ export function DiscoverSearch({
                                         }}
                                         className="retro-btn retro-btn-primary text-sm"
                                         title="Note copied. LinkedIn opens — click Connect → Add a note → Paste"
+                                        aria-label="Open LinkedIn profile"
+                                        style={{
+                                          flex: "0 0 auto",
+                                          display: "inline-flex",
+                                          alignItems: "center",
+                                          gap: 6,
+                                          padding: "8px 12px"
+                                        }}
                                       >
-                                        Open LinkedIn (note copied) →
+                                        <img
+                                          src="https://www.google.com/s2/favicons?domain=linkedin.com&sz=32"
+                                          alt=""
+                                          width={16}
+                                          height={16}
+                                          style={{
+                                            display: "block",
+                                            borderRadius: 3
+                                          }}
+                                        />
+                                        <span>Open profile</span>
                                       </button>
                                     )}
                                   </div>
                                 </div>
                               )}
-
-                              {/* Long DM with personal invite link */}
-                              <div>
-                                <div
-                                  className="retro-label"
-                                  style={{
-                                    color: "var(--amber-bright)"
-                                  }}
-                                >
-                                  direct message (with invite link)
-                                </div>
-                                <textarea
-                                  value={d.draftText}
-                                  onChange={(e) =>
-                                    setDraft(p.url, {
-                                      draftText: e.target.value
-                                    })
-                                  }
-                                  rows={6}
-                                  className="retro-input mt-1 text-sm"
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      copy(d.draftText);
-                                    }}
-                                    className="retro-btn retro-btn-primary text-sm"
-                                  >
-                                    Copy DM
-                                  </button>
-                                  {d.inviteUrl && (
-                                    <>
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          copy(d.inviteUrl);
-                                        }}
-                                        className="retro-btn retro-btn-primary text-sm"
-                                        title={d.inviteUrl}
-                                      >
-                                        🔗 Copy invite URL
-                                      </button>
-                                      <a
-                                        href={d.inviteUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        onClick={(e) =>
-                                          e.stopPropagation()
-                                        }
-                                        className="retro-btn text-sm"
-                                      >
-                                        Preview →
-                                      </a>
-                                    </>
-                                  )}
-                                </div>
-                                {d.inviteUrl && (
-                                  <div
-                                    className="text-xs mt-1.5"
-                                    style={{
-                                      color: "var(--text-dim)",
-                                      wordBreak: "break-all"
-                                    }}
-                                  >
-                                    {d.inviteUrl}
-                                  </div>
-                                )}
-                              </div>
+                              {/* Long DM section removed: recipients in
+                                  Find People haven't connected on LinkedIn
+                                  yet, so a full DM with the invite URL
+                                  isn't actionable until after they accept
+                                  the connection. The connection note IS
+                                  the entire move. */}
                             </div>
                           );
                         })()}

@@ -1,6 +1,22 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Footer } from "./Footer";
+
+// Microsoft Clarity — session-replay + heatmap analytics. Free, no PII
+// collection by default, gives us watch-real-people-use-the-product
+// recordings + click maps + rage-click detection. Insights we feed back
+// into UX iterations.
+//
+// Activate by setting NEXT_PUBLIC_CLARITY_PROJECT_ID in the Vercel
+// environment. Until then this is a no-op — nothing renders, no script
+// loads. Set the env var via:
+//   1. clarity.microsoft.com → New Project → SyncedIn (https://syncedin.org)
+//   2. Copy the project ID (the string in the snippet's clarity("...") call)
+//   3. Vercel → SyncedIn project → Settings → Env Vars → add
+//      NEXT_PUBLIC_CLARITY_PROJECT_ID = <id> for Production + Preview
+//   4. Redeploy
+const CLARITY_PROJECT_ID = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID;
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://syncedin.org";
@@ -75,6 +91,23 @@ export default function RootLayout({
       <body className="min-h-screen">
         {children}
         <Footer />
+        {/* Microsoft Clarity — loads only when the env var is set, so
+            local + preview branches without the key are unaffected.
+            Strategy "afterInteractive" means the page is interactive
+            first, the snippet loads in the background. */}
+        {CLARITY_PROJECT_ID && (
+          <Script
+            id="ms-clarity"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `(function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+      })(window, document, "clarity", "script", "${CLARITY_PROJECT_ID}");`
+            }}
+          />
+        )}
       </body>
     </html>
   );

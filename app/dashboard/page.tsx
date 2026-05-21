@@ -229,9 +229,21 @@ export default async function DashboardPage() {
         connection_score: score
       };
     })
-    // Show ANYONE on the platform we're not already in conversation with
-    // — even thin profiles. The user wanted Sydney + Nicole visible.
-    .filter((p) => !existingConvoIds.has(p.id))
+    // Only show twins who have ACTUALLY put data into onboarding.
+    // The directory previously surfaced users who had only signed up
+    // (email-as-display-name, blank twin row) which read as 0% sync
+    // dead-ends. Substance gate: goals > 5 chars OR ai_export_blob > 80
+    // chars OR deal_preferences > 5 chars. Same threshold the find-people
+    // route already uses to pick poll respondents.
+    .filter((p) => {
+      if (existingConvoIds.has(p.id)) return false;
+      const t = twinByUser.get(p.id);
+      const hasGoals = (t?.goals ?? "").trim().length > 5;
+      const hasDealPrefs = (t?.deal_preferences ?? "").trim().length > 5;
+      const hasBlob =
+        ((t as any)?.ai_export_blob ?? "").trim().length > 80;
+      return hasGoals || hasDealPrefs || hasBlob;
+    })
     // Highest connection score first so the most promising matches lead.
     .sort((a, b) => b.connection_score - a.connection_score);
 
