@@ -88,13 +88,20 @@ export function Sidebar({
           width: "100%"
         }}
       >
+        {/* Use the TIGHT wordmark variant — the regular PNG has ~80%
+            transparent padding baked into the 500x500 image (task #103),
+            which is why the previous Sidebar-padding cuts didn't visibly
+            change anything: the whitespace was inside the image, not
+            around it. Hard max-height cap as belt-and-suspenders. */}
         <img
-          src="/syncedin-wordmark.png"
+          src="/syncedin-wordmark-tight.png"
           alt="SyncedIn"
           className="wordmark-themed"
           style={{
             width: "100%",
             height: "auto",
+            maxHeight: 34,
+            objectFit: "contain",
             display: "block"
           }}
         />
