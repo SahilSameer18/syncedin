@@ -4,6 +4,7 @@ import { Wordmark } from "../Wordmark";
 import { SignupsChart } from "./SignupsChart";
 import { BulkReachToolkit } from "../BulkReachToolkit";
 import { AppShell } from "../AppShell";
+import { WorldRadarAnimation } from "./WorldRadarAnimation";
 
 export const metadata = {
   title: "Hypernetwork · SyncedIn",
@@ -230,26 +231,63 @@ export default async function HypernetworkPage() {
         </div>
       )}
 
-      {/* Hero */}
-      <section className="mt-4">
-        <div className="retro-label">the hypernetwork</div>
-        <h1 className="retro-h1 text-5xl mt-3 leading-tight">
-          A network of clones, finding the highest win-wins between every
-          pair of humans.
-        </h1>
-        <p
-          className="mt-5 text-lg leading-relaxed"
-          style={{ color: "var(--text-dim)", maxWidth: 760 }}
-        >
-          SyncedIn starts as a way for your digital twin to talk to one other
-          person&apos;s twin and find a real win-win. The endgame is
-          different. As more humans build clones, the clones start running
-          conversations across the whole network in parallel, surfacing only
-          the matches you actually care about and skipping the rest. The
-          social graph becomes a hypernetwork of clones doing the work for
-          their humans, and the humans get back the most precious thing
-          there is: attention spent on what matters.
-        </p>
+      {/* Hero — value-forward intro added per Jack's call. The
+          imagine-paragraph sets the user-side promise first, the
+          radar animation visualizes "talking to the entire world",
+          then the original founder-narrative paragraph anchors what
+          SyncedIn is technically. */}
+      <section className="mt-4 hypernet-hero">
+        <style>{`
+          .hypernet-hero {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr);
+            gap: 24px;
+            align-items: center;
+          }
+          @media (min-width: 900px) {
+            .hypernet-hero {
+              grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+            }
+          }
+        `}</style>
+        <div>
+          <div className="retro-label">the hypernetwork</div>
+          <h1 className="retro-h1 text-5xl mt-3 leading-tight">
+            A network of clones, finding the highest win-wins between
+            every pair of humans.
+          </h1>
+          <p
+            className="mt-5 text-lg leading-relaxed"
+            style={{ color: "var(--text-dim)", maxWidth: 720 }}
+          >
+            <strong style={{ color: "var(--text)" }}>
+              Imagine what would happen if you could talk to the entire
+              world.
+            </strong>{" "}
+            Give them your life story, your goals, your needs, your
+            wants, your wishes — then watch the conversations write
+            themselves. The potential that would surface. The
+            collaborations that would be born. The doors that would
+            quietly open while you slept.
+          </p>
+          <p
+            className="mt-4 text-base leading-relaxed"
+            style={{ color: "var(--text-dim)", maxWidth: 720 }}
+          >
+            SyncedIn starts as a way for your digital twin to talk to one
+            other person&apos;s twin and find a real win-win. The
+            endgame is different. As more humans build clones, the clones
+            start running conversations across the whole network in
+            parallel, surfacing only the matches you actually care about
+            and skipping the rest. The social graph becomes a
+            hypernetwork of clones doing the work for their humans, and
+            the humans get back the most precious thing there is:
+            attention spent on what matters.
+          </p>
+        </div>
+        <div>
+          <WorldRadarAnimation />
+        </div>
       </section>
 
       {/* Cumulative signups chart */}

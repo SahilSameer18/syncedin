@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Footer } from "./Footer";
 import { ChunkErrorRecovery } from "./ChunkErrorRecovery";
+import { ErrorAutoReport } from "./ErrorAutoReport";
 
 // Microsoft Clarity — session-replay + heatmap analytics. Free, no PII
 // collection by default, gives us watch-real-people-use-the-product
@@ -140,6 +141,11 @@ export default function RootLayout({
             and forces a one-time hard reload so users never see the
             empty React-#418/#423 hydration error screen. */}
         <ChunkErrorRecovery />
+        {/* Global auto-error reporter — every uncaught client-side
+            error + unhandled promise rejection POSTs to /api/error-report
+            so Jack sees broken states the moment they happen rather
+            than discovering them from screenshots later. */}
+        <ErrorAutoReport />
         {children}
         <Footer />
         {/* Microsoft Clarity — loads only when the env var is set, so

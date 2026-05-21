@@ -20,13 +20,19 @@ export function Sidebar({
   displayName,
   avatarUrl,
   signOutAction,
-  conferences = []
+  conferences = [],
+  unreadCounts = {}
 }: {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
   signOutAction: () => void | Promise<void>;
   conferences?: { slug: string; name: string }[];
+  /** Per-route unread badges. Key is the route href (e.g. "/messages",
+   *  "/poll"); value is the count to display in a small red bubble.
+   *  0 or missing = no badge. AppShell computes these server-side so
+   *  the nav badges stay accurate without a client round-trip. */
+  unreadCounts?: Record<string, number>;
 }) {
   const pathname = usePathname() ?? "";
 
@@ -61,14 +67,15 @@ export function Sidebar({
         background: "var(--panel-solid)",
         border: "1px solid var(--border)",
         borderRadius: 14,
-        // Top/bottom whitespace cut to under half per Jack's call.
-        // Was 2/7 → now 0/3. The wordmark also gets a hard height cap
-        // below so the PNG's internal transparent padding can't blow
-        // out the layout regardless of column width.
-        padding: "0 14px 3px",
+        // Spacing: small breathing room around the logo (8px top / 8px
+        // bottom on the sidebar shell itself) — was at 0 which made the
+        // wordmark touch the panel edge. The tight wordmark PNG no
+        // longer has the 80%-transparent-padding problem so a small
+        // outer pad reads correctly.
+        padding: "8px 14px 8px",
         display: "flex",
         flexDirection: "column",
-        gap: 4
+        gap: 6
         // minHeight removed — was 480 which created huge bottom whitespace
         // when the user has few nav items; let content size the sidebar.
       }}
@@ -157,6 +164,7 @@ export function Sidebar({
       <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {items.map((item) => {
           const active = isActive(item.href);
+          const unread = unreadCounts[item.href] ?? 0;
           return (
             <Link
               key={item.href}
@@ -191,7 +199,32 @@ export function Sidebar({
               >
                 {item.icon}
               </span>
-              <span>{item.label}</span>
+              <span style={{ flex: 1 }}>{item.label}</span>
+              {unread > 0 && (
+                <span
+                  aria-label={`${unread} unread`}
+                  title={`${unread} thing${
+                    unread === 1 ? "" : "s"
+                  } waiting on you`}
+                  style={{
+                    minWidth: 18,
+                    height: 18,
+                    padding: "0 6px",
+                    borderRadius: 999,
+                    background: "#ef4444",
+                    color: "#fff",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: 0,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    boxShadow: "0 0 0 3px var(--panel-solid)"
+                  }}
+                >
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
             </Link>
           );
         })}

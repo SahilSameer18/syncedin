@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { BulkReachToolkit } from "../BulkReachToolkit";
+import { AnimatedStat } from "../AnimatedStat";
 
 export const metadata = {
   title: "Invite · SyncedIn",
@@ -158,6 +159,59 @@ export default async function InvitePage() {
   } catch {
     /* totally offline / RLS issue — leave zeros */
   }
+  // Daily breakdowns for the sparklines under each stat. Last 14 days,
+  // zeros for empty days. Pulled separately + best-effort so any
+  // missing column (claimed_at, first_visit_at) just yields a flat
+  // sparkline instead of breaking the page.
+  const DAYS = 14;
+  const draftedDaily: number[] = Array(DAYS).fill(0);
+  const visitedDaily: number[] = Array(DAYS).fill(0);
+  const visitTotalDaily: number[] = Array(DAYS).fill(0);
+  const claimedDaily: number[] = Array(DAYS).fill(0);
+  try {
+    const since = new Date();
+    since.setUTCHours(0, 0, 0, 0);
+    since.setUTCDate(since.getUTCDate() - (DAYS - 1));
+    const sinceIso = since.toISOString();
+    function bucket(iso: string | null): number {
+      if (!iso) return -1;
+      const d = new Date(iso);
+      d.setUTCHours(0, 0, 0, 0);
+      const idx = Math.round(
+        (d.getTime() - since.getTime()) / (24 * 60 * 60 * 1000)
+      );
+      return idx >= 0 && idx < DAYS ? idx : -1;
+    }
+    const { data: timelineRows } = await service
+      .from("pending_invites")
+      .select(
+        "created_at, first_visit_at, visit_count, claimed_at, claimed_by_user_id"
+      )
+      .eq("inviter_user_id", user.id)
+      .gte("created_at", sinceIso);
+    for (const r of (timelineRows ?? []) as any[]) {
+      const di = bucket(r.created_at);
+      if (di >= 0) draftedDaily[di] += 1;
+      const vi = bucket(r.first_visit_at);
+      if (vi >= 0) {
+        visitedDaily[vi] += 1;
+        // Approximate per-day total visits by attributing the row's
+        // accumulated visit_count to its first-visit day. Imperfect
+        // (a later return visit lands in the same bucket) but good
+        // enough for a sparkline shape — we capture a proper visit
+        // log in a follow-up.
+        visitTotalDaily[vi] += r.visit_count ?? 0;
+      }
+      // Claim happens on either claimed_at (if column exists) or
+      // claimed_by_user_id presence. We don't have a timestamp for
+      // the latter; only count rows that have a real claimed_at.
+      const ci = bucket(r.claimed_at);
+      if (ci >= 0) claimedDaily[ci] += 1;
+    }
+  } catch {
+    /* daily series unavailable — sparklines render as flat lines */
+  }
+
   const ctr = drafted > 0 ? Math.round((visited / drafted) * 100) : 0;
   const claimRate =
     drafted > 0 ? Math.round((claimed / drafted) * 100) : 0;
@@ -287,27 +341,34 @@ export default async function InvitePage() {
           className="mt-5 grid sm:grid-cols-4 gap-4"
           style={{ minWidth: 0 }}
         >
-          <StatTile
+          <AnimatedStat
             label="invites drafted"
             value={drafted}
-            hint="every personalized landing page you've created"
+            hint="every personalized invite page you've created"
+            daily={draftedDaily}
           />
-          <StatTile
+          <AnimatedStat
             label="recipients who clicked"
             value={visited}
             sub={drafted > 0 ? `${ctr}% click-through` : "no data yet"}
-            hint="visits to your /<slug> pages — the moment the recipient lands"
+            hint="people who opened your invite page after you shared it"
+            daily={visitedDaily}
+            accent="#6b2dc9"
           />
-          <StatTile
+          <AnimatedStat
             label="twins onboarded"
             value={claimed}
             sub={drafted > 0 ? `${claimRate}% claim rate` : "no data yet"}
             hint="recipients who signed up and seeded their own twin from your invite"
+            daily={claimedDaily}
+            accent="#22c55e"
           />
-          <StatTile
+          <AnimatedStat
             label="total page visits"
             value={visitTotal}
-            hint="reach across every invite, including return visits"
+            hint="reach across every invite page, including return visits"
+            daily={visitTotalDaily}
+            accent="#f97316"
           />
         </div>
         <div

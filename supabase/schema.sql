@@ -34,6 +34,21 @@ alter table public.profiles
   add column if not exists portfolio_about text;
 alter table public.profiles
   add column if not exists portfolio_theme jsonb;
+-- Public social URLs / handles. Stored as full URLs so the UI can
+-- link out without needing to know the per-platform url shape. Used
+-- by the messaging UI to render a row of clickable platform icons
+-- next to the user's name (so the counterpart can dig deeper into
+-- who they're talking to before signing off on an agreement).
+alter table public.profiles
+  add column if not exists linkedin_url text;
+alter table public.profiles
+  add column if not exists x_url text;
+alter table public.profiles
+  add column if not exists instagram_url text;
+alter table public.profiles
+  add column if not exists facebook_url text;
+alter table public.profiles
+  add column if not exists website_url text;
 create index if not exists profiles_handle_idx
   on public.profiles (lower(handle));
 

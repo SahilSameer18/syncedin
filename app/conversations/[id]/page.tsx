@@ -37,7 +37,12 @@ export default async function ConversationPage({
   const [{ data: otherProfile }, { data: selfProfile }] = await Promise.all([
     service
       .from("profiles")
-      .select("id, display_name, email, is_test_persona, avatar_url")
+      // Pull the public social URLs alongside the basics so the
+      // conversation header can render the clickable LinkedIn / X / IG /
+      // Facebook / website pills next to the counterpart's name.
+      .select(
+        "id, display_name, email, is_test_persona, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+      )
       .eq("id", otherId)
       .single(),
     service
@@ -161,7 +166,14 @@ export default async function ConversationPage({
         name: otherProfile!.display_name ?? otherProfile!.email,
         email: otherProfile!.email ?? null,
         isTestPersona: otherProfile!.is_test_persona,
-        avatarUrl: (otherProfile as any)?.avatar_url ?? null
+        avatarUrl: (otherProfile as any)?.avatar_url ?? null,
+        socials: {
+          linkedin_url: (otherProfile as any)?.linkedin_url ?? null,
+          x_url: (otherProfile as any)?.x_url ?? null,
+          instagram_url: (otherProfile as any)?.instagram_url ?? null,
+          facebook_url: (otherProfile as any)?.facebook_url ?? null,
+          website_url: (otherProfile as any)?.website_url ?? null
+        }
       }}
       initialMessages={msgs}
       initialDone={done}

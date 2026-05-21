@@ -6,6 +6,7 @@ import type { Message } from "@/lib/types";
 import { Avatar } from "../../Avatar";
 import { PerConversationGoal } from "./PerConversationGoal";
 import { ComposeAtEnd } from "./ComposeAtEnd";
+import { SocialIconRow } from "../../SocialIconRow";
 
 /**
  * SchedulePanel — appears after both sides accept a deal. Surfaces multiple
@@ -513,6 +514,13 @@ export function ChatUI({
     email?: string | null;
     isTestPersona: boolean;
     avatarUrl?: string | null;
+    socials?: {
+      linkedin_url: string | null;
+      x_url: string | null;
+      instagram_url: string | null;
+      facebook_url: string | null;
+      website_url: string | null;
+    } | null;
   };
   initialMessages: Message[];
   initialDone: boolean;
@@ -899,7 +907,7 @@ export function ChatUI({
                 >
                   &lt; messages
                 </Link>
-                <div className="text-base sm:text-lg font-bold flex items-center gap-1.5 min-w-0">
+                <div className="text-base sm:text-lg font-bold flex items-center gap-1.5 min-w-0 flex-wrap">
                   <span className="truncate" style={{ maxWidth: "8em" }}>
                     {selfShort}
                   </span>
@@ -914,6 +922,14 @@ export function ChatUI({
                     >
                       sample
                     </span>
+                  )}
+                  {/* Clickable LinkedIn / X / IG / Facebook / website
+                      pills next to the counterpart's name so the user
+                      can dig into who they're talking to without
+                      leaving the chat. Renders nothing if the user
+                      hasn't connected any social profiles. */}
+                  {other.socials && (
+                    <SocialIconRow urls={other.socials} size={14} gap={4} />
                   )}
                 </div>
                 <div className="retro-dim text-xs flex items-center gap-1.5 mt-0.5">

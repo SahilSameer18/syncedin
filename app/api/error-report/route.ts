@@ -1,0 +1,87 @@
+import { NextResponse } from "next/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+
+/**
+ * Auto-error-report sink. Every uncaught client-side error and unhandled
+ * promise rejection POSTs here (see app/ErrorAutoReport.tsx). The goal:
+ * Jack never has to discover broken states from screenshots — they land
+ * in the feedback table tagged surface='auto-error' the moment they
+ * happen.
+ *
+ * Schema reuse: writes into the existing `feedback` table (added in
+ * supabase/schema.sql alongside the quick-feedback widget) so there's
+ * one inbox for both manual reports + auto-captures. The `surface`
+ * column distinguishes them.
+ *
+ * Auth optional — most errors fire for signed-out users on the public
+ * /[slug] invite or auth flows, and we still want those reports.
+ */
+export async function POST(req: Request) {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  let body: {
+    message?: string;
+    stack?: string;
+    source?: string;
+    url?: string;
+    user_agent?: string;
+    extras?: Record<string, unknown>;
+  };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "invalid_json" }, { status: 400 });
+  }
+
+  const message = (body.message ?? "").toString().slice(0, 2000);
+  if (!message) {
+    return NextResponse.json(
+      { error: "missing_message" },
+      { status: 400 }
+    );
+  }
+
+  // Compose a single readable blob in the feedback.message column so
+  // there's no schema migration required. Stack + URL + extras are
+  // appended in a fixed format that's easy to grep for in Supabase.
+  const lines: string[] = [`[auto-error] ${message}`];
+  if (body.url) lines.push(`url: ${body.url}`);
+  if (body.source) lines.push(`source: ${body.source}`);
+  if (user?.email) lines.push(`user: ${user.email} (${user.id})`);
+  if (body.extras && Object.keys(body.extras).length > 0) {
+    try {
+      lines.push(`extras: ${JSON.stringify(body.extras).slice(0, 800)}`);
+    } catch {
+      /* skip unserializable */
+    }
+  }
+  if (body.stack) lines.push(`\nstack:\n${body.stack.slice(0, 4000)}`);
+  const composed = lines.join("\n").slice(0, 8000);
+
+  const surface =
+    body.source && body.source.length < 80
+      ? `auto-error:${body.source}`
+      : "auto-error";
+  const userAgent =
+    body.user_agent ||
+    req.headers.get("user-agent")?.slice(0, 300) ||
+    null;
+
+  const service = createServiceClient();
+  const { error } = await service.from("feedback").insert({
+    user_id: user?.id ?? null,
+    message: composed,
+    image_data_url: null,
+    surface,
+    user_agent: userAgent
+  });
+  if (error) {
+    // Log server-side but don't surface to client — we don't want the
+    // error reporter itself to throw an error.
+    console.error("[error-report] insert failed", error);
+  }
+  return NextResponse.json({ ok: true });
+}

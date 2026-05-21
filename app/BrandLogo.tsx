@@ -12,6 +12,8 @@ export type BrandKey =
   | "linkedin"
   | "x"
   | "instagram"
+  | "facebook"
+  | "website"
   | "chatgpt"
   | "claude"
   | "gemini"
@@ -21,6 +23,8 @@ const BRAND_COLORS: Record<BrandKey, string> = {
   linkedin: "#0a66c2",
   x: "#000000",
   instagram: "#e4405f",
+  facebook: "#1877f2",
+  website: "#475569",
   chatgpt: "#10a37f",
   claude: "#cc785c",
   gemini: "#1f8bff",
@@ -121,6 +125,24 @@ export function BrandLogo({
         <svg {...common}>
           <title>{accessibleTitle}</title>
           <path d="M19.785 0v7.272H22.5V17.62h-2.935V24l-7.342-6.747v6.535h-1.346v-6.535L3.535 24v-6.38H.5V7.27h2.715V0l7.662 6.96V.275h1.346V6.96L19.785 0zm-7.342 8.066v6.844l5.085-4.67-5.085-2.174zm-1.346 6.844V8.066L6.012 10.24l5.085 4.67zM11.097 7.27V2.928L7.385 6.42l3.712.85zm1.346 0l3.712-.85-3.712-3.492v4.342zm6.788 1.346H13.65l5.581 2.426V8.617zm0 8.95V12.83l-5.581 4.737h5.581zM4.207 8.617v2.426l5.581-2.426H4.207zm0 8.95h5.581L4.207 12.83v4.737z" />
+        </svg>
+      );
+    case "facebook":
+      // Facebook — Meta's f mark (rounded)
+      return (
+        <svg {...common}>
+          <title>{accessibleTitle}</title>
+          <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.412c0-3.017 1.792-4.683 4.532-4.683 1.312 0 2.686.235 2.686.235v2.97h-1.514c-1.49 0-1.955.93-1.955 1.884v2.262h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z" />
+        </svg>
+      );
+    case "website":
+      // Generic globe — for personal website URLs.
+      return (
+        <svg {...common} fill="none" stroke={color} strokeWidth={1.7}>
+          <title>{accessibleTitle}</title>
+          <circle cx="12" cy="12" r="9.5" />
+          <ellipse cx="12" cy="12" rx="4" ry="9.5" />
+          <line x1="2.5" y1="12" x2="21.5" y2="12" />
         </svg>
       );
   }

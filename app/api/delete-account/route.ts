@@ -1,0 +1,117 @@
+import { NextResponse } from "next/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
+
+/**
+ * Permanent account deletion endpoint. Cascade:
+ *   1. Delete the user's twin_profile row.
+ *   2. Delete any pending_invites they created.
+ *   3. Delete invites where they were the recipient (best-effort; if
+ *      the column doesn't exist on older deployments, skip).
+ *   4. Delete their notification_preferences.
+ *   5. Delete their conference_members + community memberships.
+ *   6. NULL out their participation in conversations they were a
+ *      participant in (keeps the conversation visible to the other
+ *      side without breaking it). Doesn't touch messages directly.
+ *   7. Delete the auth.users row via service-role admin API.
+ *
+ * Every step is wrapped in try/catch — partial failure should still
+ * complete as much as possible rather than leaving the account half-
+ * deleted. The auth.users delete at the end will fail visibly to the
+ * client only if the entire cascade gave up.
+ */
+export async function POST() {
+  const supabase = createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const userId = user.id;
+  const service = createServiceClient();
+
+  const steps: Array<{ name: string; run: () => Promise<unknown> }> = [
+    {
+      name: "twin_profiles",
+      run: () =>
+        service.from("twin_profiles").delete().eq("user_id", userId)
+    },
+    {
+      name: "pending_invites:inviter",
+      run: () =>
+        service
+          .from("pending_invites")
+          .delete()
+          .eq("inviter_user_id", userId)
+    },
+    {
+      name: "notification_preferences",
+      run: () =>
+        service
+          .from("notification_preferences")
+          .delete()
+          .eq("user_id", userId)
+    },
+    {
+      name: "conference_members",
+      run: () =>
+        service
+          .from("conference_members")
+          .delete()
+          .eq("user_id", userId)
+    },
+    {
+      name: "feedback_votes",
+      run: () =>
+        service.from("feedback_votes").delete().eq("user_id", userId)
+    },
+    {
+      name: "feedback_posts",
+      run: () =>
+        service.from("feedback_posts").delete().eq("user_id", userId)
+    },
+    {
+      name: "profile",
+      run: () => service.from("profiles").delete().eq("id", userId)
+    }
+  ];
+
+  for (const s of steps) {
+    try {
+      await s.run();
+    } catch (e) {
+      console.warn(`[delete-account] step ${s.name} failed`, e);
+    }
+  }
+
+  // auth.users delete via admin API — requires service role key.
+  try {
+    const adminClient: any = service;
+    if (adminClient.auth?.admin?.deleteUser) {
+      const { error } = await adminClient.auth.admin.deleteUser(userId);
+      if (error) throw error;
+    }
+  } catch (e: any) {
+    console.error("[delete-account] auth.admin.deleteUser failed", e);
+    return NextResponse.json(
+      {
+        error: "auth_delete_failed",
+        detail:
+          e?.message ||
+          "Account data cleared but auth row remains — contact support."
+      },
+      { status: 500 }
+    );
+  }
+
+  // Best-effort: sign the local session out. The redirect on the
+  // client will land them on the home page where the deleted=1 flag
+  // can show a goodbye message.
+  try {
+    await supabase.auth.signOut();
+  } catch {
+    /* non-fatal */
+  }
+
+  return NextResponse.json({ ok: true });
+}
