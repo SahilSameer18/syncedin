@@ -167,7 +167,10 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             transform: open ? "translateX(0)" : "translateX(-100%)",
             transition: "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
             overflowY: "auto",
-            padding: "0 8px 16px"
+            // Padding halved per Jack's third request — the drawer used
+            // to have a visible empty band above the nav list. 0 top, 6
+            // sides, 12 bottom is the tightest comfortable spec.
+            padding: "0 6px 12px"
           }}
         >
           {children}
@@ -176,22 +179,23 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           .syncedin-mobile-drawer img.wordmark-themed {
             display: none;
           }
-          /* The wordmark Link is the first child of the Sidebar — kill
-             both the link AND any vertical padding/margin it brings so
-             the nav items start near the top of the drawer instead of
-             80-100px down. Jack flagged the empty band repeatedly. */
+          /* Kill the wordmark Link, all sidebar padding, and first-child
+             margins. Drawer should open with nav items immediately at the
+             top — no empty band, no logo space reservation. Jack flagged
+             this empty padding multiple times. */
           .syncedin-mobile-drawer > div > a[aria-label="SyncedIn — home"] {
             display: none;
           }
           .syncedin-mobile-drawer > div {
-            padding-top: 4px !important;
+            padding-top: 0 !important;
+            padding-left: 0 !important;
+            padding-right: 0 !important;
             margin-top: 0 !important;
           }
-          /* Collapse the first nav item's top spacing too — many sidebar
-             layouts add a divider-like margin that compounds with the
-             drawer's own padding. */
-          .syncedin-mobile-drawer > div > *:first-child {
+          .syncedin-mobile-drawer > div > *:first-child,
+          .syncedin-mobile-drawer > div > *:first-child > * {
             margin-top: 0 !important;
+            padding-top: 0 !important;
           }
         `}</style>
       </div>
