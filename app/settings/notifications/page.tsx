@@ -36,7 +36,12 @@ export default async function NotificationSettingsPage({
     on_new_connection: prefs?.on_new_connection ?? true,
     on_new_message: prefs?.on_new_message ?? true,
     on_agreement_accepted: prefs?.on_agreement_accepted ?? true,
-    on_call_scheduled: prefs?.on_call_scheduled ?? true
+    on_call_scheduled: prefs?.on_call_scheduled ?? true,
+    on_new_match: (prefs as any)?.on_new_match ?? true,
+    match_threshold:
+      typeof (prefs as any)?.match_threshold === "number"
+        ? (prefs as any).match_threshold
+        : 65
   };
 
   return (

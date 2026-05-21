@@ -8,10 +8,19 @@ type Initial = {
   on_new_message: boolean;
   on_agreement_accepted: boolean;
   on_call_scheduled: boolean;
+  on_new_match: boolean;
+  match_threshold: number;
 };
 
 type Toggle = {
-  name: keyof Omit<Initial, "email_address">;
+  name: keyof Pick<
+    Initial,
+    | "on_new_connection"
+    | "on_new_message"
+    | "on_agreement_accepted"
+    | "on_call_scheduled"
+    | "on_new_match"
+  >;
   label: string;
   blurb: string;
 };
@@ -40,6 +49,12 @@ const TOGGLES: Toggle[] = [
     label: "Call scheduled",
     blurb:
       "Your twin locked in a meeting time. We'll send you the calendar invite details."
+  },
+  {
+    name: "on_new_match",
+    label: "High-match new signup",
+    blurb:
+      "A new user just joined whose twin lines up with yours above your threshold (set below). The most-asked-for notification — never miss the right intro."
   }
 ];
 
@@ -113,6 +128,60 @@ export function NotifPrefsForm({
           </div>
         ))}
       </div>
+
+      {/* Match-threshold slider — only relevant if on_new_match is enabled.
+          Lives below the toggle list so it visually clusters with that
+          row. Default 65, range 30-95. Below 30 the platform is too
+          noisy; above 95 you'd never get pinged. */}
+      {state.on_new_match && (
+        <div
+          className="retro-panel p-4"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <div className="flex items-baseline justify-between">
+            <label
+              className="text-sm font-semibold"
+              htmlFor="match_threshold"
+            >
+              Notify me only when match is at least
+            </label>
+            <span
+              style={{
+                fontFamily: "monospace",
+                fontWeight: 700,
+                color: "var(--amber-bright)",
+                fontSize: 18
+              }}
+            >
+              {state.match_threshold}%
+            </span>
+          </div>
+          <input
+            id="match_threshold"
+            type="range"
+            min={30}
+            max={95}
+            step={1}
+            name="match_threshold"
+            value={state.match_threshold}
+            onChange={(e) =>
+              setState((s) => ({
+                ...s,
+                match_threshold: parseInt(e.target.value, 10)
+              }))
+            }
+            className="w-full mt-3"
+            style={{ accentColor: "var(--amber-bright)" }}
+          />
+          <div
+            className="flex justify-between text-xs mt-1"
+            style={{ color: "var(--text-dim)" }}
+          >
+            <span>30% (loose — more pings)</span>
+            <span>95% (only stellar matches)</span>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <button type="submit" className="retro-btn retro-btn-primary">

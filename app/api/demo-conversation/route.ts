@@ -39,7 +39,10 @@ export async function POST(req: Request) {
   if (!slug) {
     return NextResponse.json({ error: "missing_slug" }, { status: 400 });
   }
-  const extraContext = (body.extra_context ?? "").toString().slice(0, 2000);
+  // Bumped from 2000 → 8000 to accommodate the merged-blob the client
+  // now sends: LinkedIn About (3000) + IG/X handles + extra paragraph
+  // (2000) + headroom for tags. Claude handles 8k of context with ease.
+  const extraContext = (body.extra_context ?? "").toString().slice(0, 8000);
   const edits = Array.isArray(body.edits) ? body.edits.slice(0, 12) : [];
 
   const service = createServiceClient();

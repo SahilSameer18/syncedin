@@ -364,6 +364,37 @@ alter table public.conversations
 alter table public.conversations
   add column if not exists last_read_b timestamptz;
 
+-- =========================================================================
+-- User feedback — drag-drop photo + message captured from the dashboard
+-- bottom feedback widget. Read by humans + agents (per the in-product
+-- thank-you copy). No RLS gate on insert beyond auth.uid() — anyone
+-- signed in can leave feedback. SELECT is restricted to the row's owner
+-- so users don't see each other's notes.
+-- =========================================================================
+
+create table if not exists public.feedback (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references public.profiles(id) on delete set null,
+  message text not null,
+  image_data_url text, -- inline base64 data URL for v1 (small images only)
+  surface text, -- e.g. 'dashboard', 'mobile-drawer'
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists feedback_user_idx
+  on public.feedback (user_id, created_at desc);
+
+alter table public.feedback enable row level security;
+
+drop policy if exists "feedback_insert_self" on public.feedback;
+create policy "feedback_insert_self" on public.feedback
+  for insert with check (auth.uid() = user_id or user_id is null);
+
+drop policy if exists "feedback_select_self" on public.feedback;
+create policy "feedback_select_self" on public.feedback
+  for select using (auth.uid() = user_id);
+
 -- Participants can UPDATE their conversations (needed for the excitement override).
 drop policy if exists "conv_update_participant" on public.conversations;
 create policy "conv_update_participant" on public.conversations

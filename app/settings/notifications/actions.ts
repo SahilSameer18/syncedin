@@ -12,6 +12,13 @@ export async function saveNotificationPrefs(formData: FormData) {
   if (!user) redirect("/login");
 
   const email = String(formData.get("email_address") ?? "").trim() || null;
+  const thresholdRaw = parseInt(
+    String(formData.get("match_threshold") ?? "65"),
+    10
+  );
+  const match_threshold = Number.isFinite(thresholdRaw)
+    ? Math.max(30, Math.min(95, thresholdRaw))
+    : 65;
   const row = {
     user_id: user.id,
     email_address: email,
@@ -19,6 +26,8 @@ export async function saveNotificationPrefs(formData: FormData) {
     on_new_message: formData.get("on_new_message") === "on",
     on_agreement_accepted: formData.get("on_agreement_accepted") === "on",
     on_call_scheduled: formData.get("on_call_scheduled") === "on",
+    on_new_match: formData.get("on_new_match") === "on",
+    match_threshold,
     updated_at: new Date().toISOString()
   };
 

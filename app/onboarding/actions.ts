@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { slugifyHandle } from "@/lib/handle";
 import { scrapePublicProfile } from "@/lib/scrape";
+import { notifyNewMatch } from "@/lib/notify";
 
 function s(v: FormDataEntryValue | null): string | null {
   if (v === null) return null;
@@ -120,6 +121,17 @@ export async function saveTwin(formData: FormData) {
   } catch {
     /* portfolio columns may not yet exist in prod — silent skip */
   }
+
+  // Fire-and-forget: ping every existing user whose match_threshold is
+  // crossed by this newly-onboarded user. Wrapped in void + try/catch so
+  // a notification fan-out failure never blocks the redirect to dashboard.
+  void (async () => {
+    try {
+      await notifyNewMatch({ newUserId: user.id });
+    } catch (e) {
+      console.warn("[onboarding] notifyNewMatch failed", e);
+    }
+  })();
 
   revalidatePath("/dashboard");
   revalidatePath("/onboarding");

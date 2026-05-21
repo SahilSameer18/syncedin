@@ -14,6 +14,7 @@ import { ScrollTopOnSaved } from "./ScrollTopOnSaved";
 import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
 import { computePairScore } from "@/lib/pair-score";
+import { QuickFeedbackWidget } from "./QuickFeedbackWidget";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -578,6 +579,11 @@ export default async function DashboardPage() {
           <section>
             <BulkReachToolkit appUrl={appUrl} variant="card" />
           </section>
+
+          {/* Always-visible feedback capture. Tag with surface so we know
+              this came from the main dashboard (vs. a mobile drawer or
+              the conversation page) when we read the feedback table. */}
+          <QuickFeedbackWidget surface="dashboard" />
         </div>
         </div>
       </>

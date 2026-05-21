@@ -405,3 +405,111 @@ export async function notifyCallScheduled(opts: {
     console.warn("[notify] call-scheduled threw", e);
   }
 }
+
+// ---------------------------------------------------------------------------
+// New match — fires when a newly-onboarded user has a pair-score above
+// an existing user's threshold. Called from the onboarding save action
+// AFTER the new user's twin_profile is committed. Iterates over existing
+// users with on_new_match=true and pings each whose threshold the new
+// user crosses. Heavy-handed query; capped at 200 candidates by default
+// so an active platform doesn't spam everyone on every signup.
+// ---------------------------------------------------------------------------
+
+export async function notifyNewMatch(opts: {
+  newUserId: string;
+  /** Cap so signups don't fan out to the entire platform during early
+   *  growth — only the most-recently-active candidates get matched. */
+  maxCandidates?: number;
+}): Promise<void> {
+  try {
+    const service = createServiceClient();
+    const max = opts.maxCandidates ?? 200;
+
+    // Pull the new user's twin snapshot for scoring.
+    const { data: newTwin } = await service
+      .from("twin_profiles")
+      .select(
+        "goals, deal_preferences, communication_style, deal_breakers, ai_export_blob"
+      )
+      .eq("user_id", opts.newUserId)
+      .maybeSingle();
+    if (!newTwin) return;
+
+    const { data: newProfile } = await service
+      .from("profiles")
+      .select("id, display_name, email, avatar_url")
+      .eq("id", opts.newUserId)
+      .maybeSingle();
+    if (!newProfile) return;
+    const newName =
+      (newProfile as any).display_name ||
+      (newProfile as any).email ||
+      "Someone new";
+
+    // Candidate set: every other user with a substantive twin profile.
+    // Capped at `max` ordered by most-recent activity so we don't crawl
+    // the whole platform on every signup.
+    const { data: candidates } = await service
+      .from("twin_profiles")
+      .select(
+        "user_id, goals, deal_preferences, communication_style, deal_breakers, ai_export_blob, updated_at"
+      )
+      .neq("user_id", opts.newUserId)
+      .order("updated_at", { ascending: false })
+      .limit(max);
+
+    for (const c of (candidates ?? []) as Array<TwinSnapshot & {
+      user_id: string;
+    }>) {
+      // Score this pair using the same deterministic function the UI uses.
+      const score = computePairScore(newTwin as TwinSnapshot, c);
+      if (score < 30) continue; // hard floor — no point checking thresholds below this
+
+      // Load this candidate's prefs to compare threshold + toggle.
+      const recipient = await loadRecipient(c.user_id);
+      if (!recipient) continue;
+      if (!recipient.prefs.on_new_match) continue;
+      if (score < recipient.prefs.match_threshold) continue;
+
+      const to =
+        recipient.prefs.email_address || recipient.profile.email;
+      if (!to) continue;
+
+      // Skip test personas — never email seeded twins.
+      const { data: isPersona } = await service
+        .from("profiles")
+        .select("is_test_persona")
+        .eq("id", c.user_id)
+        .maybeSingle();
+      if ((isPersona as any)?.is_test_persona) continue;
+
+      const recipFirst = firstName(
+        recipient.profile.display_name,
+        recipient.profile.email
+      );
+      const subject = `New twin: ${newName} (${score}% match)`;
+      const text = `Hey ${recipFirst},\n\n${newName} just finished setting up their twin on SyncedIn — and it lights up at ${score}% match against yours (your threshold is ${recipient.prefs.match_threshold}%). Worth letting your twins talk?\n\n${APP_URL}/dashboard\n\n— SyncedIn`;
+      const html = renderEmailHtml({
+        preheader: `${newName} is a ${score}% match with your twin.`,
+        heading: `New twin worth meeting: ${newName}`,
+        body: `<p>Hey ${recipFirst},</p><p><strong>${newName}</strong> just joined SyncedIn and their twin lines up at <strong>${score}%</strong> against yours — above your <strong>${recipient.prefs.match_threshold}%</strong> notification threshold. Tap below to start a conversation between the two twins.</p>`,
+        ctaText: "Open dashboard",
+        ctaUrl: `${APP_URL}/dashboard`,
+        footerNote: `You're getting this because your match threshold is set to ${recipient.prefs.match_threshold}% in notification settings.`
+      });
+
+      await logAndSend({
+        userId: c.user_id,
+        kind: "new_match",
+        dedupeKey: `new_match:${opts.newUserId}:${c.user_id}`,
+        subjectId: opts.newUserId,
+        to,
+        subject,
+        text,
+        html
+      });
+    }
+  } catch (e) {
+    console.warn("[notify] new-match threw", e);
+  }
+}
