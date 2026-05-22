@@ -31,8 +31,12 @@ export function ErrorAutoReport() {
       if (now - last < DEDUPE_MS) return false;
       seen.set(key, now);
       // Trim the map so it can't grow unboundedly in long sessions.
+      // Use Array.from (not spread) — TS target is ES5 so iterator
+      // spread isn't legal without --downlevelIteration.
       if (seen.size > 60) {
-        const oldest = [...seen.entries()].sort((a, b) => a[1] - b[1])[0];
+        const entries = Array.from(seen.entries());
+        entries.sort((a, b) => a[1] - b[1]);
+        const oldest = entries[0];
         if (oldest) seen.delete(oldest[0]);
       }
       return true;

@@ -66,13 +66,15 @@ export function AnimatedStat({
             const from = 0;
             const to = value;
             const easeOutQuart = (t: number) => 1 - Math.pow(1 - t, 4);
-            function tick(now: number) {
+            // Arrow assignment — `function tick(...)` inside the block
+            // fails TS strict mode against ES5 target. Same behavior.
+            const tick = (now: number) => {
               const t = Math.min(1, (now - start) / duration);
               const v = from + (to - from) * easeOutQuart(t);
               setShown(v);
               if (t < 1) requestAnimationFrame(tick);
               else setShown(to);
-            }
+            };
             requestAnimationFrame(tick);
             observer.disconnect();
           }

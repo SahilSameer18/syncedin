@@ -30,57 +30,34 @@ export async function POST() {
   const userId = user.id;
   const service = createServiceClient();
 
-  const steps: Array<{ name: string; run: () => Promise<unknown> }> = [
-    {
-      name: "twin_profiles",
-      run: () =>
-        service.from("twin_profiles").delete().eq("user_id", userId)
-    },
-    {
-      name: "pending_invites:inviter",
-      run: () =>
-        service
-          .from("pending_invites")
-          .delete()
-          .eq("inviter_user_id", userId)
-    },
-    {
-      name: "notification_preferences",
-      run: () =>
-        service
-          .from("notification_preferences")
-          .delete()
-          .eq("user_id", userId)
-    },
-    {
-      name: "conference_members",
-      run: () =>
-        service
-          .from("conference_members")
-          .delete()
-          .eq("user_id", userId)
-    },
-    {
-      name: "feedback_votes",
-      run: () =>
-        service.from("feedback_votes").delete().eq("user_id", userId)
-    },
-    {
-      name: "feedback_posts",
-      run: () =>
-        service.from("feedback_posts").delete().eq("user_id", userId)
-    },
-    {
-      name: "profile",
-      run: () => service.from("profiles").delete().eq("id", userId)
-    }
+  // Inline cascade — each step runs sequentially, errors logged but
+  // don't abort. The array-of-thunks pattern broke TS because
+  // PostgrestFilterBuilder is PromiseLike (no `catch`/`finally`), not
+  // a full Promise, so it can't fit a `() => Promise<unknown>` slot.
+  // Each step is now an explicit await with its own try/catch.
+  type Step = [string, () => PromiseLike<unknown>];
+  const steps: Step[] = [
+    ["twin_profiles", () =>
+      service.from("twin_profiles").delete().eq("user_id", userId)],
+    ["pending_invites:inviter", () =>
+      service.from("pending_invites").delete().eq("inviter_user_id", userId)],
+    ["notification_preferences", () =>
+      service.from("notification_preferences").delete().eq("user_id", userId)],
+    ["conference_members", () =>
+      service.from("conference_members").delete().eq("user_id", userId)],
+    ["feedback_votes", () =>
+      service.from("feedback_votes").delete().eq("user_id", userId)],
+    ["feedback_posts", () =>
+      service.from("feedback_posts").delete().eq("user_id", userId)],
+    ["profile", () =>
+      service.from("profiles").delete().eq("id", userId)]
   ];
 
-  for (const s of steps) {
+  for (const [name, run] of steps) {
     try {
-      await s.run();
+      await run();
     } catch (e) {
-      console.warn(`[delete-account] step ${s.name} failed`, e);
+      console.warn(`[delete-account] step ${name} failed`, e);
     }
   }
 

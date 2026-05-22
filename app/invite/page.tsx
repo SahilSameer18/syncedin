@@ -173,7 +173,9 @@ export default async function InvitePage() {
     since.setUTCHours(0, 0, 0, 0);
     since.setUTCDate(since.getUTCDate() - (DAYS - 1));
     const sinceIso = since.toISOString();
-    function bucket(iso: string | null): number {
+    // Arrow assignment — function declaration in block fails TS strict
+    // mode against the ES5 target.
+    const bucket = (iso: string | null): number => {
       if (!iso) return -1;
       const d = new Date(iso);
       d.setUTCHours(0, 0, 0, 0);
@@ -181,7 +183,7 @@ export default async function InvitePage() {
         (d.getTime() - since.getTime()) / (24 * 60 * 60 * 1000)
       );
       return idx >= 0 && idx < DAYS ? idx : -1;
-    }
+    };
     const { data: timelineRows } = await service
       .from("pending_invites")
       .select(
