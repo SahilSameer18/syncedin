@@ -90,19 +90,19 @@ export default async function ProposalsPage() {
   const convIds = rows.map((c) => c.id);
   let respsByConv = new Map<
     string,
-    Array<{ user_id: string; response: string; note: string | null }>
+    Array<{ user_id: string; response: string; reason: string | null }>
   >();
   if (convIds.length > 0) {
     const { data: resps } = await service
       .from("agreement_responses")
-      .select("conversation_id, user_id, response, note")
+      .select("conversation_id, user_id, response, reason")
       .in("conversation_id", convIds);
     for (const r of (resps ?? []) as any[]) {
       const list = respsByConv.get(r.conversation_id) ?? [];
       list.push({
         user_id: r.user_id,
         response: r.response,
-        note: r.note ?? null
+        reason: r.reason ?? null
       });
       respsByConv.set(r.conversation_id, list);
     }

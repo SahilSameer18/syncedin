@@ -83,6 +83,36 @@ export default async function DashboardPage() {
 
   const twinComplete = Boolean(twin?.goals);
 
+  // Premium-unlock counter: count distinct users who claimed an invite
+  // from THIS user AND completed their twin (twin_profiles.goals set).
+  // Computed here (not inline in JSX) so the build doesn't trip on an
+  // async-IIFE-inside-JSX pattern Next 14's compiler gets weird about.
+  let completedReferrals = 0;
+  try {
+    const { data: claimedRows } = await service
+      .from("pending_invites")
+      .select("claimed_by_user_id")
+      .eq("inviter_user_id", user.id)
+      .not("claimed_by_user_id", "is", null);
+    const claimedIds = Array.from(
+      new Set(
+        ((claimedRows ?? []) as any[])
+          .map((r) => r.claimed_by_user_id)
+          .filter(Boolean)
+      )
+    );
+    if (claimedIds.length > 0) {
+      const { data: completedTwins } = await service
+        .from("twin_profiles")
+        .select("user_id")
+        .in("user_id", claimedIds)
+        .not("goals", "is", null);
+      completedReferrals = (completedTwins ?? []).length;
+    }
+  } catch {
+    /* silent — card shows 0/3 */
+  }
+
   const otherIds = (conversations ?? []).map((c) =>
     c.participant_a === user.id ? c.participant_b : c.participant_a
   );
@@ -577,42 +607,11 @@ export default async function DashboardPage() {
       )}
 
           {/* Premium-unlock progress — 3 completed referrals = Premium
-              free. Counts pulled best-effort: any user who claimed an
-              invite from this user AND has a non-null twin_profiles.goals
-              counts as "completed". Wrapped in try/catch so the card
-              just shows 0 if the underlying tables aren't reachable. */}
-          {await (async () => {
-            let completedReferrals = 0;
-            try {
-              const { data: claimedRows } = await service
-                .from("pending_invites")
-                .select("claimed_by_user_id")
-                .eq("inviter_user_id", user.id)
-                .not("claimed_by_user_id", "is", null);
-              const ids = Array.from(
-                new Set(
-                  ((claimedRows ?? []) as any[])
-                    .map((r) => r.claimed_by_user_id)
-                    .filter(Boolean)
-                )
-              );
-              if (ids.length > 0) {
-                const { data: completedTwins } = await service
-                  .from("twin_profiles")
-                  .select("user_id")
-                  .in("user_id", ids)
-                  .not("goals", "is", null);
-                completedReferrals = (completedTwins ?? []).length;
-              }
-            } catch {
-              /* silent — card shows 0/3 */
-            }
-            return (
-              <PremiumProgressCard
-                completedReferrals={completedReferrals}
-              />
-            );
-          })()}
+              free. completedReferrals computed up top so the build
+              doesn't trip on an async-IIFE-inside-JSX pattern. */}
+          <PremiumProgressCard
+            completedReferrals={completedReferrals}
+          />
 
           {/* Invite */}
           <section>

@@ -24,20 +24,53 @@ export function ExcitementControl({
   const [val, setVal] = useState(score ?? 50);
   const [saving, setSaving] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  // Two-step save: after the user picks a new score, we ask WHY so
+  // the calibration delta carries reasoning the next-AI-score prompt
+  // can learn from. Skippable, but the field is visible by default
+  // so most users will at least drop a sentence.
+  const [askingReason, setAskingReason] = useState(false);
+  const [reason, setReason] = useState("");
 
-  async function save() {
+  // The "why" prompt only matters when the new value is actually
+  // different from what's already there (otherwise we'd capture a
+  // useless calibration). aiPrior is what the AI scored before this
+  // override.
+  const aiPrior = score ?? null;
+  const isChanged = aiPrior === null || val !== aiPrior;
+
+  function startSave() {
+    if (!isChanged) {
+      // No-op save — just close the editor without prompting.
+      setOpen(false);
+      return;
+    }
+    setAskingReason(true);
+  }
+
+  async function commitSave() {
     setSaving(true);
     try {
       await fetch("/api/excitement", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ conversation_id: conversationId, score: val })
+        body: JSON.stringify({
+          conversation_id: conversationId,
+          score: val,
+          reason: reason.trim() || null
+        })
       });
       setOpen(false);
+      setAskingReason(false);
+      setReason("");
       router.refresh();
     } finally {
       setSaving(false);
     }
+  }
+
+  function cancelReason() {
+    setAskingReason(false);
+    setReason("");
   }
 
   return (
@@ -76,6 +109,102 @@ export function ExcitementControl({
             </span>
           )}
         </button>
+      ) : askingReason ? (
+        // Step 2: capture WHY the user is rescoring so the calibration
+        // delta carries reasoning the next AI-score prompt can learn from.
+        // The reason is optional but visible by default — most users drop
+        // at least a sentence when asked directly.
+        <div
+          className="retro-panel p-3"
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            minWidth: 280
+          }}
+        >
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--text)",
+              fontWeight: 600
+            }}
+          >
+            Why{" "}
+            <span style={{ color: tone(val), fontFamily: "monospace" }}>
+              {val}
+            </span>
+            {aiPrior !== null && (
+              <>
+                {" "}
+                instead of{" "}
+                <span
+                  style={{
+                    color: "var(--text-dim)",
+                    fontFamily: "monospace"
+                  }}
+                >
+                  {aiPrior}
+                </span>
+                ?
+              </>
+            )}
+          </div>
+          <textarea
+            value={reason}
+            onChange={(e) => setReason(e.target.value.slice(0, 400))}
+            rows={3}
+            autoFocus
+            placeholder="e.g. they're a real fit, not just on paper · this lead is dead · I'd rather meet in person · serious about the deal"
+            className="retro-input"
+            style={{
+              fontSize: 13,
+              padding: 8,
+              width: "100%",
+              minHeight: 60
+            }}
+          />
+          <div
+            style={{
+              fontSize: 10,
+              color: "var(--text-dim)",
+              lineHeight: 1.4
+            }}
+          >
+            Trains your personal scoring rubric. Future scores get
+            sharper with each reason you add.
+          </div>
+          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            <button
+              type="button"
+              onClick={cancelReason}
+              disabled={saving}
+              className="retro-btn text-xs"
+              style={{ padding: "5px 10px" }}
+            >
+              back
+            </button>
+            <button
+              type="button"
+              onClick={commitSave}
+              disabled={saving}
+              className="retro-btn text-xs"
+              style={{ padding: "5px 10px" }}
+              title="Save without a reason — calibration still logged"
+            >
+              skip
+            </button>
+            <button
+              type="button"
+              onClick={commitSave}
+              disabled={saving || !reason.trim()}
+              className="retro-btn retro-btn-primary text-xs"
+              style={{ padding: "5px 10px", fontWeight: 700 }}
+            >
+              {saving ? "…" : "save w/ reason"}
+            </button>
+          </div>
+        </div>
       ) : (
         <div className="retro-panel p-2 flex items-center gap-2">
           <input
@@ -95,11 +224,16 @@ export function ExcitementControl({
           </span>
           <button
             type="button"
-            onClick={save}
+            onClick={startSave}
             disabled={saving}
             className="retro-btn retro-btn-primary text-sm"
+            title={
+              isChanged
+                ? "Continue — we'll ask why"
+                : "No change — just close"
+            }
           >
-            {saving ? "…" : "save"}
+            {saving ? "…" : isChanged ? "next →" : "close"}
           </button>
           <button
             type="button"
