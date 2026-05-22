@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { RecGeneratorCard } from "./RecGeneratorCard";
+import { PiGeneratorCard } from "./PiGeneratorCard";
 
 /**
  * PERSONAL INTELLIGENCE — Jack's vision: every user gets a generated,
@@ -448,6 +449,31 @@ export default async function PersonalIntelligencePage() {
               <RecGeneratorCard
                 key={c.key}
                 kind="books"
+                icon={c.icon}
+                eyebrow={c.eyebrow}
+                title={c.title}
+                blurb={c.blurb}
+                accent={c.accent}
+              />
+            );
+          }
+          // Every other generator hits the universal /api/personal-intelligence/generate
+          // endpoint via PiGeneratorCard. Each kind has its own server prompt + client
+          // render branch. Real audio / image / print integrations land later.
+          const KIND_MAP: Record<string, "life-path" | "plot" | "business" | "images" | "song" | "merch"> = {
+            blueprint: "life-path",
+            creative: "plot",
+            business: "business",
+            images: "images",
+            song: "song",
+            merch: "merch"
+          };
+          const piKind = KIND_MAP[c.key];
+          if (piKind && !locked) {
+            return (
+              <PiGeneratorCard
+                key={c.key}
+                kind={piKind}
                 icon={c.icon}
                 eyebrow={c.eyebrow}
                 title={c.title}

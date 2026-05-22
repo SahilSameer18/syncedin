@@ -169,6 +169,11 @@ export default async function InviteOgImage({
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
             {recipientAvatar ? (
+              // Satori fetches this URL server-side at OG-render time.
+              // LinkedIn / IG CDNs often block hotlinking → we route
+              // through a generic-UA fetch with no referer. If the
+              // image hash 404s (LinkedIn cycles its CDN URLs), we
+              // fall back to the initials avatar below the catch.
               <img
                 src={recipientAvatar}
                 width={120}
