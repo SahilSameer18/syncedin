@@ -1,17 +1,27 @@
 /**
- * Pair-sync score — how much two twins overlap, computed from their profile
- * blobs alone. Pure deterministic function: same inputs always produce the
- * same number, no LLM call, no randomness, no salting.
+ * Pair-sync score — the projected outcome of a deal happening between two
+ * twins, computed from their profile blobs alone. Pure deterministic
+ * function: same inputs always produce the same number, no LLM call,
+ * no randomness, no salting.
  *
- * Replaces the previous single-signal Jaccard with a 12% floor (which gave
- * almost everyone 12% because real unigram overlap on sparse twin profiles
- * is usually 2-8). The new score combines four signals weighted so the
- * distribution actually spreads across the 0-99 range:
+ * MAY 2026 RECALIBRATION (per Jack): the previous version weighted
+ * SIMILARITY (jaccard overlap) heavily, which meant two people in the
+ * same niche scored high while a perfectly-fitting "I'm raising / I
+ * invest" pair could score in the 30s. The score is now COMPLEMENTARITY
+ * first — does this pairing create asymmetric upside if they actually
+ * talk? Two near-identical founders are LESS interesting than a founder
+ * + an investor who matches their stage.
  *
- *   35%  unigram overlap (stop-words filtered)
- *   20%  bigram overlap (two-word phrases — catches domain language)
- *   25%  goals-vs-goals overlap (the highest-signal field, weighted higher)
- *   20%  complementary fit (one side asks for what the other offers)
+ * New weights:
+ *   55%  complementary fit (one side asks for what the other offers)
+ *   15%  goals-vs-goals overlap (same domain still helps)
+ *   15%  bigram overlap (shared domain language)
+ *   15%  unigram overlap (loose keyword affinity)
+ *
+ * Both sides having a substantive twin (≥200 chars each) gives a base
+ * fit floor of ~50% — Jack's complaint: a friend signed up and ALL
+ * sync scores were below 40%, which kills the "this is worth my time"
+ * read of the directory.
  *
  * Capped at 96 to leave room for upward movement after a real conversation
  * (post-chat the excitement_score from summarize-conversation can hit 99).
@@ -78,29 +88,69 @@ function jaccard(a: string[], b: string[]): number {
 // Asks-for vs offers keyword pairs. If side A signals one half and side B
 // signals the other, it's a 1.0 contribution. Symmetric: order doesn't
 // matter. This catches "I'm raising" ↔ "I invest" matches that pure overlap
-// misses because the words don't literally repeat.
+// misses because the words don't literally repeat. Hugely expanded for the
+// May 2026 recalibration so a thoughtful twin pair always trips at least
+// 1-2 complements.
 const COMPLEMENTS: Array<[RegExp, RegExp]> = [
-  [/\b(raising|seeking|need|looking)\s+(for\s+)?(funding|capital|investors|investment|seed|series)/i,
-   /\b(invest|investor|angel|fund|capital|portfolio|vc|venture)/i],
-  [/\b(hiring|recruit|looking\s+for\s+(a\s+)?(cmo|cto|cfo|coo|engineer|designer|operator|founder))/i,
-   /\b(looking\s+for\s+(a\s+)?role|hungry|operator|seeking\s+(a\s+)?role|cmo|cto|cfo|coo)/i],
-  [/\b(need\s+(a\s+)?(co.?founder|cofounder|partner))/i,
-   /\b(co.?founder|cofounder|technical\s+founder|partner|join\s+a\s+team)/i],
-  [/\b(distribution|growth|marketing|users|reach|audience)/i,
-   /\b(distribution|growth|marketing|audience|community|influencer|creator)/i],
-  [/\b(needs?\s+(a\s+)?(designer|design|ux|brand))/i,
-   /\b(designer|design|ux|brand|art\s+director)/i],
-  [/\b(needs?\s+(a\s+)?(developer|engineer|coder|technical))/i,
-   /\b(engineer|developer|coder|technical|swe|full.?stack)/i],
-  [/\b(needs?\s+(a\s+)?advisor|advisory|mentor)/i,
-   /\b(advisor|mentor|coach|operator)/i],
-  [/\b(podcast|press|media|journalist|writer|reporter)/i,
-   /\b(podcast|press|story|interview|feature|writer|journalist)/i]
+  // Capital flow
+  [/\b(raising|seeking|need|looking|want).{0,30}(funding|capital|investors|investment|seed|series|check|round|backed)/i,
+   /\b(invest|investor|angel|fund|capital|portfolio|vc|venture|writing\s+checks|deploy|backed)/i],
+  // Hiring + job-seeking
+  [/\b(hiring|recruit|need|looking\s+for|need\s+a)\s+(a\s+)?(cmo|cto|cfo|coo|head\s+of|lead|engineer|designer|operator|founder|exec|director|vp|chief)/i,
+   /\b(looking\s+for\s+(a\s+)?role|operator|seeking|next\s+role|cmo|cto|cfo|coo|head\s+of|join\s+a|exec|director|vp|chief|exit|leaving)/i],
+  // Co-founder match
+  [/\b(need|looking\s+for|seeking)\s+(a\s+)?(co.?founder|cofounder|technical\s+(co.?)?founder|partner|teammate)/i,
+   /\b(co.?founder|cofounder|technical\s+founder|join\s+a\s+(team|venture)|build\s+something|in\s+the\s+market\s+for)/i],
+  // Distribution / audience
+  [/\b(distribution|growth|marketing|users|reach|audience|launch|go.?to.?market|gtm)/i,
+   /\b(distribution|growth|marketing|audience|community|influencer|creator|reach|followers|subscribers|newsletter)/i],
+  // Design
+  [/\b(need|looking\s+for|hiring)\s+(a\s+)?(designer|design|ux|brand|art\s+director)/i,
+   /\b(designer|design|ux|brand|art\s+director|figma|illustrator)/i],
+  // Engineering
+  [/\b(need|looking\s+for|hiring)\s+(a\s+)?(developer|engineer|coder|technical|swe|full.?stack|backend|frontend|infra)/i,
+   /\b(engineer|developer|coder|technical|swe|full.?stack|backend|frontend|infra|devops|sre|kubernetes)/i],
+  // Advisor / mentor
+  [/\b(need|looking\s+for|want)\s+(an?\s+)?(advisor|advisory|mentor|coach)/i,
+   /\b(advise|advisor|mentor|coach|operator|veteran|ex.?(founder|exec)|board\s+member)/i],
+  // Press / media
+  [/\b(podcast|press|media|journalist|writer|reporter|article|coverage|story)/i,
+   /\b(podcast|press|story|interview|feature|writer|journalist|host|magazine|newsletter)/i],
+  // Sales / GTM
+  [/\b(need|looking\s+for).{0,30}(sales|revenue|customers|pipeline|deals|enterprise|biz\s+dev)/i,
+   /\b(sales|account\s+exec|ae|sdr|bdr|biz\s+dev|enterprise|gtm|revenue|quota)/i],
+  // Intros to specific roles
+  [/\b(intros?\s+to|connect\s+me\s+with|meet\s+a|warm\s+intro)/i,
+   /\b(network|connections|intros?|knows\s+everyone|connected|warm\s+intros?)/i],
+  // Hardware / supply chain
+  [/\b(manufacturing|hardware|supply\s+chain|factory|prototype|sourcing)/i,
+   /\b(manufacturing|hardware|supply\s+chain|factory|sourcing|china|shenzhen|asia)/i],
+  // AI / agent ecosystem
+  [/\b(ai|agent|llm|ml|model|claude|gpt|gemini|inference)/i,
+   /\b(ai|agent|llm|ml|model|claude|gpt|gemini|inference|prompt|fine.?tun|rag|vector)/i],
+  // Crypto / web3
+  [/\b(crypto|web3|token|chain|defi|nft|dao|onchain|wallet|solana|ethereum)/i,
+   /\b(crypto|web3|token|chain|defi|nft|dao|onchain|wallet|solana|ethereum|blockchain)/i],
+  // Music / creative
+  [/\b(music|artist|song|album|label|streaming|sync|royalt)/i,
+   /\b(music|artist|song|album|label|streaming|sync|royalt|producer|composer)/i],
+  // Health / wellness
+  [/\b(health|fitness|wellness|nutrition|longevity|supplement|biohack)/i,
+   /\b(health|fitness|wellness|nutrition|longevity|supplement|biohack|coach|trainer)/i],
+  // Education / coaching
+  [/\b(learn|course|cohort|teach|workshop|bootcamp|curriculum)/i,
+   /\b(teach|teacher|instructor|professor|course|cohort|workshop|curriculum|mentor)/i],
+  // Real estate
+  [/\b(real\s+estate|property|broker|housing|rent|lease|landlord|tenant)/i,
+   /\b(real\s+estate|property|broker|housing|rent|lease|landlord|construction|developer)/i]
 ];
 
 function complementaryFit(aBlob: string, bBlob: string): number {
   // 1.0 if at least one complementary pair fires in EITHER direction.
-  // Scales linearly with how many fire — 2 hits = 0.5, 3 = 0.66, capped.
+  // Scales with how many fire — first hit gets you most of the way there,
+  // additional ones add diminishing-but-real bumps. The new curve hits
+  // 0.55 on the first hit (vs 0.42 previously) so a single strong match
+  // already reads as "this is worth talking about."
   let hits = 0;
   for (const [askR, offerR] of COMPLEMENTS) {
     const aAsks = askR.test(aBlob);
@@ -110,8 +160,23 @@ function complementaryFit(aBlob: string, bBlob: string): number {
     if ((aAsks && bOffers) || (bAsks && aOffers)) hits += 1;
   }
   if (hits === 0) return 0;
-  // Diminishing returns — first hit is worth most, additional ones taper.
-  return Math.min(1, hits / (hits + 1.4));
+  // Curve: 1 hit → 0.55, 2 → 0.74, 3 → 0.83, 4 → 0.88, capped at 1.
+  return Math.min(1, 0.55 + (hits - 1) * 0.18 - Math.max(0, hits - 3) * 0.04);
+}
+
+// Substance floor — when both twins have meaningful context, even a low
+// keyword-overlap pair should read as "worth investigating." Two new
+// signups with valid twins shouldn't see all matches below 40% — that
+// kills the directory's UX.
+function substanceFloor(aBlob: string, bBlob: string): number {
+  const aLen = aBlob.trim().length;
+  const bLen = bBlob.trim().length;
+  if (aLen < 80 || bLen < 80) return 0; // one side is empty, no floor
+  // Both have at least minimal context → 0.30 floor, scaling up to 0.45
+  // as both blobs grow toward 1000 chars each.
+  const aFactor = Math.min(1, aLen / 1000);
+  const bFactor = Math.min(1, bLen / 1000);
+  return 0.30 + 0.15 * Math.min(aFactor, bFactor);
 }
 
 export function computePairScore(
@@ -157,12 +222,23 @@ export function computePairScore(
   // shorter.
   const goal = Math.min(1, jaccard(myGoalTokens, theirGoalTokens) * 5);
 
-  // Complementary fit — the "you have what I need" signal.
+  // Complementary fit — the "you have what I need" signal. Now the
+  // dominant weight in the score.
   const comp = complementaryFit(myFull, theirFull);
 
-  const weighted = 0.35 * uni + 0.20 * bi + 0.25 * goal + 0.20 * comp;
-  // Stretch the [0, 1] interval to [3, 96] so even thin matches read as
-  // a low-double-digit overlap and strong matches push into the 80s+.
-  const stretched = Math.round(3 + weighted * 93);
+  // Reweighted: complementarity (potential outcome) is now 55% of the
+  // total. Similarity signals (uni + bi + goal) collectively get 45%,
+  // since same-domain still helps but isn't the headline.
+  const weighted = 0.55 * comp + 0.15 * goal + 0.15 * bi + 0.15 * uni;
+
+  // Apply substance floor — if both sides have real twins, no honest
+  // pair should drop below ~45%.
+  const floor = substanceFloor(myFull, theirFull);
+  const lifted = Math.max(weighted, floor);
+
+  // Stretch the [0, 1] interval to [3, 96]. Strong complementary fit
+  // (e.g. raising ↔ invests + same domain) pushes into the high 80s;
+  // both-active-twins-but-no-clear-fit lands in the mid 50s.
+  const stretched = Math.round(3 + lifted * 93);
   return Math.max(0, Math.min(96, stretched));
 }

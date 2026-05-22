@@ -78,11 +78,13 @@ export function OnboardingWizard({
   const [step, setStep] = useState(0);
   const [state, setState] = useState<Initial>(initial);
 
-  // Returning user? If onboarding was completed at least once (goals
-  // present, OR any deep field filled, OR ai memory present), the step
-  // pills become fully clickable so the user can jump to any step.
-  // For first-time users we keep the strict "only step ≤ current" rule
-  // so they don't accidentally skip required fields before they exist.
+  // Jack's call: EVERY step pill is always clickable, even for first-time
+  // users. The original "only step ≤ current" gate annoyed users who
+  // wanted to peek ahead or jump back to fix a typo. Required-field
+  // enforcement still happens at save (display_name + goals must exist),
+  // but navigation between steps is free. `hasCompletedOnboarding` is
+  // kept so other UX bits (smart prefill heuristics) can still tell new
+  // users from returners.
   const hasCompletedOnboarding =
     (initial.goals || "").trim().length > 5 ||
     (initial.deal_preferences || "").trim().length > 0 ||
@@ -417,26 +419,14 @@ export function OnboardingWizard({
             <div key={s.key} className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  // Returning users can jump anywhere — they've already
-                  // filled the required fields once. First-time users
-                  // are still gated to back-only so they don't skip
-                  // required fields before completing them.
-                  if (hasCompletedOnboarding || i <= step) {
-                    setStep(i);
-                  }
-                }}
+                onClick={() => setStep(i)}
                 className="flex items-center gap-2"
                 style={{
                   background: "transparent",
                   border: 0,
                   padding: 0,
-                  cursor:
-                    hasCompletedOnboarding || i <= step
-                      ? "pointer"
-                      : "default",
-                  opacity:
-                    i > step && !hasCompletedOnboarding ? 0.55 : 1
+                  cursor: "pointer",
+                  opacity: 1
                 }}
               >
                 <span
@@ -658,6 +648,14 @@ export function OnboardingWizard({
                 setStep((s) => Math.min(STEPS.length - 1, s + 1))
               }
             />
+
+            <StepFooterNext
+              canAdvance={canAdvance}
+              hasContent={stepHasContent}
+              onNext={() =>
+                setStep((s) => Math.min(STEPS.length - 1, s + 1))
+              }
+            />
           </div>
         )}
 
@@ -703,6 +701,14 @@ export function OnboardingWizard({
                 onChange={setSnippets}
               />
             </div>
+
+            <StepFooterNext
+              canAdvance={canAdvance}
+              hasContent={stepHasContent}
+              onNext={() =>
+                setStep((s) => Math.min(STEPS.length - 1, s + 1))
+              }
+            />
           </div>
         )}
 
@@ -789,6 +795,14 @@ export function OnboardingWizard({
                 style={{ minHeight: 240 }}
               />
             </label>
+
+            <StepFooterNext
+              canAdvance={canAdvance}
+              hasContent={stepHasContent}
+              onNext={() =>
+                setStep((s) => Math.min(STEPS.length - 1, s + 1))
+              }
+            />
           </div>
         )}
 
@@ -913,6 +927,57 @@ function Field({
         className="retro-input mt-1"
       />
     </label>
+  );
+}
+
+/**
+ * Bottom-of-step Next button. Lives at the foot of every step OTHER than
+ * Refine (Refine has its own deliberate Save button). Jack: "make sure
+ * each step has a next button at the bottom of the page after someone
+ * finishes the thing." The pill-row up top still works for power users;
+ * this is the primary CTA for first-timers who scroll through the form.
+ */
+function StepFooterNext({
+  canAdvance,
+  hasContent,
+  onNext
+}: {
+  canAdvance: boolean;
+  hasContent: boolean;
+  onNext: () => void;
+}) {
+  return (
+    <div
+      style={{
+        marginTop: 28,
+        paddingTop: 16,
+        borderTop: "1px solid var(--border)",
+        display: "flex",
+        justifyContent: "flex-end",
+        alignItems: "center",
+        gap: 8
+      }}
+    >
+      {!hasContent && (
+        <span className="retro-dim text-xs">
+          you can always come back to this
+        </span>
+      )}
+      <button
+        key="step-footer-next"
+        type="button"
+        onClick={onNext}
+        disabled={!canAdvance}
+        className={
+          hasContent
+            ? "retro-btn retro-btn-primary"
+            : "retro-btn"
+        }
+        style={{ padding: "9px 18px", fontSize: 14 }}
+      >
+        {hasContent ? "next step →" : "skip →"}
+      </button>
+    </div>
   );
 }
 

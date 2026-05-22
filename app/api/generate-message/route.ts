@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
+import {
+  anthropic,
+  TWIN_MODEL,
+  withAnthropicRetry,
+  FriendlyAnthropicError
+} from "@/lib/anthropic";
 import {
   buildTwinSystemPrompt,
   buildConversationHistory,
@@ -111,12 +116,16 @@ export async function POST(req: Request) {
   }
 
   try {
-    const response = await anthropic.messages.create({
-      model: TWIN_MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: history
-    });
+    const response = await withAnthropicRetry(
+      () =>
+        anthropic.messages.create({
+          model: TWIN_MODEL,
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: history
+        }),
+      { label: "generate-message" }
+    );
     const text = scrubAiTells(
       response.content
         .filter((b) => b.type === "text")
@@ -127,9 +136,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ draft: text });
   } catch (e: any) {
     console.error("anthropic generate error", e);
+    const friendly =
+      e instanceof FriendlyAnthropicError
+        ? e.message
+        : e?.message ?? String(e);
+    const status =
+      e instanceof FriendlyAnthropicError && e.retryable ? 503 : 500;
     return NextResponse.json(
-      { error: "generation_failed", detail: e?.message ?? String(e) },
-      { status: 500 }
+      {
+        error: "generation_failed",
+        detail: friendly,
+        retryable: e instanceof FriendlyAnthropicError ? e.retryable : false
+      },
+      { status }
     );
   }
 }

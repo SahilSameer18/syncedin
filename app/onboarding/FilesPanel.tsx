@@ -58,6 +58,30 @@ export function FilesPanel() {
   async function uploadFile(file: File) {
     setErr("");
     setUploading(true);
+    // Helper that fires the error into the auto-report sink so it lands
+    // on /admin/reports immediately — no need for the user to copy-paste.
+    const reportFail = (stage: string, message: string) => {
+      try {
+        const data = JSON.stringify({
+          message: `[twin-files upload] ${stage}: ${message}`,
+          source: `twin-files:${stage}`,
+          extras: {
+            file_name: file.name,
+            file_size: file.size,
+            file_type: file.type,
+            kind
+          }
+        });
+        if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+          navigator.sendBeacon(
+            "/api/error-report",
+            new Blob([data], { type: "application/json" })
+          );
+        }
+      } catch {
+        /* never throw */
+      }
+    };
     try {
       const reservation = await fetch("/api/twin-files", {
         method: "POST",
@@ -72,7 +96,9 @@ export function FilesPanel() {
       });
       if (!reservation.ok) {
         const j = await reservation.json().catch(() => ({}));
-        throw new Error(j.detail || j.error || `HTTP ${reservation.status}`);
+        const msg = j.detail || j.error || `HTTP ${reservation.status}`;
+        reportFail("reservation", msg);
+        throw new Error(msg);
       }
       const { upload_url, upload_token } = await reservation.json();
       // Supabase signed-upload PUT — pass the token, raw file body.
@@ -85,15 +111,29 @@ export function FilesPanel() {
         body: file
       });
       if (!put.ok) {
+        const detail = await put.text().catch(() => "");
+        reportFail(
+          "storage_put",
+          `HTTP ${put.status}: ${detail.slice(0, 200)}`
+        );
+        // If the bucket genuinely doesn't exist on the storage side, this
+        // PUT will 404 with "the related resource does not exist" — turn
+        // that into a clean retry-friendly message.
+        if (put.status === 404 || /resource|bucket/i.test(detail)) {
+          throw new Error(
+            "File storage is warming up. Please try the upload again in a few seconds."
+          );
+        }
         throw new Error(`Upload failed (HTTP ${put.status})`);
       }
       setDescription("");
       await load();
     } catch (e: any) {
-      setErr(
+      const msg =
         e?.message ||
-          "Upload failed — make sure the 'twin-files' Storage bucket exists in Supabase."
-      );
+        "Upload failed. We've logged this — try again in a moment.";
+      setErr(msg);
+      reportFail("caught", msg);
     } finally {
       setUploading(false);
     }

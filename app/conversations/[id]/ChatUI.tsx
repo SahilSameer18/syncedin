@@ -611,6 +611,20 @@ export function ChatUI({
     return j.detail || j.hint || j.error || `Request failed (HTTP ${res.status})`;
   }
 
+  // Read both the friendly message AND the retryable flag so the run loop
+  // can do one more client-level retry for transient AI overloads before
+  // surfacing the error to the user.
+  async function readErrorWithRetryFlag(
+    res: Response
+  ): Promise<{ message: string; retryable: boolean }> {
+    const j = await res.json().catch(() => ({}) as any);
+    return {
+      message:
+        j.detail || j.hint || j.error || `Request failed (HTTP ${res.status})`,
+      retryable: !!j.retryable
+    };
+  }
+
   // Auto-run the conversation: keep generating turns until the server says done.
   // If the user clicks re-run while done=true (typically after adding a per-
   // convo goal), pass `force: true` so the server skips its "already at turn
@@ -627,20 +641,37 @@ export function ChatUI({
     setDone(false);
     try {
       for (let i = 0; i < CLIENT_TURN_CAP; i++) {
-        const res = await fetch("/api/run-conversation", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            conversation_id: conversationId,
-            // Only force on the FIRST iteration of the loop — once we've
-            // generated one fresh turn the natural early-exit logic
-            // should resume.
-            force: forceNext && i === 0,
-            // Same scoping: propose_now only applies to the first turn.
-            propose_now: !!opts?.proposeNow && i === 0
-          })
-        });
-        if (!res.ok) throw new Error(await readError(res));
+        // Inner retry: if the server tells us the failure was retryable
+        // (i.e. Anthropic 529 even after server-side retries), wait 8s
+        // and try once more silently before surfacing to the user.
+        let res: Response | null = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          res = await fetch("/api/run-conversation", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              conversation_id: conversationId,
+              // Only force on the FIRST iteration of the loop — once we've
+              // generated one fresh turn the natural early-exit logic
+              // should resume.
+              force: forceNext && i === 0,
+              // Same scoping: propose_now only applies to the first turn.
+              propose_now: !!opts?.proposeNow && i === 0
+            })
+          });
+          if (res.ok) break;
+          const { message, retryable } = await readErrorWithRetryFlag(
+            res.clone()
+          );
+          if (!retryable || attempt === 1) {
+            throw new Error(message);
+          }
+          // Wait 8 seconds before the client-level retry. The server has
+          // already burned ~12s on its 4-attempt backoff chain at this
+          // point, so 8s + 12s = ~20s of total grace.
+          await new Promise((r) => setTimeout(r, 8000));
+        }
+        if (!res || !res.ok) throw new Error(await readError(res!));
         const json = await res.json();
         if (json.message) {
           setMessages((m) => [...m, json.message]);

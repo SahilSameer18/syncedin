@@ -103,15 +103,20 @@ export default async function OnboardingPage({
   const firstNameForWelcome = (initial.display_name || "").trim().split(/\s+/)[0] || "";
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pt-2 pb-8">
+    <main className="max-w-6xl mx-auto px-6 pt-1 pb-8">
       {/* Glowing-dot particles that fly from inputs toward the SyncMeter
           whenever the user types. Pure DOM + CSS, respects reduced
           motion. Mounted at page level so it sees the form + meter. */}
       <TypingParticles />
-      {/* Top nav row — kept tight. The empty vertical band the user
-          flagged was the Wordmark's natural baseline gap + the mt-6 on
-          the H1 below; reduced both so step 1 ships above the fold. */}
-      <div className="flex items-center justify-between" style={{ minHeight: 32 }}>
+      {/* Top nav row — collapsed even tighter. Was minHeight:32 + mt-6 +
+          mt-3 + retro-h1, so the wizard sat ~140px down from the viewport
+          top. Killed the H1 + subhead block entirely (the in-step labels
+          + step pills already announce what page they're on) and shrank
+          the nav strip so step 1 lands almost flush with the top. */}
+      <div
+        className="flex items-center justify-between"
+        style={{ minHeight: 28 }}
+      >
         <Wordmark />
         <Link href="/dashboard" className="retro-dim text-xs">
           dashboard &gt;
@@ -127,16 +132,11 @@ export default async function OnboardingPage({
         />
       )}
 
-      <h1 className="retro-h1 text-2xl mt-3">Build your twin</h1>
-      <p className="mt-1 retro-dim text-sm">
-        Five quick steps. Each one sharpens how your clone shows up for you.
-      </p>
-
       {searchParams.saved === "1" && (
-        <p className="mt-3 text-sm retro-green">✓ Saved.</p>
+        <p className="mt-2 text-sm retro-green">✓ Saved.</p>
       )}
 
-      <div className="mt-6 grid lg:grid-cols-[1fr_320px] gap-8 items-start">
+      <div className="mt-3 grid lg:grid-cols-[1fr_320px] gap-8 items-start">
         <div className="min-w-0">
           <OnboardingWizard initial={initial} userId={user.id} />
           {/* Multi-source AI context uploader — the "king" twin-context

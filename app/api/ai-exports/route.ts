@@ -20,6 +20,7 @@ const ALLOWED_SOURCES = new Set([
   "claude",
   "gemini",
   "perplexity",
+  "grok",
   "other"
 ]);
 

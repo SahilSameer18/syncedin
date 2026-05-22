@@ -19,36 +19,99 @@ import { BrandLogo, type BrandKey } from "../BrandLogo";
  */
 
 type Source = {
-  key: "chatgpt" | "claude" | "gemini" | "perplexity";
+  key: "chatgpt" | "claude" | "gemini" | "perplexity" | "grok";
   label: string;
   brand: BrandKey;
   prompt: string;
 };
+
+// King-level twin context. Each prompt is engineered to extract 1000+
+// word, deal-actionable self-descriptions — NOT "personality bios."
+// The shared backbone is the same across platforms (every section gets
+// the full structured drill-down) with platform-specific phrasing so each
+// AI is nudged to lean into the slice of you it knows best.
+//
+// Hard rules baked into every prompt:
+//  - 1000-1500 words minimum, no soft floor
+//  - Drops "personality/humor" sections entirely — Jack: "Asking what I
+//    find funny doesn't matter."
+//  - Heavy weighting on projects, intros, deals, collabs (the levers a
+//    twin can actually pull in a real conversation)
+//  - First-person, concrete, names companies/people/dollar amounts where
+//    relevant
+//  - No bestseller-style filler ("I'm a builder who...") — surgical detail
+const SHARED_OUTLINE = `You are writing the dossier my digital twin will use to represent me in real conversations with strangers. Tone: surgical, first-person, zero filler. NEVER write generic "personality" descriptions — skip what I find funny, skip hobbies, skip MBTI. The twin needs ammunition, not vibes.
+
+Target length: 1000-1500 words MINIMUM. Use headers + bullets liberally. Be the most specific you have ever been.
+
+Required sections (in order):
+
+1. EVERYTHING I AM WORKING ON RIGHT NOW.
+   List every project, company, venture, side-bet, fund, podcast, course, app, fork — name them by name. For each: (a) what stage it's at this week, (b) what's the current bottleneck, (c) what would move it forward, (d) who else is involved by name.
+
+2. THE EXACT INTROS THAT WOULD MOVE THE NEEDLE.
+   Not "investors" — name the SHAPE of investor (stage, check size, sector thesis), the SHAPE of operator (function, prior company DNA), or by literal name if I've mentioned wanting to meet them. For each intro target, write one sentence of WHY them specifically, and one sentence of WHAT I would say in the first message.
+
+3. DEAL STRUCTURES I WILL DO AND WON'T DO.
+   Term sheets, equity splits, advisor grants, revenue share, retainers — what I have agreed to before and at what numbers. What I have walked away from. What the floor / ceiling is on each. What signal makes me say yes fast vs. ghost.
+
+4. COLLABORATIONS THAT WOULD ACTUALLY MOVE THINGS.
+   Not "I love to collab!" — describe the specific 3-5 partnership shapes that compound my current work. For each: which of my projects it plugs into, what the other side gets, what the first 30 days look like.
+
+5. CONCRETE RECENT WINS — WITH DETAILS.
+   What I've actually shipped, raised, sold, hired, recruited in the last 6-12 months. Names. Numbers. Specifics another founder would recognize as credible. Avoid vagueness — replace "scaled a SaaS" with "took ARR from $40K to $1.2M MRR in 11 months with a 3-person team."
+
+6. WHAT I HAVE THAT I CAN GIVE.
+   The other side of the bait — what I can offer the network this quarter. Warm intros (be specific about who), unused budget, advisory hours, distribution, audience, code, designs, office space, anything.
+
+7. THE THINGS YOU MUST NEVER LET MY TWIN DO.
+   Hard nos. Behaviors / topics / categories of ask that should trigger instant decline. Past mistakes you've watched me make that I'd want auto-blocked.
+
+8. THE THINGS I CARE ABOUT THIS QUARTER.
+   The 3-5 outcomes that, if achieved, would mean the next 90 days were a win. Specific enough to measure.
+
+DO NOT output any preamble. Start with the first heading. Use my own phrasing where you've heard it. End when you've covered all 8 sections in depth.`;
 
 const SOURCES: Source[] = [
   {
     key: "chatgpt",
     label: "ChatGPT",
     brand: "chatgpt",
-    prompt: `Based on EVERYTHING we've ever talked about, write a deep 200-word self-description of me that captures: (1) what I'm working on right now, (2) the recurring problems I'm trying to solve, (3) my communication style and what I find funny, (4) what kinds of intros/deals/collabs would actually help me, (5) dealbreakers and things I'd rather NOT be pitched, (6) recent wins or specifics that prove what I'm credible at. Be specific. First-person. No fluff. This is going into a digital twin agent that will represent me in conversations on my behalf.`
+    prompt: `Based on EVERY conversation we have ever had — including code, brainstorms, drafts, decisions, doubts, rants — produce the full dossier below. ChatGPT, you've watched me iterate on the actual work. Lean into the operational detail you've seen me sweat.
+
+${SHARED_OUTLINE}`
   },
   {
     key: "claude",
     label: "Claude",
     brand: "claude",
-    prompt: `Across all our conversations, write a deep 200-word self-description of me capturing: (1) my current focus, (2) the problems I'm trying to solve next 90 days, (3) my communication style + dealbreakers, (4) what intros/deals/collaborations would help me, (5) specific recent wins. Be concrete and first-person. This is for a digital twin agent that will represent me in conversations.`
+    prompt: `Across the whole arc of our conversations, write the full dossier below. Claude, you've been my long-form thinking partner — lean into strategy, second-order effects, and the specific deals / pitches / drafts we've talked through. Don't summarize — pull the receipts.
+
+${SHARED_OUTLINE}`
   },
   {
     key: "gemini",
     label: "Gemini",
     brand: "gemini",
-    prompt: `Based on our chat history, write a 200-word first-person self-description of me covering: who I am day-to-day, top problems I'm solving, communication style, what kinds of intros would help, dealbreakers, recent wins. For a digital twin agent that represents me.`
+    prompt: `Based on our chat history and anything you know about me from Google services I've connected, produce the full dossier below. Gemini, lean into anything cross-referenced from my Drive, Calendar, or research sessions you can recall.
+
+${SHARED_OUTLINE}`
   },
   {
     key: "perplexity",
     label: "Perplexity",
     brand: "perplexity",
-    prompt: `From our conversations and any research I've done with you, write a 200-word self-description: my role/focus, current problems, comm style, ideal intros, dealbreakers, recent wins. First-person, specific, for a digital twin agent.`
+    prompt: `From every conversation + every research thread I've run with you, write the full dossier below. Perplexity, you've been the research arm — surface the specific market context, named competitors, named people I've asked you to look up, and any data points you've pulled for me that the twin should know.
+
+${SHARED_OUTLINE}`
+  },
+  {
+    key: "grok",
+    label: "Grok",
+    brand: "grok",
+    prompt: `Based on everything I've talked to you about — including anything you've pulled from my X timeline / replies / DMs / following graph — produce the full dossier below. Grok, lean into the social-graph + real-time signal layer the other AIs don't see: who I've been engaging with, what I've been posting about, what's trending in my circle.
+
+${SHARED_OUTLINE}`
   }
 ];
 

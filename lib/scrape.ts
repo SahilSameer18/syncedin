@@ -76,7 +76,18 @@ async function scrapingDogInstagram(handle: string): Promise<string> {
       `ScrapingDog IG ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`
     );
   }
-  const j = (await res.json()) as Record<string, unknown>;
+  // Defensive JSON parse — see scrapingDogX comment.
+  const rawText = await res.text().catch(() => "");
+  let j: Record<string, unknown>;
+  try {
+    j = JSON.parse(rawText) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      `ScrapingDog IG returned non-JSON for @${handle} (likely captcha or rate-limited): ${rawText
+        .slice(0, 160)
+        .replace(/\s+/g, " ")}`
+    );
+  }
   // ScrapingDog wraps the actual profile under various keys depending on
   // API version — try them all defensively.
   const p =
@@ -191,7 +202,20 @@ async function scrapingDogLinkedIn(handle: string): Promise<string> {
       );
     }
   }
-  const raw = (await res.json()) as unknown;
+  // Defensive JSON parse — ScrapingDog sometimes returns HTML for
+  // rate-limit / captcha errors. Direct .json() throws SyntaxError that
+  // leaks to the UI.
+  const rawText = await res.text().catch(() => "");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(rawText);
+  } catch {
+    throw new Error(
+      `ScrapingDog LinkedIn returned non-JSON for ${handle} (likely captcha): ${rawText
+        .slice(0, 160)
+        .replace(/\s+/g, " ")}`
+    );
+  }
   // Response is sometimes an array (one item per requested profile), sometimes
   // a single object. Normalize to a single record.
   const p = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
@@ -314,7 +338,22 @@ async function scrapingDogX(handle: string): Promise<string> {
       `ScrapingDog X ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`
     );
   }
-  const j = (await res.json()) as Record<string, unknown>;
+  // Defensive JSON parse — ScrapingDog returns HTML for some failure modes
+  // (rate-limit, captcha, account suspended). The previous direct
+  // `await res.json()` threw an "Unexpected token" SyntaxError that
+  // leaked to the UI. Read as text first, then parse, so we can convert
+  // a non-JSON response into a clean error instead.
+  const rawText = await res.text().catch(() => "");
+  let j: Record<string, unknown>;
+  try {
+    j = JSON.parse(rawText) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      `ScrapingDog X returned non-JSON for @${handle} (likely captcha or suspended account): ${rawText
+        .slice(0, 160)
+        .replace(/\s+/g, " ")}`
+    );
+  }
   const p =
     (j.profile as Record<string, unknown>) ||
     (j.user as Record<string, unknown>) ||

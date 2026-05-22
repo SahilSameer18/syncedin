@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Sidebar } from "./Sidebar";
+import { TopBar } from "./TopBar";
 import { MobileShell } from "./MobileShell";
 import { SitewidePrefetch } from "./SitewidePrefetch";
 import { signOut } from "./login/actions";
@@ -192,12 +193,25 @@ export async function AppShell({
           signed-in users (where the routes are reachable). */}
       <SitewidePrefetch />
 
+      {/* Desktop top bar — hypernetwork, sync a conference, sync a
+          community lift up here. Profile avatar lives top-right with
+          a dropdown for Edit twin / Settings / Sign out. Hidden on
+          mobile because MobileShell already owns the top strip there. */}
+      <div className="hidden lg:block">
+        <TopBar
+          userId={user.id}
+          displayName={displayName}
+          avatarUrl={(profile as any)?.avatar_url ?? null}
+          signOutAction={signOut}
+        />
+      </div>
+
       {/* pt-0 on mobile because MobileShell already gives us a top bar.
           Stacking another pt-3 below it created the huge empty band Jack
           flagged. lg+ keeps the standard pt-3 since there's no mobile bar
           eating vertical real estate up top. */}
       <main
-        className={`${maxWidth} mx-auto px-4 lg:px-5 pt-0 lg:pt-3 pb-6 grid lg:grid-cols-[220px_1fr] gap-4 lg:gap-6 items-start`}
+        className={`${maxWidth} mx-auto px-4 lg:px-5 pt-0 lg:pt-1 pb-6 grid lg:grid-cols-[220px_1fr] gap-4 lg:gap-6 items-start`}
       >
         {/* Desktop sidebar — hidden on mobile, replaced by MobileShell drawer.
             Sticky on lg+ so it stays in view as the main content scrolls.

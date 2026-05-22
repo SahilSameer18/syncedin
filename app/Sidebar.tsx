@@ -38,6 +38,12 @@ export function Sidebar({
 
   // Semantic emoji icons — each conveys the destination at a glance, much
   // better than the abstract geometric glyphs they replace.
+  //
+  // Hypernetwork, "Sync a conference", and "Sync a community" moved up to
+  // the new TopBar (May 2026). Edit twin + Settings moved into the profile
+  // dropdown also in TopBar. Sidebar now stays focused on the day-to-day
+  // conversation surface: dashboard, messages, proposals, invite, poll,
+  // personal intelligence, feedback.
   const items: Array<{ href: string; label: string; icon: string }> = [
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "💬" },
@@ -45,17 +51,7 @@ export function Sidebar({
     { href: "/invite", label: "Invite", icon: "💌" },
     { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
-    { href: "/conferences/new", label: "Sync a conference", icon: "🎤" },
-    { href: "/communities/new", label: "Sync a community", icon: "👥" },
-    { href: "/onboarding", label: "Edit twin", icon: "🧬" },
-    // Settings now points at the unified hub (notifications + password +
-    // delete account + portfolio link), not the lone notifications page.
-    { href: "/settings", label: "Settings", icon: "⚙️" },
-    { href: "/feedback", label: "Feedback", icon: "💡" },
-    // The Hypernetwork sits at the bottom as the destination — every other
-    // action above feeds into it. Renamed from "Hypernetwork" so the label
-    // reads like a place you can visit, not a generic concept.
-    { href: "/hypernetwork", label: "The Hypernetwork", icon: "🌐" }
+    { href: "/feedback", label: "Feedback", icon: "💡" }
   ];
 
   const isActive = (href: string) =>
@@ -71,15 +67,14 @@ export function Sidebar({
         background: "var(--panel-solid)",
         border: "1px solid var(--border)",
         borderRadius: 14,
-        // Spacing: small breathing room around the logo (8px top / 8px
-        // bottom on the sidebar shell itself) — was at 0 which made the
-        // wordmark touch the panel edge. The tight wordmark PNG no
-        // longer has the 80%-transparent-padding problem so a small
-        // outer pad reads correctly.
-        padding: "8px 14px 8px",
+        // Spacing: real breathing room around the logo (14px top + 12px
+        // bottom + 10px gap to the profile chip below). Was 8/8 which
+        // crowded both edges and made the wordmark look pinched against
+        // the panel border.
+        padding: "14px 14px 12px",
         display: "flex",
         flexDirection: "column",
-        gap: 6
+        gap: 10
         // minHeight removed — was 480 which created huge bottom whitespace
         // when the user has few nav items; let content size the sidebar.
       }}

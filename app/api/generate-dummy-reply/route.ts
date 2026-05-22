@@ -126,12 +126,19 @@ export async function POST(req: Request) {
 
   let text: string;
   try {
-    const response = await anthropic.messages.create({
-      model: TWIN_MODEL,
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: history
-    });
+    const { withAnthropicRetry, FriendlyAnthropicError } = await import(
+      "@/lib/anthropic"
+    );
+    const response = await withAnthropicRetry(
+      () =>
+        anthropic.messages.create({
+          model: TWIN_MODEL,
+          max_tokens: 1024,
+          system: systemPrompt,
+          messages: history
+        }),
+      { label: "generate-dummy-reply" }
+    );
     text = response.content
       .filter((b) => b.type === "text")
       .map((b) => (b as { text: string }).text)
@@ -140,8 +147,12 @@ export async function POST(req: Request) {
   } catch (e: any) {
     console.error("dummy generation error", e);
     return NextResponse.json(
-      { error: "generation_failed", detail: e?.message ?? String(e) },
-      { status: 500 }
+      {
+        error: "generation_failed",
+        detail: e?.message ?? String(e),
+        retryable: !!e?.retryable
+      },
+      { status: e?.status === 529 ? 503 : 500 }
     );
   }
 

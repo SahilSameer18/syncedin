@@ -17,7 +17,8 @@ export type BrandKey =
   | "chatgpt"
   | "claude"
   | "gemini"
-  | "perplexity";
+  | "perplexity"
+  | "grok";
 
 const BRAND_COLORS: Record<BrandKey, string> = {
   linkedin: "#0a66c2",
@@ -28,7 +29,8 @@ const BRAND_COLORS: Record<BrandKey, string> = {
   chatgpt: "#10a37f",
   claude: "#cc785c",
   gemini: "#1f8bff",
-  perplexity: "#20808d"
+  perplexity: "#20808d",
+  grok: "#000000"
 };
 
 export function BrandLogo({
@@ -143,6 +145,14 @@ export function BrandLogo({
           <circle cx="12" cy="12" r="9.5" />
           <ellipse cx="12" cy="12" rx="4" ry="9.5" />
           <line x1="2.5" y1="12" x2="21.5" y2="12" />
+        </svg>
+      );
+    case "grok":
+      // xAI Grok — abstract slash mark
+      return (
+        <svg {...common}>
+          <title>{accessibleTitle}</title>
+          <path d="M9.27 15.29 18.36 6.2l-1.43-1.43-9.09 9.09 1.43 1.43Zm-3.36 3.36L19.47 5.09l-1.43-1.43L4.48 17.22l1.43 1.43Zm-1.45-9.07 4.06 4.06-1.43 1.43-4.06-4.06 1.43-1.43Zm12.94 7.51-4.06-4.06 1.43-1.43 4.06 4.06-1.43 1.43Z" />
         </svg>
       );
   }

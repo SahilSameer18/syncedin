@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
+import {
+  anthropic,
+  TWIN_MODEL,
+  withAnthropicRetry,
+  FriendlyAnthropicError
+} from "@/lib/anthropic";
 import {
   buildTwinSystemPrompt,
   buildConversationHistory,
@@ -160,17 +165,26 @@ export async function POST(req: Request) {
 
   let text: string;
   try {
-    const response = await anthropic.messages.create({
-      model: TWIN_MODEL,
-      // Twin chat turns are 2-4 sentences. 1024 was a leftover from when
-      // the model was also writing the agreement block at the end; that
-      // moved to a separate path. Dropping to 500 cuts the worst-case
-      // latency on a long turn by ~30% with no quality regression on the
-      // shorter typical turn.
-      max_tokens: 500,
-      system: systemPrompt,
-      messages: history
-    });
+    // Wrap in withAnthropicRetry so 529 overloaded + 429 rate-limit
+    // failures auto-retry with exponential backoff (4 attempts, ~12s
+    // worst case) before surfacing to the UI. This was the #1 source
+    // of "something went wrong: 529 type error overloaded" the user
+    // saw when a friend tried their first chat.
+    const response = await withAnthropicRetry(
+      () =>
+        anthropic.messages.create({
+          model: TWIN_MODEL,
+          // Twin chat turns are 2-4 sentences. 1024 was a leftover from when
+          // the model was also writing the agreement block at the end; that
+          // moved to a separate path. Dropping to 500 cuts the worst-case
+          // latency on a long turn by ~30% with no quality regression on the
+          // shorter typical turn.
+          max_tokens: 500,
+          system: systemPrompt,
+          messages: history
+        }),
+      { label: "run-conversation" }
+    );
     text = scrubAiTells(
       response.content
         .filter((b) => b.type === "text")
@@ -180,9 +194,21 @@ export async function POST(req: Request) {
     );
   } catch (e: any) {
     console.error("run-conversation generation error", e);
+    // FriendlyAnthropicError already carries a user-presentable .message.
+    // For everything else, fall back to the existing detail leak.
+    const friendly =
+      e instanceof FriendlyAnthropicError
+        ? e.message
+        : e?.message ?? String(e);
+    const status =
+      e instanceof FriendlyAnthropicError && e.retryable ? 503 : 500;
     return NextResponse.json(
-      { error: "generation_failed", detail: e?.message ?? String(e) },
-      { status: 500 }
+      {
+        error: "generation_failed",
+        detail: friendly,
+        retryable: e instanceof FriendlyAnthropicError ? e.retryable : false
+      },
+      { status }
     );
   }
 
