@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
+import { ClientDate } from "../ClientDate";
 import { PollCreateForm } from "./PollCreateForm";
 
 export const metadata = {
@@ -215,7 +216,7 @@ export default async function PollListPage() {
                     className="mt-2 text-xs"
                     style={{ color: "var(--text-dim)" }}
                   >
-                    {new Date(p.created_at).toLocaleString()}
+                    <ClientDate value={p.created_at} />
                   </div>
                 </Link>
               </li>

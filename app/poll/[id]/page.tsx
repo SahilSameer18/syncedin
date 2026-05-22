@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../../AppShell";
+import { ClientDate } from "../../ClientDate";
 import { OverrideRow } from "./OverrideRow";
 import { ReSynthesizeButton } from "./ReSynthesizeButton";
 import { PollMissingTwinsButton } from "./PollMissingTwinsButton";
@@ -137,7 +138,7 @@ export default async function PollDetailPage({
           {p.overrides_count > 0
             ? ` · ${p.overrides_count} human-corrected`
             : ""}{" "}
-          · created {new Date(p.created_at).toLocaleString()}
+          · created <ClientDate value={p.created_at} />
         </div>
       </section>
 

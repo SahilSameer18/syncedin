@@ -513,6 +513,19 @@ create table if not exists public.feedback (
 create index if not exists feedback_user_idx
   on public.feedback (user_id, created_at desc);
 
+-- Ack column for the /admin/reports inbox. Jack: "I should have a way
+-- to click 'error pasted' so I can checkmark the errors that I know I
+-- already did." Acking groups errors by signature (computed in the
+-- admin page) so a re-occurrence of the same bug doesn't re-flag what's
+-- already in flight.
+alter table public.feedback
+  add column if not exists acked_at timestamptz;
+alter table public.feedback
+  add column if not exists ack_signature text;
+
+create index if not exists feedback_acked_idx
+  on public.feedback (acked_at, created_at desc);
+
 alter table public.feedback enable row level security;
 
 drop policy if exists "feedback_insert_self" on public.feedback;

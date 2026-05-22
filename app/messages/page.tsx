@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { ExcitementControl } from "../dashboard/ExcitementControl";
 import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
+import { ClientDate } from "../ClientDate";
 import { SocialIconRow } from "../SocialIconRow";
 import { ConversationPrefetch } from "./ConversationPrefetch";
 import { startConversationWithUser } from "../dashboard/actions";
@@ -470,7 +471,7 @@ export default async function MessagesPage() {
                       </div>
                     )}
                     <div className="retro-dim text-[11px] mt-1">
-                      {new Date(c.created_at).toLocaleString()}
+                      <ClientDate value={c.created_at} />
                     </div>
                   </Link>
                   <ExcitementControl

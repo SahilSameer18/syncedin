@@ -13,6 +13,7 @@ import { DiscoverSearch } from "./DiscoverSearch";
 import { ScrollTopOnSaved } from "./ScrollTopOnSaved";
 import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
+import { ClientDate } from "../ClientDate";
 import { computePairScore } from "@/lib/pair-score";
 import { QuickFeedbackWidget } from "./QuickFeedbackWidget";
 import { PremiumProgressCard } from "./PremiumProgressCard";
@@ -444,13 +445,14 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Two-column inner: SyncMeter (sticky) + Discover/everything */}
-        <div className="mt-8 grid md:grid-cols-[260px_1fr] gap-8 items-start">
+        {/* Two-column inner: SyncMeter (sticky) + Discover/everything.
+            Left rail shrunk to 200px to match the 150px meter + chrome. */}
+        <div className="mt-8 grid md:grid-cols-[200px_1fr] gap-8 items-start">
         {/* LEFT — clone meter */}
         <aside className="md:sticky md:top-6 flex flex-col items-center gap-4">
           <SyncMeter
             inputs={syncInputs}
-            size={220}
+            size={150}
             avatarUrl={(myProfile as any)?.avatar_url ?? null}
             userId={user.id}
           />
@@ -472,9 +474,11 @@ export default async function DashboardPage() {
           </div>
         </aside>
 
-        {/* RIGHT — main content, Discover at top */}
+        {/* RIGHT — main content. Order per Jack: Your conversations
+            FIRST (the highest-value daily destination — these are the
+            real outcomes the user came back for), then DiscoverSearch
+            (Already on SyncedIn + Find people) below it. */}
         <div className="space-y-8">
-          <DiscoverSearch directory={directory} />
 
           {/* Real conversations — sorted by excitement */}
           {realConversations.length > 0 && (
@@ -541,7 +545,7 @@ export default async function DashboardPage() {
                         </div>
                       )}
                       <div className="retro-dim text-[11px] mt-1">
-                        {new Date(c.created_at).toLocaleString()}
+                        <ClientDate value={c.created_at} />
                       </div>
                     </Link>
                     <ExcitementControl
@@ -605,6 +609,12 @@ export default async function DashboardPage() {
           )}
         </section>
       )}
+
+          {/* DiscoverSearch — Already on SyncedIn directory + Find
+              people twin-search. Lifted below the conversations list
+              so the user's existing relationships are the first thing
+              they see on the dashboard. */}
+          <DiscoverSearch directory={directory} />
 
           {/* Premium-unlock progress — 3 completed referrals = Premium
               free. completedReferrals computed up top so the build

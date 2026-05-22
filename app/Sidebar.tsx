@@ -115,51 +115,9 @@ export function Sidebar({
         />
       </Link>
 
-      {/* Profile block */}
-      <Link
-        href="/onboarding"
-        className="flex items-center gap-3"
-        style={{
-          padding: 8,
-          borderRadius: 10,
-          background: "var(--panel-2)",
-          textDecoration: "none"
-        }}
-        aria-label="Edit your twin"
-      >
-        <Avatar
-          id={userId}
-          name={displayName}
-          avatarUrl={avatarUrl}
-          size={36}
-        />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div
-            style={{
-              fontWeight: 700,
-              fontSize: 13,
-              color: "var(--text)",
-              lineHeight: 1.2,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap"
-            }}
-          >
-            {displayName}
-          </div>
-          <div
-            style={{
-              fontSize: 10,
-              color: "var(--text-dim)",
-              marginTop: 2,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase"
-            }}
-          >
-            signed in
-          </div>
-        </div>
-      </Link>
+      {/* Profile chip removed per Jack — the same name + avatar already
+          lives in the top-right TopBar dropdown, so the sidebar chip was
+          duplicating chrome. Drops a full row of vertical space too. */}
 
       {/* Primary nav */}
       <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>

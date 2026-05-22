@@ -70,13 +70,27 @@ export async function POST(req: Request) {
     req.headers.get("user-agent")?.slice(0, 300) ||
     null;
 
+  // Compute a stable ack signature so the admin reports page can group
+  // re-occurrences of the same error AND mark the whole group as acked
+  // in one click. We strip volatile bits (UUIDs, hex addrs, numbers,
+  // URLs) before hashing so the same React stack from different users
+  // and timestamps collapses to one signature.
+  const sigInput = (body.message ?? "")
+    .toString()
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, "<uuid>")
+    .replace(/0x[0-9a-f]+/gi, "<hex>")
+    .replace(/\b\d{6,}\b/g, "<n>")
+    .replace(/https?:\/\/\S+/gi, "<url>")
+    .slice(0, 220);
+
   const service = createServiceClient();
   const { error } = await service.from("feedback").insert({
     user_id: user?.id ?? null,
     message: composed,
     image_data_url: null,
     surface,
-    user_agent: userAgent
+    user_agent: userAgent,
+    ack_signature: sigInput
   });
   if (error) {
     // Log server-side but don't surface to client — we don't want the

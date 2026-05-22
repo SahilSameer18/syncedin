@@ -209,9 +209,15 @@ export async function AppShell({
       {/* pt-0 on mobile because MobileShell already gives us a top bar.
           Stacking another pt-3 below it created the huge empty band Jack
           flagged. lg+ keeps the standard pt-3 since there's no mobile bar
-          eating vertical real estate up top. */}
+          eating vertical real estate up top.
+          —
+          Flush-left sidebar (Jack: "Let's move the menu all the way to
+          the left of the screen"). On lg+ we drop the left padding +
+          the max-w gutter so the sidebar sits against the viewport edge.
+          The main content keeps its readable max-width via its own
+          inner wrapper. */}
       <main
-        className={`${maxWidth} mx-auto px-4 lg:px-5 pt-0 lg:pt-1 pb-6 grid lg:grid-cols-[220px_1fr] gap-4 lg:gap-6 items-start`}
+        className={`mx-auto px-4 lg:pl-0 lg:pr-5 pt-0 lg:pt-1 pb-6 grid lg:grid-cols-[200px_1fr] gap-4 lg:gap-6 items-start ${maxWidth} lg:max-w-none`}
       >
         {/* Desktop sidebar — hidden on mobile, replaced by MobileShell drawer.
             Sticky on lg+ so it stays in view as the main content scrolls.

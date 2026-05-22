@@ -157,9 +157,14 @@ export default async function OnboardingPage({
             data-sync-meter attr is the target for the typing particles
             so they fly toward this element regardless of viewport. */}
         <div data-sync-meter>
+          {/* Sized smaller (150) so the Clone Sync widget fits under
+              the right rail without scrolling on a standard full-screen
+              viewport — Jack: "make the clone sync small enough that
+              it can be under the menu itself and still be visible on a
+              standard full screen mode." */}
           <LiveSyncMeter
             formSelector="#onboarding-form"
-            size={220}
+            size={150}
             completedConversations={completedConversations}
             acceptedAgreements={acceptedAgreementsCount ?? 0}
             editCount={editCount ?? 0}
