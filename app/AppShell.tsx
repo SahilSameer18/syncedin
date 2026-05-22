@@ -32,10 +32,15 @@ export async function AppShell({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  // Capture userId locally so the helpers below + every reference here
+  // have a non-nullable reference (TS doesn't carry the narrowing from
+  // the redirect check into nested async functions).
+  const userId = user.id;
+
   const { data: profile } = await supabase
     .from("profiles")
-    .select("display_name, avatar_url, email")
-    .eq("id", user.id)
+    .select("display_name, avatar_url, email, handle")
+    .eq("id", userId)
     .maybeSingle();
 
   const displayName =
@@ -50,7 +55,7 @@ export async function AppShell({
     const { data: memberRows } = await supabase
       .from("conference_members")
       .select("conference_slug")
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
     const slugs = (memberRows ?? []).map((r: any) => r.conference_slug);
     if (slugs.length > 0) {
       const { data: confs } = await supabase
@@ -70,109 +75,102 @@ export async function AppShell({
   // Three counts: /messages (a message from the other side arrived
   // after my last_read), /poll (a poll exists I haven't responded
   // to), /proposals (a conversation has a summary I haven't acted on).
-  // Each block wrapped in try/catch so missing tables silently degrade
-  // to zero — they never crash the shell.
+  //
+  // Parallelized May 2026 (Jack: "jitteriness when clicking around
+  // the menu and it's like reloading items"). Previously these three
+  // blocks ran sequentially, costing ~3x the round-trip latency on
+  // every page navigation. Now Promise.allSettled fires them in
+  // parallel so the shell renders in one round-trip's time.
   const unreadCounts: Record<string, number> = {};
-  try {
-    // Pull my conversations with last_read timestamps.
+
+  async function computeMessagesUnread(): Promise<number> {
     const { data: convs } = await supabase
       .from("conversations")
       .select(
         "id, participant_a, participant_b, last_read_a, last_read_b, created_at"
       )
-      .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`);
+      .or(`participant_a.eq.${userId},participant_b.eq.${userId}`);
     const myConvs = (convs ?? []) as any[];
     const convIds = myConvs.map((c) => c.id);
-
-    if (convIds.length > 0) {
-      // Fetch the latest message per conversation (NOT from me). One
-      // batched query, then bucket by conversation_id in memory.
-      const { data: msgs } = await supabase
-        .from("messages")
-        .select("conversation_id, sender_user_id, sent_at")
-        .in("conversation_id", convIds)
-        .neq("sender_user_id", user.id)
-        .order("sent_at", { ascending: false });
-      const latestByConv = new Map<string, string>();
-      for (const m of ((msgs ?? []) as any[])) {
-        if (!latestByConv.has(m.conversation_id)) {
-          latestByConv.set(m.conversation_id, m.sent_at);
-        }
+    if (convIds.length === 0) return 0;
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("conversation_id, sender_user_id, sent_at")
+      .in("conversation_id", convIds)
+      .neq("sender_user_id", userId)
+      .order("sent_at", { ascending: false });
+    const latestByConv = new Map<string, string>();
+    for (const m of ((msgs ?? []) as any[])) {
+      if (!latestByConv.has(m.conversation_id)) {
+        latestByConv.set(m.conversation_id, m.sent_at);
       }
-      let messagesUnread = 0;
-      for (const c of myConvs) {
-        const isA = c.participant_a === user.id;
-        const myLastRead = isA ? c.last_read_a : c.last_read_b;
-        const latest = latestByConv.get(c.id);
-        if (!latest) continue;
-        if (!myLastRead || new Date(latest) > new Date(myLastRead)) {
-          messagesUnread += 1;
-        }
-      }
-      if (messagesUnread > 0) unreadCounts["/messages"] = messagesUnread;
     }
-  } catch {
-    /* schema drift — skip */
+    let n = 0;
+    for (const c of myConvs) {
+      const isA = c.participant_a === userId;
+      const myLastRead = isA ? c.last_read_a : c.last_read_b;
+      const latest = latestByConv.get(c.id);
+      if (!latest) continue;
+      if (!myLastRead || new Date(latest) > new Date(myLastRead)) n += 1;
+    }
+    return n;
   }
-  try {
-    // Polls: count polls where my twin hasn't responded yet AND the
-    // poll isn't closed. The table is `poll_responses` (not
-    // `poll_votes` — earlier bug) and uses `twin_user_id` not user_id.
+
+  async function computePollUnread(): Promise<number> {
     const { data: polls } = await supabase
       .from("polls")
       .select("id, status")
       .neq("status", "closed");
     const pollIds = ((polls ?? []) as any[]).map((p) => p.id);
-    if (pollIds.length > 0) {
-      const { data: myResponses } = await supabase
-        .from("poll_responses")
-        .select("poll_id")
-        .eq("twin_user_id", user.id)
-        .in("poll_id", pollIds);
-      const respondedSet = new Set(
-        ((myResponses ?? []) as any[]).map((r) => r.poll_id)
-      );
-      const pollUnread = pollIds.filter(
-        (id: string) => !respondedSet.has(id)
-      ).length;
-      if (pollUnread > 0) unreadCounts["/poll"] = pollUnread;
-    }
-  } catch {
-    /* polls table not present yet — skip */
+    if (pollIds.length === 0) return 0;
+    const { data: myResponses } = await supabase
+      .from("poll_responses")
+      .select("poll_id")
+      .eq("twin_user_id", userId)
+      .in("poll_id", pollIds);
+    const respondedSet = new Set(
+      ((myResponses ?? []) as any[]).map((r) => r.poll_id)
+    );
+    return pollIds.filter((id: string) => !respondedSet.has(id)).length;
   }
-  try {
-    // Proposals: conversations with a summary that I haven't responded
-    // to in agreement_responses yet.
+
+  async function computeProposalsUnread(): Promise<number> {
     const { data: convs } = await supabase
       .from("conversations")
       .select("id, participant_a, participant_b, summary")
-      .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
+      .or(`participant_a.eq.${userId},participant_b.eq.${userId}`)
       .not("summary", "is", null);
     const convIds = ((convs ?? []) as any[]).map((c) => c.id);
-    if (convIds.length > 0) {
-      const { data: myResps } = await supabase
-        .from("agreement_responses")
-        .select("conversation_id")
-        .eq("user_id", user.id)
-        .in("conversation_id", convIds);
-      const respondedSet = new Set(
-        ((myResps ?? []) as any[]).map((r) => r.conversation_id)
-      );
-      const proposalsUnread = convIds.filter(
-        (id: string) => !respondedSet.has(id)
-      ).length;
-      if (proposalsUnread > 0) unreadCounts["/proposals"] = proposalsUnread;
-    }
-  } catch {
-    /* skip */
+    if (convIds.length === 0) return 0;
+    const { data: myResps } = await supabase
+      .from("agreement_responses")
+      .select("conversation_id")
+      .eq("user_id", userId)
+      .in("conversation_id", convIds);
+    const respondedSet = new Set(
+      ((myResps ?? []) as any[]).map((r) => r.conversation_id)
+    );
+    return convIds.filter((id: string) => !respondedSet.has(id)).length;
   }
+
+  const [msgRes, pollRes, propRes] = await Promise.allSettled([
+    computeMessagesUnread(),
+    computePollUnread(),
+    computeProposalsUnread()
+  ]);
+  if (msgRes.status === "fulfilled" && msgRes.value > 0)
+    unreadCounts["/messages"] = msgRes.value;
+  if (pollRes.status === "fulfilled" && pollRes.value > 0)
+    unreadCounts["/poll"] = pollRes.value;
+  if (propRes.status === "fulfilled" && propRes.value > 0)
+    unreadCounts["/proposals"] = propRes.value;
 
   // Render the Sidebar ONCE — it gets handed both to the desktop slot
   // (hidden < lg) and to the MobileShell drawer (hidden ≥ lg) so the same
   // server-fetched data backs both surfaces.
   const sidebar = (
     <Sidebar
-      userId={user.id}
+      userId={userId}
       displayName={displayName}
       avatarUrl={(profile as any)?.avatar_url ?? null}
       signOutAction={signOut}
@@ -199,10 +197,12 @@ export async function AppShell({
           mobile because MobileShell already owns the top strip there. */}
       <div className="hidden lg:block">
         <TopBar
-          userId={user.id}
+          userId={userId}
           displayName={displayName}
           avatarUrl={(profile as any)?.avatar_url ?? null}
+          portfolioHandle={(profile as any)?.handle ?? null}
           signOutAction={signOut}
+          unreadCounts={unreadCounts}
         />
       </div>
 

@@ -64,8 +64,34 @@ export function buildInviteCopy(opts: {
 }): { headline: string; body: string } {
   const { inviterFullName, recipientShortName, snippet } = opts;
   const headline = `${recipientShortName}, it's time to get SyncedIn.`;
-  const body = snippet
-    ? `${inviterFullName} saw ${snippet} — and is ready to have his agent find a plan with yours. Let's stay SyncedIn, together.`
-    : `${inviterFullName} thinks your twin is worth a conversation with his. Spin yours up and let the two clones find the win-win. Let's stay SyncedIn, together.`;
+
+  // Quality gate on the snippet so we never emit broken phrases like
+  // "saw your jackson here" (Jack's bug — the AI starter mentioned
+  // himself by name and that bled into the snippet). Reject any snippet
+  // that:
+  //  - contains the inviter's first name (would create "Jack saw your jack...")
+  //  - is shorter than 12 chars (too thin to be specific)
+  //  - is essentially just demonstrative ("your work", "your post")
+  const inviterFirst = (inviterFullName || "").split(/\s+/)[0] ?? "";
+  const recipientFirst = (recipientShortName || "").split(/\s+/)[0] ?? "";
+  const lowSnippet = (snippet || "").toLowerCase();
+  const looksBroken =
+    !snippet ||
+    snippet.length < 12 ||
+    (inviterFirst &&
+      lowSnippet.includes(inviterFirst.toLowerCase()) &&
+      inviterFirst.length > 2) ||
+    (recipientFirst &&
+      lowSnippet.includes(recipientFirst.toLowerCase()) &&
+      recipientFirst.length > 2) ||
+    /^your\s+(work|post|profile|page|stuff|thing|background|here)\.?$/i.test(
+      snippet.trim()
+    );
+
+  // Gender-neutral pronoun — "his" was assuming. "their" works for any
+  // inviter and reads naturally.
+  const body = looksBroken
+    ? `${inviterFullName} thinks your twin is worth a conversation with theirs. Spin yours up and let the two clones find the win-win. Let's stay SyncedIn, together.`
+    : `${inviterFullName} saw ${snippet} — and is ready to have their agent find a plan with yours. Let's stay SyncedIn, together.`;
   return { headline, body };
 }

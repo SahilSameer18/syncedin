@@ -23,12 +23,21 @@ export function TopBar({
   userId,
   displayName,
   avatarUrl,
-  signOutAction
+  portfolioHandle,
+  signOutAction,
+  unreadCounts = {}
 }: {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+  /** profiles.handle — used to build the /u/{handle} portfolio link. If
+   *  null, the portfolio menu item is hidden because /u/<UUID> 404s
+   *  (the route looks up by handle, not id). */
+  portfolioHandle?: string | null;
   signOutAction: () => void | Promise<void>;
+  /** Same shape as Sidebar's unreadCounts — used to badge the
+   *  Messages + Proposals top-nav links. */
+  unreadCounts?: Record<string, number>;
 }) {
   const pathname = usePathname() ?? "";
   const [profileOpen, setProfileOpen] = useState(false);
@@ -53,7 +62,15 @@ export function TopBar({
     };
   }, [profileOpen]);
 
+  // Three groups. Conversation-tier (Messages / Proposals) on the left
+  // — these are the highest-frequency clicks and they get red unread
+  // badges so the user can scan them at a glance. Then the
+  // network-tier items (Hypernetwork, Sync a conference, Sync a
+  // community) — clicks-per-session are lower but Jack wants them
+  // top-of-page so visitors discover them.
   const items: Array<{ href: string; label: string }> = [
+    { href: "/messages", label: "Messages" },
+    { href: "/proposals", label: "Proposals" },
     { href: "/hypernetwork", label: "Hypernetwork" },
     { href: "/conferences/new", label: "Sync a conference" },
     { href: "/communities/new", label: "Sync a community" }
@@ -89,11 +106,13 @@ export function TopBar({
       >
         {items.map((item) => {
           const active = isActive(item.href);
+          const unread = unreadCounts[item.href] ?? 0;
           return (
             <Link
               key={item.href}
               href={item.href}
               style={{
+                position: "relative",
                 padding: "7px 12px",
                 borderRadius: 8,
                 fontSize: 13,
@@ -101,10 +120,33 @@ export function TopBar({
                 color: active ? "var(--text)" : "var(--text-dim)",
                 background: active ? "var(--panel-2)" : "transparent",
                 textDecoration: "none",
-                whiteSpace: "nowrap"
+                whiteSpace: "nowrap",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6
               }}
             >
-              {item.label}
+              <span>{item.label}</span>
+              {unread > 0 && (
+                <span
+                  aria-label={`${unread} unread`}
+                  style={{
+                    minWidth: 16,
+                    height: 16,
+                    padding: "0 5px",
+                    borderRadius: 999,
+                    background: "#ef4444",
+                    color: "#fff",
+                    fontSize: 10,
+                    fontWeight: 800,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}
+                >
+                  {unread > 9 ? "9+" : unread}
+                </span>
+              )}
             </Link>
           );
         })}
@@ -195,15 +237,17 @@ export function TopBar({
               <span style={{ width: 18, textAlign: "center" }}>⚙️</span>
               <span>Account settings</span>
             </Link>
-            <Link
-              href={`/u/${userId}`}
-              role="menuitem"
-              onClick={() => setProfileOpen(false)}
-              style={menuItemStyle}
-            >
-              <span style={{ width: 18, textAlign: "center" }}>👤</span>
-              <span>My portfolio</span>
-            </Link>
+            {portfolioHandle && (
+              <Link
+                href={`/u/${portfolioHandle}`}
+                role="menuitem"
+                onClick={() => setProfileOpen(false)}
+                style={menuItemStyle}
+              >
+                <span style={{ width: 18, textAlign: "center" }}>👤</span>
+                <span>My portfolio</span>
+              </Link>
+            )}
             <div
               style={{
                 height: 1,

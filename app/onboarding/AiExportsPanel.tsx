@@ -25,14 +25,16 @@ type Source = {
   prompt: string;
 };
 
-// King-level twin context. Each prompt is engineered to extract 1000+
-// word, deal-actionable self-descriptions — NOT "personality bios."
+// King-level twin context. Each prompt is engineered to extract
+// deal-actionable self-descriptions — NOT "personality bios."
 // The shared backbone is the same across platforms (every section gets
 // the full structured drill-down) with platform-specific phrasing so each
 // AI is nudged to lean into the slice of you it knows best.
 //
 // Hard rules baked into every prompt:
-//  - 1000-1500 words minimum, no soft floor
+//  - NO word-count limits, floor, or ceiling (Jack: "let it give us as
+//    much as it feels it needs"). The prompt asks for max depth and
+//    trusts the model to surface everything it has.
 //  - Drops "personality/humor" sections entirely — Jack: "Asking what I
 //    find funny doesn't matter."
 //  - Heavy weighting on projects, intros, deals, collabs (the levers a
@@ -42,7 +44,7 @@ type Source = {
 //  - No bestseller-style filler ("I'm a builder who...") — surgical detail
 const SHARED_OUTLINE = `You are writing the dossier my digital twin will use to represent me in real conversations with strangers. Tone: surgical, first-person, zero filler. NEVER write generic "personality" descriptions — skip what I find funny, skip hobbies, skip MBTI. The twin needs ammunition, not vibes.
 
-Target length: 1000-1500 words MINIMUM. Use headers + bullets liberally. Be the most specific you have ever been.
+Length: write as much as you need. There is no minimum and no maximum — go deep on every section you actually have signal on, and skim only the sections where you genuinely have nothing. Use headers + bullets liberally. Be the most specific you have ever been.
 
 Required sections (in order):
 

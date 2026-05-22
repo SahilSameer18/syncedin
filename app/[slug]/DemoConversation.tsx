@@ -112,6 +112,34 @@ export function DemoConversation({
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, streaming]);
 
+  // Auto-run the demo on first mount. Jack's call: "On the custom invite
+  // page, it doesn't show the other twin typing or thinking. It just has
+  // the regenerate button. The live simulation should be basically the
+  // same thing as the real feature of messages." Firing regenerate
+  // automatically on mount when the user has only the seed message
+  // means they land on the page and IMMEDIATELY see the two twins
+  // talking — typing dots, message bubbles streaming in — exactly
+  // like the real ChatUI does when a conversation opens.
+  const autoRanRef = useRef(false);
+  useEffect(() => {
+    if (autoRanRef.current) return;
+    // Only auto-run if the user is starting fresh (just the seed
+    // message, no persisted state from a prior visit). Restored sessions
+    // already have the full transcript, so re-running would obliterate it.
+    if (messages.length > 1) {
+      autoRanRef.current = true;
+      return;
+    }
+    autoRanRef.current = true;
+    // Tiny delay so the seed bubble lands first, then the typing
+    // indicator fires for the counterpart's reply.
+    const t = window.setTimeout(() => {
+      void regenerate();
+    }, 650);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const recipientFirst =
     recipientName.split(/\s+/)[0]?.trim() || recipientName;
 
@@ -793,24 +821,73 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
               </p>
             </div>
           )}
-          {streaming && (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                padding: "8px 14px",
-                fontSize: 12,
-                color: "var(--text-dim)"
-              }}
-            >
-              <span
-                className="demo-stream-dot"
-                aria-hidden="true"
-              />
-              <span>twins thinking… messages stream in live</span>
-            </div>
-          )}
+          {streaming && (() => {
+            // iMessage-style typing bubble. Side mirrors whose turn it
+            // is — last message from inviter → recipient is typing
+            // (right side), and vice versa. Empty transcript → inviter
+            // is opening (left side).
+            const last = messages[messages.length - 1];
+            const typingSide: "inviter" | "recipient" =
+              !last
+                ? "inviter"
+                : last.sender === "inviter"
+                  ? "recipient"
+                  : "inviter";
+            const isRight = typingSide === "recipient";
+            const whoLabel =
+              typingSide === "inviter"
+                ? `${inviterName.split(/\s+/)[0] || "Inviter"} is typing…`
+                : `${recipientFirst || "Your twin"} is typing…`;
+            return (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: isRight ? "flex-end" : "flex-start",
+                  width: "100%"
+                }}
+              >
+                <div
+                  aria-label={whoLabel}
+                  title={whoLabel}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "10px 14px",
+                    borderRadius: 16,
+                    background: isRight
+                      ? "rgba(31, 139, 255, 0.14)"
+                      : "var(--panel-2)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-dim)",
+                    fontSize: 12
+                  }}
+                >
+                  <span className="demo-typing-dot" />
+                  <span className="demo-typing-dot" style={{ animationDelay: "150ms" }} />
+                  <span className="demo-typing-dot" style={{ animationDelay: "300ms" }} />
+                  <span style={{ marginLeft: 6, fontSize: 11 }}>
+                    {whoLabel}
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+          <style>{`
+            .demo-typing-dot {
+              display: inline-block;
+              width: 6px;
+              height: 6px;
+              border-radius: 999px;
+              background: currentColor;
+              opacity: 0.45;
+              animation: demo-typing-bounce 1s ease-in-out infinite;
+            }
+            @keyframes demo-typing-bounce {
+              0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+              30% { transform: translateY(-3px); opacity: 0.95; }
+            }
+          `}</style>
         </div>
 
         <div className="demo-regen-bar">

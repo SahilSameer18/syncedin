@@ -127,11 +127,13 @@ export default async function InviteOgImage({
         style={{
           width: "100%",
           height: "100%",
-          // Infinity night sky — locked from variant B / matches the
-          // animated landing hero so the recipient gets visual
-          // continuity between the iMessage preview and the live page.
+          // RESTORED light-mode card (Jack: "the new one is too dark,
+          // not good"). Warm cream → soft lavender gradient matching the
+          // earlier shipped variant. White text on the dark navy version
+          // looked clinical; the lighter ground reads as a personal,
+          // hand-written intro from a friend.
           background:
-            "linear-gradient(135deg, #0a0c24 0%, #1c2050 55%, #3a1a6b 100%)",
+            "linear-gradient(135deg, #fef7ee 0%, #f4ecff 55%, #e6deff 100%)",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
@@ -153,19 +155,17 @@ export default async function InviteOgImage({
             width: "100%"
           }}
         >
-          {/* Inline white wordmark — the PNG is dark-on-light and would
-              be invisible on the night-sky background. Plain text in the
-              brand color reads cleanly. */}
+          {/* Wordmark — light card → dark text on the warm cream ground. */}
           <div
             style={{
               fontSize: 56,
               fontWeight: 800,
               letterSpacing: "-0.02em",
-              color: "#ffffff",
+              color: "#1a1530",
               display: "flex"
             }}
           >
-            Synced<span style={{ color: "#a06bff" }}>In</span>
+            Synced<span style={{ color: "#6b2dc9" }}>In</span>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
             {recipientAvatar ? (
@@ -222,13 +222,13 @@ export default async function InviteOgImage({
           </div>
         </div>
 
-        {/* HEADLINE + BODY — light text on the night-sky background. */}
+        {/* HEADLINE + BODY — deep ink on the cream ground. */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div
             style={{
               fontSize: 64,
               fontWeight: 800,
-              color: "#ffffff",
+              color: "#1a1530",
               lineHeight: 1.1,
               letterSpacing: "-0.02em",
               maxWidth: 1020,
@@ -241,7 +241,7 @@ export default async function InviteOgImage({
             style={{
               marginTop: 28,
               fontSize: 32,
-              color: "#cfd5ff",
+              color: "#3a2f5c",
               lineHeight: 1.35,
               maxWidth: 1020,
               display: "flex"

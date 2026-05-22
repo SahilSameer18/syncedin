@@ -102,13 +102,20 @@ export function WorldRadarAnimation() {
            live in a separate group (no rotation) so they keep firing
            toward whatever's currently visible. */
         .wra-globe {
+          /* Pivot around the viewBox center (250,250). transform-box
+             defaults to view-box for SVG, so 250px 250px refers to
+             viewBox units — which is what we want. The earlier
+             'transform-box: fill-box' override was the bug: it
+             reinterpreted those coords as bounding-box-relative, so
+             the rotation pivoted around the top-left of the group's
+             bbox instead of the globe's visual center. Result: the
+             globe rolled away from YOU on every frame. Removed. */
           transform-origin: 250px 250px;
-          transform-box: fill-box;
           animation: wra-spin 36s linear infinite;
         }
         @keyframes wra-spin {
-          from { transform: rotateZ(0deg); }
-          to   { transform: rotateZ(360deg); }
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
         }
         @keyframes wra-pulse-center {
           0%, 100% {

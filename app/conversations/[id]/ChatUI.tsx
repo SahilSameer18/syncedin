@@ -639,6 +639,31 @@ export function ChatUI({
     setRunning(true);
     setError(null);
     setDone(false);
+    // Per-turn timeout. Jack's bug report: "Nicole's twin has been typing
+    // for the past three minutes. It seemingly is broken. There should be
+    // an error message." If the server retry chain doesn't return in
+    // ~45s (server already has 12s + we give 8s of client retry = 20s of
+    // expected grace), we bail with a visible error instead of letting
+    // the typing dots spin forever.
+    const TURN_TIMEOUT_MS = 45_000;
+    function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+      return new Promise<T>((resolve, reject) => {
+        const t = window.setTimeout(() => {
+          reject(
+            new Error(
+              `The other twin took too long to respond (${label}). They might be offline or hitting a rate limit. Try again or come back in a bit — we've logged this.`
+            )
+          );
+        }, ms);
+        p.then((v) => {
+          window.clearTimeout(t);
+          resolve(v);
+        }).catch((err) => {
+          window.clearTimeout(t);
+          reject(err);
+        });
+      });
+    }
     try {
       for (let i = 0; i < CLIENT_TURN_CAP; i++) {
         // Inner retry: if the server tells us the failure was retryable
@@ -646,19 +671,44 @@ export function ChatUI({
         // and try once more silently before surfacing to the user.
         let res: Response | null = null;
         for (let attempt = 0; attempt < 2; attempt++) {
-          res = await fetch("/api/run-conversation", {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({
-              conversation_id: conversationId,
-              // Only force on the FIRST iteration of the loop — once we've
-              // generated one fresh turn the natural early-exit logic
-              // should resume.
-              force: forceNext && i === 0,
-              // Same scoping: propose_now only applies to the first turn.
-              propose_now: !!opts?.proposeNow && i === 0
-            })
-          });
+          try {
+            res = await withTimeout(
+              fetch("/api/run-conversation", {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({
+                  conversation_id: conversationId,
+                  // Only force on the FIRST iteration of the loop — once we've
+                  // generated one fresh turn the natural early-exit logic
+                  // should resume.
+                  force: forceNext && i === 0,
+                  // Same scoping: propose_now only applies to the first turn.
+                  propose_now: !!opts?.proposeNow && i === 0
+                })
+              }),
+              TURN_TIMEOUT_MS,
+              `turn ${i + 1}`
+            );
+          } catch (timeoutErr) {
+            // Auto-report so it lands on /admin/reports without the user
+            // having to copy-paste the error.
+            try {
+              const data = JSON.stringify({
+                message: `[chat-stuck] ${(timeoutErr as Error).message}`,
+                source: "chat:turn-timeout",
+                extras: { conversation_id: conversationId, turn: i + 1 }
+              });
+              if (typeof navigator !== "undefined" && navigator.sendBeacon) {
+                navigator.sendBeacon(
+                  "/api/error-report",
+                  new Blob([data], { type: "application/json" })
+                );
+              }
+            } catch {
+              /* never throw from the reporter */
+            }
+            throw timeoutErr;
+          }
           if (res.ok) break;
           const { message, retryable } = await readErrorWithRetryFlag(
             res.clone()
@@ -694,6 +744,11 @@ export function ChatUI({
       }
     } catch (e: any) {
       setError(e.message || String(e));
+      // Kill the typing-indicator state — otherwise the user sees BOTH
+      // the error banner AND "Nicole is typing…" stuck on the side,
+      // which is exactly the bug Jack flagged. nextTurnUserId=null
+      // makes the indicator render condition fall through.
+      setNextTurnUserId(null);
     } finally {
       setRunning(false);
     }

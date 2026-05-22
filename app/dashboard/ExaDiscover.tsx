@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { BrandLogo } from "../BrandLogo";
 
 type Person = {
   title: string;
@@ -147,7 +148,46 @@ export function ExaDiscover() {
             const d = drafts[p.url];
             return (
               <div key={p.url} className="retro-panel p-3">
-                <div className="font-semibold text-sm">{p.title}</div>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 10
+                  }}
+                >
+                  <div className="font-semibold text-sm" style={{ minWidth: 0, flex: 1 }}>
+                    {p.title}
+                  </div>
+                  {/* Clickable LinkedIn logo — Jack: "if someone clicks
+                      that logo, it goes to that person's LinkedIn." Only
+                      rendered when the result URL is actually a LinkedIn
+                      profile (Exa returns mixed sources). The whole
+                      anchor is the click target. */}
+                  {/linkedin\.com\/in\//i.test(p.url) && (
+                    <a
+                      href={p.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Open LinkedIn profile"
+                      title="Open LinkedIn profile"
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        padding: 6,
+                        borderRadius: 8,
+                        background: "rgba(10, 102, 194, 0.10)",
+                        border: "1px solid rgba(10, 102, 194, 0.28)",
+                        textDecoration: "none"
+                      }}
+                    >
+                      <BrandLogo brand="linkedin" size={18} />
+                    </a>
+                  )}
+                </div>
                 <a
                   href={p.url}
                   target="_blank"

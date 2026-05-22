@@ -48,7 +48,9 @@ export function Sidebar({
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "💬" },
     { href: "/proposals", label: "Proposals", icon: "🤝" },
-    { href: "/invite", label: "Invite", icon: "💌" },
+    // /invite removed (Jack: "Why is there an invite button?") — the
+    // invite flow is already surfaced on the dashboard via
+    // BulkReachToolkit, so this item was redundant nav weight.
     { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
     { href: "/feedback", label: "Feedback", icon: "💡" }

@@ -29,6 +29,11 @@ export function Wordmark({
       src="/syncedin-wordmark.png"
       alt="SyncedIn"
       height={h}
+      // wordmark-themed: lets globals.css invert the PNG in dark mode so
+      // the wordmark stays readable on dark surfaces. Without this class
+      // the dark text in the PNG vanishes against a dark background —
+      // exactly the bug Jack reported on the /[slug] custom-invite page.
+      className="wordmark-themed"
       style={{
         height: h,
         width: "auto",
