@@ -57,6 +57,85 @@ alter table public.profiles
 alter table public.conversations
   add column if not exists funny_mode boolean not null default false;
 
+-- Multi-source AI exports — Jack's "king" twin-context feature.
+-- One row per (user, source) so users can paste their Claude
+-- self-description AND their ChatGPT self-description AND their
+-- Gemini/Perplexity ones separately. Each fed into the twin context
+-- with provenance, so the prompt builder can blend or favor sources.
+create table if not exists public.ai_exports (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  source text not null, -- 'chatgpt' | 'claude' | 'gemini' | 'perplexity' | 'other'
+  content text not null,
+  updated_at timestamptz not null default now(),
+  unique (user_id, source)
+);
+create index if not exists ai_exports_user_idx
+  on public.ai_exports (user_id);
+alter table public.ai_exports enable row level security;
+drop policy if exists "ai_exports_owner_all" on public.ai_exports;
+create policy "ai_exports_owner_all" on public.ai_exports
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- File uploads — twin context (resumes, pitch decks, business lists)
+-- + optional in-conversation share (twin attaches PDF/etc to a
+-- proposal). Stored in Supabase Storage bucket 'twin-files' (must
+-- be created manually); this table is the metadata index.
+create table if not exists public.twin_files (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  name text not null,
+  size_bytes bigint not null default 0,
+  mime_type text,
+  storage_path text not null, -- path inside the 'twin-files' bucket
+  kind text not null default 'context', -- 'context' | 'shareable'
+  description text, -- "what this is" — fed into twin prompt for context files
+  created_at timestamptz not null default now()
+);
+create index if not exists twin_files_user_idx
+  on public.twin_files (user_id, kind, created_at desc);
+alter table public.twin_files enable row level security;
+drop policy if exists "twin_files_owner_all" on public.twin_files;
+create policy "twin_files_owner_all" on public.twin_files
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Files shared inside a specific conversation. The twin can suggest
+-- sharing a file with the counterpart; this row records the actual
+-- share + timestamp.
+create table if not exists public.conversation_files (
+  id uuid primary key default uuid_generate_v4(),
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  file_id uuid not null references public.twin_files(id) on delete cascade,
+  shared_by uuid not null references public.profiles(id) on delete cascade,
+  shared_at timestamptz not null default now()
+);
+create index if not exists conv_files_conv_idx
+  on public.conversation_files (conversation_id, shared_at desc);
+alter table public.conversation_files enable row level security;
+drop policy if exists "conv_files_participant_select" on public.conversation_files;
+create policy "conv_files_participant_select" on public.conversation_files
+  for select using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = conversation_id
+        and (c.participant_a = auth.uid() or c.participant_b = auth.uid())
+    )
+  );
+drop policy if exists "conv_files_owner_insert" on public.conversation_files;
+create policy "conv_files_owner_insert" on public.conversation_files
+  for insert with check (auth.uid() = shared_by);
+
+-- Community / conference custom branding scraped from website_url.
+-- Populated by a fire-and-forget pipeline at creation/edit time.
+alter table public.conferences
+  add column if not exists website_url text;
+alter table public.conferences
+  add column if not exists logo_url text;
+alter table public.conferences
+  add column if not exists brand_color text;
+alter table public.conferences
+  add column if not exists brand_meta jsonb;
+
 -- Account-report table for the in-app "report user" flow. Anyone
 -- signed-in can flag another account; jacksonjezio@gmail.com reviews
 -- via /admin/reports (followup). Categories enforced at the API

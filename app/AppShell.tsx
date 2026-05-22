@@ -65,6 +65,88 @@ export async function AppShell({
     console.warn("[AppShell] conferences sidebar fetch failed", e);
   }
 
+  // === Unread counts for the sidebar's red badges ===
+  // Counts "things waiting on me" for /messages (conversations where
+  // last message arrived AFTER my last_read timestamp) and /poll (open
+  // polls I haven't voted on). Both wrapped in try/catch so a missing
+  // table or column never crashes the shell.
+  const unreadCounts: Record<string, number> = {};
+  try {
+    // Messages: conversations where I'm a participant AND there's a
+    // newer message than my last_read. We use a cheap heuristic — count
+    // conversations whose updated_at is after my last_read_a/_b timestamp
+    // depending on which participant I am. Fall back to "no unread"
+    // silently if the columns don't exist.
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("id, participant_a, participant_b, last_read_a, last_read_b, updated_at, created_at")
+      .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`);
+    let messagesUnread = 0;
+    for (const c of ((convs ?? []) as any[])) {
+      const isA = c.participant_a === user.id;
+      const myLastRead = isA ? c.last_read_a : c.last_read_b;
+      const latest = c.updated_at || c.created_at;
+      if (!latest) continue;
+      if (!myLastRead || new Date(latest) > new Date(myLastRead)) {
+        messagesUnread += 1;
+      }
+    }
+    if (messagesUnread > 0) unreadCounts["/messages"] = messagesUnread;
+  } catch (e) {
+    /* schema drift — skip */
+  }
+  try {
+    // Poll: count open polls where I haven't cast a vote yet. Best-
+    // effort — if polls or poll_votes table isn't present in this
+    // deployment, the count is just zero.
+    const { data: polls } = await supabase
+      .from("polls")
+      .select("id, closed")
+      .eq("closed", false);
+    const ids = ((polls ?? []) as any[]).map((p) => p.id);
+    if (ids.length > 0) {
+      const { data: myVotes } = await supabase
+        .from("poll_votes")
+        .select("poll_id")
+        .eq("user_id", user.id)
+        .in("poll_id", ids);
+      const votedSet = new Set(
+        ((myVotes ?? []) as any[]).map((v) => v.poll_id)
+      );
+      const pollUnread = ids.filter((id: string) => !votedSet.has(id))
+        .length;
+      if (pollUnread > 0) unreadCounts["/poll"] = pollUnread;
+    }
+  } catch (e) {
+    /* polls table not present yet — skip */
+  }
+  try {
+    // Proposals: count summaries on my conversations that I haven't
+    // accepted/rejected yet (no agreement_responses row from me).
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("id, participant_a, participant_b, summary")
+      .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
+      .not("summary", "is", null);
+    const convIds = ((convs ?? []) as any[]).map((c) => c.id);
+    if (convIds.length > 0) {
+      const { data: myResps } = await supabase
+        .from("agreement_responses")
+        .select("conversation_id")
+        .eq("user_id", user.id)
+        .in("conversation_id", convIds);
+      const respondedSet = new Set(
+        ((myResps ?? []) as any[]).map((r) => r.conversation_id)
+      );
+      const proposalsUnread = convIds.filter(
+        (id: string) => !respondedSet.has(id)
+      ).length;
+      if (proposalsUnread > 0) unreadCounts["/proposals"] = proposalsUnread;
+    }
+  } catch (e) {
+    /* skip */
+  }
+
   // Render the Sidebar ONCE — it gets handed both to the desktop slot
   // (hidden < lg) and to the MobileShell drawer (hidden ≥ lg) so the same
   // server-fetched data backs both surfaces.
@@ -75,6 +157,7 @@ export async function AppShell({
       avatarUrl={(profile as any)?.avatar_url ?? null}
       signOutAction={signOut}
       conferences={conferences}
+      unreadCounts={unreadCounts}
     />
   );
 

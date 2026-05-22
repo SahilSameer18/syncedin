@@ -37,23 +37,25 @@ export default async function ProposalsPage() {
 
   const service = createServiceClient();
 
-  // Pull every conversation involving this user where there's an
-  // outcome_summary (the twins closed on a proposed deal).
+  // Pull every conversation involving this user where there's a
+  // summary set (twins closed on a proposed deal). The actual column
+  // is `summary` (singular), not `outcome_summary` — that was the bug
+  // showing the empty state even when conversations clearly had
+  // outcomes on the Messages page.
   const { data: convs } = await service
     .from("conversations")
     .select(
-      "id, participant_a, participant_b, outcome_summary, outcome_generated_at, status, created_at"
+      "id, participant_a, participant_b, summary, status, created_at"
     )
     .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
-    .not("outcome_summary", "is", null)
-    .order("outcome_generated_at", { ascending: false, nullsFirst: false });
+    .not("summary", "is", null)
+    .order("created_at", { ascending: false });
 
   const rows = (convs ?? []) as Array<{
     id: string;
     participant_a: string;
     participant_b: string;
-    outcome_summary: string | null;
-    outcome_generated_at: string | null;
+    summary: string | null;
     status: string | null;
     created_at: string;
   }>;
@@ -220,7 +222,7 @@ export default async function ProposalsPage() {
                         letterSpacing: "0.04em"
                       }}
                     >
-                      {relativeAge(c.outcome_generated_at)}
+                      {relativeAge(c.created_at)}
                     </span>
                     {sealed && (
                       <span
@@ -275,7 +277,7 @@ export default async function ProposalsPage() {
                       whiteSpace: "pre-wrap"
                     }}
                   >
-                    {c.outcome_summary}
+                    {c.summary}
                   </p>
                   {!sealed && (
                     <div
