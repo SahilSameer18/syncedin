@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
-import { PortfolioCard } from "./PortfolioCard";
+// PortfolioCard removed — portfolio lives on /personal-intelligence now.
 import { ChangePasswordCard } from "./ChangePasswordCard";
 import { DeleteAccountCard } from "./DeleteAccountCard";
 
@@ -32,14 +32,6 @@ export default async function SettingsPage() {
     .select("id, display_name, email, handle, avatar_url")
     .eq("id", user.id)
     .maybeSingle();
-
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-    "https://syncedin.org";
-  const portfolioUrl =
-    (profile as any)?.handle
-      ? `${appUrl}/u/${(profile as any).handle}`
-      : null;
 
   return (
     <AppShell>
@@ -106,24 +98,9 @@ export default async function SettingsPage() {
           }
         `}</style>
 
-        {/* Portfolio card spans full width on desktop — most visual,
-            most useful to share. */}
-        <section className="settings-card settings-card-wide">
-          <h2>Your public portfolio</h2>
-          <p className="hint">
-            Your twin auto-builds a public profile page from your bio +
-            LinkedIn footprint. Share this URL anywhere — résumés, email
-            signatures, social bios.
-          </p>
-          <PortfolioCard
-            portfolioUrl={portfolioUrl}
-            displayName={
-              (profile as any)?.display_name ||
-              user.email ||
-              "your portfolio"
-            }
-          />
-        </section>
+        {/* Portfolio section removed — now lives on /personal-intelligence
+            as the first card. One-click build there opens the page
+            directly instead of routing back here. */}
 
         {/* Notifications — links out to the existing detailed page. */}
         <section className="settings-card">

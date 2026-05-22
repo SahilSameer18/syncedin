@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { RecGeneratorCard } from "./RecGeneratorCard";
 import { PiGeneratorCard } from "./PiGeneratorCard";
+import { PortfolioBuildButton } from "./PortfolioBuildButton";
 
 /**
  * PERSONAL INTELLIGENCE — Jack's vision: every user gets a generated,
@@ -401,32 +402,18 @@ export default async function PersonalIntelligencePage() {
                     >
                       🔗 view your portfolio
                     </a>
-                    <a
-                      href="/settings"
-                      className="retro-btn"
+                    <span
                       style={{
-                        fontSize: 12,
-                        padding: "8px 14px",
-                        textDecoration: "none"
+                        fontSize: 11,
+                        color: "var(--text-dim)",
+                        alignSelf: "center"
                       }}
                     >
-                      edit handle
-                    </a>
+                      syncedin.org/u/{handle}
+                    </span>
                   </div>
                 ) : (
-                  <a
-                    href="/settings"
-                    className="retro-btn retro-btn-primary"
-                    style={{
-                      marginTop: "auto",
-                      alignSelf: "flex-start",
-                      fontSize: 12,
-                      padding: "8px 14px",
-                      textDecoration: "none"
-                    }}
-                  >
-                    ✨ build my portfolio (1 click)
-                  </a>
+                  <PortfolioBuildButton />
                 )}
               </article>
             );
