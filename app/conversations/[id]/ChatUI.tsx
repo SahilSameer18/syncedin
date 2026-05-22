@@ -546,6 +546,44 @@ export function ChatUI({
   // "not the last sender" inference if the server didn't return it yet.
   const [nextTurnUserId, setNextTurnUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Manual summarize state — Jack's call: add a summarize button to the
+  // messaging interface so the user can regenerate the outcome summary
+  // + excitement score on demand (not just at auto-completion).
+  const [summarizing, setSummarizing] = useState(false);
+  const [summaryResult, setSummaryResult] = useState<{
+    summary: string;
+    counterpart_summary: string;
+    excitement_score: number;
+  } | null>(null);
+
+  async function summarizeNow() {
+    if (summarizing) return;
+    setSummarizing(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/summarize-conversation", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId })
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}) as any);
+        throw new Error(
+          j.detail || j.error || `Couldn't summarize (HTTP ${res.status})`
+        );
+      }
+      const j = await res.json();
+      setSummaryResult({
+        summary: j.summary ?? "",
+        counterpart_summary: j.counterpart_summary ?? "",
+        excitement_score: Number(j.excitement_score) || 0
+      });
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    } finally {
+      setSummarizing(false);
+    }
+  }
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [menu, setMenu] = useState<
@@ -1655,6 +1693,97 @@ export function ChatUI({
             </div>
           </div>
         )}
+
+        {/* Summarize-conversation button — Jack: "Let's add a summarize
+            conversation button into the messaging interface." Calls the
+            same /api/summarize-conversation endpoint the auto-run flow
+            already uses, but on demand. Shows the result inline so the
+            user can read the outcome + excitement score without leaving
+            the chat. Disabled while a turn is generating to avoid racing
+            the auto-run loop on the same conversation row. */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: 8
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => summarizeNow()}
+            disabled={summarizing || running || messages.length === 0}
+            className="retro-btn text-xs"
+            style={{
+              padding: "6px 12px",
+              fontSize: 12
+            }}
+            title={
+              messages.length === 0
+                ? "Send at least one message first."
+                : "Generate (or refresh) the outcome summary + excitement score for this conversation."
+            }
+          >
+            {summarizing ? "summarizing…" : "✦ summarize conversation"}
+          </button>
+        </div>
+
+        {summaryResult && (
+          <div
+            className="mb-2 p-3 retro-panel"
+            style={{
+              borderColor: "var(--amber)",
+              background: "var(--panel-2)"
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 8,
+                marginBottom: 6
+              }}
+            >
+              <div
+                className="retro-label"
+                style={{ color: "var(--amber-bright)" }}
+              >
+                outcome
+              </div>
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color: "var(--amber-bright)",
+                  fontFamily: "monospace"
+                }}
+                title="Excitement score — your twin's read on how high-potential this connection is (0-99)."
+              >
+                {Math.round(summaryResult.excitement_score)}%
+              </div>
+            </div>
+            {summaryResult.summary && (
+              <div
+                className="text-sm"
+                style={{ marginBottom: 6, lineHeight: 1.45 }}
+              >
+                {summaryResult.summary}
+              </div>
+            )}
+            {summaryResult.counterpart_summary && (
+              <div
+                className="retro-dim text-xs"
+                style={{ lineHeight: 1.5 }}
+              >
+                <strong style={{ color: "var(--text)" }}>
+                  About {other.name}:
+                </strong>{" "}
+                {summaryResult.counterpart_summary}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="retro-dim text-[11px] text-center">
           right-click any message to copy · double-click your own to edit —
           editing regenerates everything after
