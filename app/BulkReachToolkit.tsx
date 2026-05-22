@@ -697,55 +697,207 @@ export function BulkReachToolkit({
         </>
       )}
 
-      {/* People list — (name, email) per row + inline CSV import */}
-      <div className="mt-5 retro-panel p-4">
+      {/* People list — UPGRADED hero panel. Three-step visual hierarchy
+          (paste → generate → send) so the user knows what's coming before
+          they touch anything. Gradient ring around the panel + a glowing
+          accent bar at the top draws the eye here first. */}
+      <div
+        className="mt-5"
+        style={{
+          position: "relative",
+          padding: 22,
+          borderRadius: 18,
+          background: "var(--panel-solid)",
+          border: "1px solid var(--border)",
+          boxShadow: "0 18px 50px -28px rgba(31, 139, 255, 0.28)",
+          overflow: "hidden"
+        }}
+      >
+        {/* Animated accent bar — same brand-gradient sweep we use on the
+            mobile drawer. Anchors the panel as the primary surface on
+            the page without screaming. */}
         <div
-          className="retro-label"
-          style={{ color: "var(--amber-bright)" }}
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            background:
+              "linear-gradient(90deg, #1f8bff 0%, #6b2dc9 25%, #d83bff 50%, #6b2dc9 75%, #1f8bff 100%)",
+            backgroundSize: "200% 100%",
+            animation: "brtSweep 5s linear infinite"
+          }}
+        />
+        <style>{`
+          @keyframes brtSweep {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+          }
+          .brt-step {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: var(--panel-2);
+            border: 1px solid var(--border);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: var(--text-dim);
+          }
+          .brt-step.active {
+            color: #1f8bff;
+            border-color: rgba(31, 139, 255, 0.5);
+            background: rgba(31, 139, 255, 0.08);
+          }
+          .brt-step .num {
+            width: 16px;
+            height: 16px;
+            border-radius: 999px;
+            background: var(--panel-solid);
+            border: 1px solid var(--border);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 800;
+          }
+          .brt-step.active .num {
+            background: #1f8bff;
+            color: #fff;
+            border-color: #1f8bff;
+          }
+          .brt-input-wrap {
+            position: relative;
+            flex: 1 1 320px;
+            min-width: 0;
+          }
+          .brt-input-wrap .brt-input {
+            width: 100%;
+            font-size: 15px !important;
+            padding: 14px 16px !important;
+            border-radius: 12px !important;
+            border: 1.5px solid var(--border) !important;
+            background: var(--panel-2) !important;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+          }
+          .brt-input-wrap .brt-input:focus {
+            outline: none;
+            border-color: #1f8bff !important;
+            box-shadow: 0 0 0 4px rgba(31, 139, 255, 0.12);
+          }
+        `}</style>
+
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            flexWrap: "wrap",
+            marginBottom: 12
+          }}
         >
-          who do you want to invite?
+          <span
+            className={`brt-step ${
+              entries.length === 0 && emails.length === 0 ? "active" : ""
+            }`}
+          >
+            <span className="num">1</span>
+            <span>Add contacts</span>
+          </span>
+          <span style={{ color: "var(--text-dim)" }} aria-hidden="true">
+            →
+          </span>
+          <span
+            className={`brt-step ${
+              (entries.length > 0 || emails.length > 0) &&
+              personalized.length === 0
+                ? "active"
+                : ""
+            }`}
+          >
+            <span className="num">2</span>
+            <span>Generate twin-voice invites</span>
+          </span>
+          <span style={{ color: "var(--text-dim)" }} aria-hidden="true">
+            →
+          </span>
+          <span
+            className={`brt-step ${
+              personalized.length > 0 ? "active" : ""
+            }`}
+          >
+            <span className="num">3</span>
+            <span>Send</span>
+          </span>
         </div>
+
+        <h3
+          style={{
+            margin: 0,
+            fontSize: 22,
+            fontWeight: 800,
+            letterSpacing: "-0.01em",
+            lineHeight: 1.2
+          }}
+        >
+          Who do you want to invite?
+        </h3>
         <p
-          className="text-xs mt-1"
-          style={{ color: "var(--text-dim)" }}
+          className="text-sm"
+          style={{
+            color: "var(--text-dim)",
+            margin: "8px 0 16px",
+            lineHeight: 1.5
+          }}
         >
           Drop a{" "}
           <PlatformChip name="LinkedIn" domain="linkedin.com" /> ·{" "}
           <PlatformChip name="X" domain="x.com" /> ·{" "}
           <PlatformChip name="Instagram" domain="instagram.com" /> ·{" "}
           <PlatformChip name="Facebook" domain="facebook.com" /> URL and
-          we&apos;ll scrape everything else. Paste an email or phone
-          and we&apos;ll do our best from public records.
+          we&apos;ll scrape the rest. Or paste an email / phone and we&apos;ll
+          pull what we can from public records.
         </p>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {/* Full name field removed entirely — for URL inputs the name
-              is derived from the profile, and for email/phone the scrape
-              can usually pull a name from public records. Keeping the UI
-              minimal beats forcing a useless field. */}
-          <input
-            type="text"
-            placeholder={CONTACT_EXAMPLES[examplePos]}
-            value={entryContact}
-            onChange={(e) => setEntryContact(e.target.value)}
-            onFocus={() => setContactFocused(true)}
-            onBlur={() => setContactFocused(false)}
-            onKeyDown={(e) => e.key === "Enter" && addEntry()}
-            className="retro-input text-sm"
-            style={{ flex: "1 1 320px", minWidth: 0 }}
-          />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="brt-input-wrap">
+            <input
+              type="text"
+              placeholder={CONTACT_EXAMPLES[examplePos]}
+              value={entryContact}
+              onChange={(e) => setEntryContact(e.target.value)}
+              onFocus={() => setContactFocused(true)}
+              onBlur={() => setContactFocused(false)}
+              onKeyDown={(e) => e.key === "Enter" && addEntry()}
+              className="brt-input"
+            />
+          </div>
           <button
             type="button"
             onClick={addEntry}
             disabled={!entryContact.trim()}
-            className="retro-btn retro-btn-primary text-sm"
+            className="retro-btn retro-btn-primary"
+            style={{
+              fontSize: 14,
+              padding: "12px 18px",
+              borderRadius: 12
+            }}
           >
             + add
           </button>
           <label
-            className="retro-btn text-sm cursor-pointer"
+            className="retro-btn cursor-pointer"
+            style={{
+              fontSize: 14,
+              padding: "12px 16px",
+              borderRadius: 12
+            }}
             title="Import a CSV (Gmail / LinkedIn / Google export). We extract names + emails."
           >
-            import .csv
+            ⤴ import .csv
             <input
               type="file"
               accept=".csv,text/csv,text/plain"
@@ -837,30 +989,72 @@ export function BulkReachToolkit({
 
         {/* Inline generate CTA — sits directly under the entries list so
             the user's eye doesn't have to jump past the channel grid to
-            the bottom of the page. Disabled until at least one entry. */}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
+            the bottom of the page. Disabled until at least one entry.
+            Upgraded May 2026: larger pill, gradient bg when ready, soft
+            shimmer while idle so the user knows where to click. */}
+        <div className="mt-5 flex flex-wrap items-center gap-3">
           <button
             type="button"
             onClick={generatePersonalized}
             disabled={
               generating || (entries.length === 0 && emails.length === 0)
             }
-            className="retro-btn retro-btn-primary text-sm"
+            style={{
+              position: "relative",
+              padding: "13px 22px",
+              borderRadius: 12,
+              fontSize: 15,
+              fontWeight: 700,
+              letterSpacing: "0.005em",
+              border: "none",
+              color: "#fff",
+              background:
+                generating ||
+                (entries.length === 0 && emails.length === 0)
+                  ? "var(--panel-2)"
+                  : "linear-gradient(135deg, #1f8bff 0%, #6b2dc9 100%)",
+              cursor:
+                generating ||
+                (entries.length === 0 && emails.length === 0)
+                  ? "not-allowed"
+                  : "pointer",
+              opacity:
+                generating ||
+                (entries.length === 0 && emails.length === 0)
+                  ? 0.55
+                  : 1,
+              boxShadow:
+                entries.length > 0 || emails.length > 0
+                  ? "0 10px 28px -10px rgba(31, 139, 255, 0.55)"
+                  : "none",
+              transition:
+                "transform 0.12s ease, box-shadow 0.18s ease, opacity 0.18s ease"
+            }}
+            onMouseEnter={(e) => {
+              if (!e.currentTarget.disabled) {
+                e.currentTarget.style.transform = "translateY(-1px)";
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
           >
             {generating
-              ? "generating…"
-              : `+ generate ${
-                  entries.length || emails.length || ""
-                } personalized invite${
-                  (entries.length || emails.length) === 1 ? "" : "s"
-                }`}
+              ? "✨ generating…"
+              : entries.length === 0 && emails.length === 0
+                ? "+ generate personalized invites"
+                : `✨ generate ${
+                    entries.length || emails.length
+                  } personalized invite${
+                    (entries.length || emails.length) === 1 ? "" : "s"
+                  }`}
           </button>
           {entries.length === 0 && emails.length === 0 && (
             <span
               className="text-xs"
               style={{ color: "var(--text-dim)" }}
             >
-              paste a profile URL, email, or phone above
+              ← paste a profile URL, email, or phone above first
             </span>
           )}
         </div>
@@ -877,53 +1071,119 @@ export function BulkReachToolkit({
       {/* Personalized invite results — placed ABOVE the broadcast grid so the
           high-fidelity path is what the user sees first. Each row is a custom
           landing page generated with a twin-voice opener that references real
-          context scraped from the recipient's social profile. */}
+          context scraped from the recipient's social profile.
+          UPGRADED header: bigger, gradient-eyebrow + count chip + bulk-copy
+          pulled into the row so the user sees state at a glance. */}
       {(personalized.length > 0 || pendingNames.length > 0) && (
         <div
-          className="mt-5 retro-panel"
-          style={{ padding: 16, borderColor: "var(--amber)" }}
+          className="mt-5"
+          style={{
+            padding: 20,
+            borderRadius: 16,
+            border: "1px solid rgba(31, 139, 255, 0.32)",
+            background:
+              "linear-gradient(180deg, rgba(31, 139, 255, 0.04) 0%, transparent 60%), var(--panel-solid)"
+          }}
         >
           <div
-            className="retro-label"
-            style={{ color: "var(--amber-bright)" }}
-          >
-            personalized invites · {personalized.length} custom landing page
-            {personalized.length === 1 ? "" : "s"}
-          </div>
-          <p
-            className="text-xs mt-1"
-            style={{ color: "var(--text-dim)" }}
-          >
-            Each contact has a unique URL with a twin-voice opener that
-            references their profile. Click-through is dramatically higher
-            than the broadcast options below.
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              const all = personalized
-                .map(
-                  (p) =>
-                    `${p.contact.name}${p.contact.email ? " <" + p.contact.email + ">" : ""}: ${p.url}`
-                )
-                .join("\n");
-              copy(all, "all personalized links");
-            }}
-            className="mt-3"
             style={{
-              fontSize: 10,
-              padding: "3px 8px",
-              border: "1px solid var(--border)",
-              borderRadius: 6,
-              background: "transparent",
-              color: "var(--text-dim)",
-              cursor: "pointer",
-              letterSpacing: "0.04em"
+              display: "flex",
+              alignItems: "flex-start",
+              justifyContent: "space-between",
+              gap: 14,
+              flexWrap: "wrap",
+              marginBottom: 8
             }}
-            title="Copy every personalized link as a plain-text list"
           >
-            copy all as list
-          </button>
+            <div style={{ minWidth: 0 }}>
+              <div
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.16em",
+                    textTransform: "uppercase",
+                    background:
+                      "linear-gradient(90deg, #1f8bff 0%, #6b2dc9 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    backgroundClip: "text"
+                  }}
+                >
+                  ready to send
+                </span>
+                {personalized.length > 0 && (
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: "rgba(31, 139, 255, 0.12)",
+                      color: "#1f8bff",
+                      border: "1px solid rgba(31, 139, 255, 0.32)"
+                    }}
+                  >
+                    {personalized.length} landing page
+                    {personalized.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+              <h3
+                style={{
+                  margin: "6px 0 4px",
+                  fontSize: 20,
+                  fontWeight: 800,
+                  letterSpacing: "-0.005em"
+                }}
+              >
+                Your personalized invites
+              </h3>
+              <p
+                className="text-sm"
+                style={{
+                  color: "var(--text-dim)",
+                  margin: 0,
+                  maxWidth: 620,
+                  lineHeight: 1.5
+                }}
+              >
+                Each contact has a unique URL with a twin-voice opener that
+                references their profile. Click-through is dramatically
+                higher than the broadcast options below.
+              </p>
+            </div>
+            {personalized.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  const all = personalized
+                    .map(
+                      (p) =>
+                        `${p.contact.name}${p.contact.email ? " <" + p.contact.email + ">" : ""}: ${p.url}`
+                    )
+                    .join("\n");
+                  copy(all, "all personalized links");
+                }}
+                className="retro-btn"
+                style={{
+                  fontSize: 12,
+                  padding: "8px 12px",
+                  borderRadius: 10,
+                  flexShrink: 0
+                }}
+                title="Copy every personalized link as a plain-text list"
+              >
+                📋 copy all links
+              </button>
+            )}
+          </div>
           <ul className="mt-3 space-y-2">
             {/* In-flight rows — render a placeholder for each contact
                 still generating so the user sees instant feedback after
@@ -956,24 +1216,73 @@ export function BulkReachToolkit({
                 </div>
               </li>
             ))}
-            {personalized.map((p) => (
+            {personalized.map((p) => {
+              // Initials avatar — gradient-tinted, derived from name.
+              const initials = (p.contact.name || "?")
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0]?.toUpperCase() || "")
+                .join("") || "?";
+              return (
               <li
                 key={p.slug}
-                className="retro-panel"
-                style={{ padding: 12 }}
+                style={{
+                  padding: 14,
+                  borderRadius: 12,
+                  background: "var(--panel-solid)",
+                  border: "1px solid var(--border)",
+                  transition: "border-color 0.15s ease, box-shadow 0.15s ease"
+                }}
               >
-                {/* HEAD ROW — name + email + landing URL */}
-                <div className="flex flex-wrap items-center gap-2 justify-between">
+                {/* HEAD ROW — avatar + name + email + landing URL */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    flexWrap: "wrap"
+                  }}
+                >
+                  <div
+                    aria-hidden="true"
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 999,
+                      flexShrink: 0,
+                      background:
+                        "linear-gradient(135deg, #1f8bff 0%, #6b2dc9 100%)",
+                      color: "#fff",
+                      fontWeight: 800,
+                      fontSize: 14,
+                      letterSpacing: "0.02em",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow:
+                        "0 4px 12px -4px rgba(31, 139, 255, 0.45)"
+                    }}
+                  >
+                    {initials}
+                  </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div
-                      className="font-semibold text-sm"
-                      style={{ color: "var(--text)" }}
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                        color: "var(--text)",
+                        lineHeight: 1.2
+                      }}
                     >
                       {p.contact.name}
                       {p.contact.email && (
                         <span
                           className="text-xs ml-2"
-                          style={{ color: "var(--text-dim)" }}
+                          style={{
+                            color: "var(--text-dim)",
+                            fontWeight: 500
+                          }}
                         >
                           {p.contact.email}
                         </span>
@@ -983,13 +1292,23 @@ export function BulkReachToolkit({
                       href={p.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs underline"
                       style={{
-                        color: "var(--amber-bright)",
-                        wordBreak: "break-all"
+                        marginTop: 3,
+                        display: "inline-block",
+                        fontSize: 11,
+                        color: "#1f8bff",
+                        wordBreak: "break-all",
+                        textDecoration: "none",
+                        opacity: 0.9
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.textDecoration = "underline";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.textDecoration = "none";
                       }}
                     >
-                      {p.url}
+                      🔗 {p.url}
                     </a>
                   </div>
                 </div>
@@ -1019,81 +1338,90 @@ export function BulkReachToolkit({
                   }}
                 />
 
-                {/* SEND ROW — all actions use the CURRENT starter so
-                    edits flow through to the outbound message. */}
-                <div className="mt-3 flex flex-wrap gap-1.5">
+                {/* SEND ROW — bigger pill buttons grouped by intent.
+                    Copy-actions (neutral) on the left, channel-actions
+                    (color-tinted by platform) in the middle, mark-sent
+                    pulled to the right as the terminal action. */}
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 6,
+                    alignItems: "center"
+                  }}
+                >
                   <button
                     type="button"
                     onClick={() => copy(p.url, "link")}
-                    className="retro-btn text-xs"
-                    style={{ padding: "5px 10px" }}
+                    style={pillStyle("neutral")}
+                    title="Copy just the personalized landing URL"
                   >
-                    copy link
+                    🔗 link
                   </button>
                   <button
                     type="button"
                     onClick={() =>
                       copy(`${p.starter}\n\n${p.url}`, "full message")
                     }
-                    className="retro-btn text-xs"
-                    style={{ padding: "5px 10px" }}
+                    style={pillStyle("primary")}
+                    title="Copy the opener + the URL as one block"
                   >
-                    copy msg + link
+                    📋 msg + link
                   </button>
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 1,
+                      height: 20,
+                      background: "var(--border)",
+                      margin: "0 2px"
+                    }}
+                  />
+                  <a
+                    href={`sms:?&body=${encodeURIComponent(
+                      `${p.starter}\n\n${p.url}`
+                    )}`}
+                    style={pillStyle("sms")}
+                  >
+                    💬 SMS
+                  </a>
+                  <a
+                    href={`https://wa.me/?text=${encodeURIComponent(
+                      `${p.starter}\n\n${p.url}`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={pillStyle("whatsapp")}
+                  >
+                    🟢 WhatsApp
+                  </a>
+                  {p.contact.email && (
                     <a
-                      href={`sms:?&body=${encodeURIComponent(
-                        `${p.starter}\n\n${p.url}`
-                      )}`}
-                      className="retro-btn text-xs"
-                      style={{ padding: "5px 10px" }}
+                      href={`mailto:${p.contact.email}?subject=${encodeURIComponent(
+                        "An invite from " + appUrl
+                      )}&body=${encodeURIComponent(`${p.starter}\n\n${p.url}`)}`}
+                      style={pillStyle("email")}
                     >
-                      💬 SMS
+                      ✉️ Email
                     </a>
-                    <a
-                      href={`https://wa.me/?text=${encodeURIComponent(
-                        `${p.starter}\n\n${p.url}`
-                      )}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="retro-btn text-xs"
-                      style={{ padding: "5px 10px" }}
-                    >
-                      🟢 WA
-                    </a>
-                    {p.contact.email && (
-                      <a
-                        href={`mailto:${p.contact.email}?subject=${encodeURIComponent(
-                          "An invite from " + appUrl
-                        )}&body=${encodeURIComponent(`${p.starter}\n\n${p.url}`)}`}
-                        className="retro-btn text-xs"
-                        style={{ padding: "5px 10px" }}
-                      >
-                        ✉️ Email
-                      </a>
-                    )}
-                    {/* Mark-as-sent confirm. Earlier version was green
-                        with a checkmark and read like a status badge
-                        ("this is already sent") instead of an action
-                        ("click to mark sent"). Neutral dim text + a
-                        question mark makes it clearly a prompt. Removes
-                        the row from the personalized list + localStorage
-                        when clicked. */}
-                    <button
-                      type="button"
-                      onClick={() => markInviteSent(p.slug)}
-                      className="retro-btn text-xs"
-                      style={{
-                        padding: "5px 10px",
-                        borderColor: "var(--border)",
-                        color: "var(--text-dim)"
-                      }}
-                      title="Click to mark this invite as sent and remove it from the list"
-                    >
-                      mark as sent?
-                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => markInviteSent(p.slug)}
+                    style={{
+                      ...pillStyle("neutral"),
+                      marginLeft: "auto",
+                      opacity: 0.7
+                    }}
+                    title="Click to mark this invite as sent and remove it from the list"
+                  >
+                    ✓ mark as sent
+                  </button>
                 </div>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </div>
       )}
@@ -1401,4 +1729,69 @@ function PlatformChip({
       <span style={{ fontWeight: 700, color: "var(--text)" }}>{name}</span>
     </span>
   );
+}
+
+/**
+ * Shared pill button styling for the personalized-invite action row.
+ * Variants tint the border + text so each channel reads as its own
+ * brand at a glance (WhatsApp green, iMessage blue, etc.) without
+ * dumping color onto buttons that don't represent a single channel.
+ */
+type PillVariant =
+  | "neutral"
+  | "primary"
+  | "sms"
+  | "whatsapp"
+  | "email";
+
+function pillStyle(variant: PillVariant): React.CSSProperties {
+  const base: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    padding: "7px 12px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 600,
+    border: "1px solid var(--border)",
+    background: "var(--panel-2)",
+    color: "var(--text)",
+    cursor: "pointer",
+    textDecoration: "none",
+    transition: "background 0.12s ease, border-color 0.12s ease",
+    whiteSpace: "nowrap"
+  };
+  switch (variant) {
+    case "primary":
+      return {
+        ...base,
+        background: "rgba(31, 139, 255, 0.12)",
+        borderColor: "rgba(31, 139, 255, 0.36)",
+        color: "#1f8bff"
+      };
+    case "sms":
+      return {
+        ...base,
+        background: "rgba(59, 130, 246, 0.10)",
+        borderColor: "rgba(59, 130, 246, 0.32)",
+        color: "#3b82f6"
+      };
+    case "whatsapp":
+      return {
+        ...base,
+        background: "rgba(37, 211, 102, 0.12)",
+        borderColor: "rgba(37, 211, 102, 0.36)",
+        color: "#16a34a"
+      };
+    case "email":
+      return {
+        ...base,
+        background: "rgba(168, 85, 247, 0.10)",
+        borderColor: "rgba(168, 85, 247, 0.32)",
+        color: "#a855f7"
+      };
+    case "neutral":
+    default:
+      return base;
+  }
 }
