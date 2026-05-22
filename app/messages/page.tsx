@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { ExcitementControl } from "../dashboard/ExcitementControl";
 import { Avatar } from "../Avatar";
 import { AppShell } from "../AppShell";
+import { SocialIconRow } from "../SocialIconRow";
 import { ConversationPrefetch } from "./ConversationPrefetch";
 import { startConversationWithUser } from "../dashboard/actions";
 import { computePairScore } from "@/lib/pair-score";
@@ -35,7 +36,9 @@ export default async function MessagesPage() {
   const { data: others } = otherIds.length
     ? await service
         .from("profiles")
-        .select("id, display_name, email, is_test_persona, avatar_url")
+        .select(
+          "id, display_name, email, is_test_persona, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+        )
         .in("id", otherIds)
     : { data: [] as any[] };
   const profileById = new Map(
@@ -404,6 +407,27 @@ export default async function MessagesPage() {
                   >
                     <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
                       <span>{nameById.get(otherId) ?? "Unknown"}</span>
+                      {/* Clickable LinkedIn/X/IG/Facebook/website pills
+                          next to the counterpart's name — quick way to
+                          dig deeper into who they are without opening
+                          the conversation. */}
+                      {(() => {
+                        const op = profileById.get(otherId) as any;
+                        if (!op) return null;
+                        return (
+                          <SocialIconRow
+                            urls={{
+                              linkedin_url: op.linkedin_url,
+                              x_url: op.x_url,
+                              instagram_url: op.instagram_url,
+                              facebook_url: op.facebook_url,
+                              website_url: op.website_url
+                            }}
+                            size={12}
+                            gap={3}
+                          />
+                        );
+                      })()}
                       {(() => {
                         const st = statusForConv(c);
                         if (!st) return null;

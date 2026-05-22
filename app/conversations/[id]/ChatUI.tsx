@@ -8,6 +8,7 @@ import { PerConversationGoal } from "./PerConversationGoal";
 import { ComposeAtEnd } from "./ComposeAtEnd";
 import { SocialIconRow } from "../../SocialIconRow";
 import { PersistentCompose } from "./PersistentCompose";
+import { FunnyModeToggle } from "./FunnyModeToggle";
 
 /**
  * SchedulePanel — appears after both sides accept a deal. Surfaces multiple
@@ -932,6 +933,9 @@ export function ChatUI({
                   {other.socials && (
                     <SocialIconRow urls={other.socials} size={14} gap={4} />
                   )}
+                  {/* Per-convo funny-mode toggle. When on, twin prompt
+                      swaps to personality-forward wiring. */}
+                  <FunnyModeToggle conversationId={conversationId} />
                 </div>
                 <div className="retro-dim text-xs flex items-center gap-1.5 mt-0.5">
                   <span>

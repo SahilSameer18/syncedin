@@ -29,6 +29,10 @@ export function buildTwinSystemPrompt(args: {
    *  turn should wrap up the conversation and emit the >>> AGREEMENT marker.
    *  Used to slow the autonomous loop's premature-agreement tendency. */
   proposeNow?: boolean;
+  /** When true, both twins lead with personality instead of deal-making
+   *  framing. Emojis welcome, jokes welcome, looser register — still
+   *  drives toward something real but in a much more fun way. */
+  funnyMode?: boolean;
 }) {
   const {
     self,
@@ -37,7 +41,8 @@ export function buildTwinSystemPrompt(args: {
     counterpartTwin,
     recentDeltas,
     goalOverride,
-    proposeNow
+    proposeNow,
+    funnyMode
   } = args;
   const selfName = self.display_name || self.email;
   const otherName = counterpart.display_name || counterpart.email;
@@ -116,7 +121,16 @@ These are recent examples where your principal corrected a draft you generated. 
 The human just tapped a button asking you to wrap this conversation up with a concrete proposal. This OVERRIDES the "wait for 3+ exchanges per side" rule. End this message with the >>> AGREEMENT: marker followed by 1-3 sentences naming the concrete final destination both sides would commit to. Pull the destination from the substance already in the transcript — don't invent a new direction. If the conversation is genuinely too thin to propose, say so plainly in the message body and DO NOT emit the marker.`;
   }
 
-  prompt += `\n\nGenerate the next message in this conversation, in your principal's voice. Output only the message text. No preamble, no quotes, no formatting markers, no meta-commentary. Re-read your draft and strip any em-dashes or "not X, it's Y" patterns before finalizing.`;
+  if (funnyMode) {
+    prompt += `\n\n# FUNNY MODE IS ON
+Both humans opted INTO a more personality-forward conversation. Lead with their actual quirks and sense of humor — pulled from their bio, recent posts, and communication style. Emojis are welcome (don't overdo it, 1-2 per message max). Riffs, jokes, and warm sarcasm are welcome. Still drive toward something real (a meeting, a collab, a "let's grab coffee"), but in a much more fun, low-pressure register. Avoid corporate framing entirely. If something the other twin says is genuinely funny, react to it naturally instead of pivoting back to business. The goal is conversations both humans will WANT to read.`;
+  }
+
+  prompt += `\n\nGenerate the next message in this conversation, in your principal's voice. Output only the message text. No preamble, no quotes, no formatting markers, no meta-commentary. ${
+    funnyMode
+      ? ""
+      : 'Re-read your draft and strip any em-dashes or "not X, it\'s Y" patterns before finalizing.'
+  }`;
 
   return prompt;
 }

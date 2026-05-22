@@ -7,6 +7,8 @@ import { SelfGraph } from "./SelfGraph";
 import { LiveSyncMeter } from "./LiveSyncMeter";
 import { WelcomeSplash } from "./WelcomeSplash";
 import { TypingParticles } from "./TypingParticles";
+import { AiExportsPanel } from "./AiExportsPanel";
+import { FilesPanel } from "./FilesPanel";
 
 export default async function OnboardingPage({
   searchParams
@@ -137,6 +139,15 @@ export default async function OnboardingPage({
       <div className="mt-6 grid lg:grid-cols-[1fr_320px] gap-8 items-start">
         <div className="min-w-0">
           <OnboardingWizard initial={initial} userId={user.id} />
+          {/* Multi-source AI context uploader — the "king" twin-context
+              feature. Lets the user paste deep self-descriptions from
+              ChatGPT / Claude / Gemini / Perplexity separately, each
+              with its own tuned prompt. Mounted below the main wizard
+              so it shows up but doesn't steal the primary flow. */}
+          <div style={{ marginTop: 24 }}>
+            <AiExportsPanel />
+            <FilesPanel />
+          </div>
         </div>
 
         {/* Right rail — live SyncMeter (sci-fi-upload power core). Fills

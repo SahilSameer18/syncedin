@@ -145,7 +145,8 @@ export async function POST(req: Request) {
       (otherTwin as Pick<TwinProfile, "goals" | "deal_preferences">) ?? null,
     recentDeltas: (deltas as EditDelta[]) ?? [],
     goalOverride: (conv as any)?.goal_override ?? null,
-    proposeNow
+    proposeNow,
+    funnyMode: ((conv as any)?.funny_mode as boolean) ?? false
   });
 
   const history = buildConversationHistory(msgs, turnUserId);

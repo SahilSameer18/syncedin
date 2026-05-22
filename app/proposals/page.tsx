@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { Avatar } from "../Avatar";
+import { ExpandProposal } from "./ExpandProposal";
 
 /**
  * /proposals — dedicated view of every conversation's END proposal.
@@ -279,6 +280,29 @@ export default async function ProposalsPage() {
                   >
                     {c.summary}
                   </p>
+                  {/* Expand → reveals the full agreement text (vs. the
+                      short summary headline above). Lazy-fetched on
+                      first click via /api/conversations/<id>/agreement-text. */}
+                  <ExpandProposal conversationId={c.id} />
+                  {/* Primary "open full conversation" link — most direct
+                      path back to the full messages thread for context
+                      before deciding accept/change/counter/deny. */}
+                  <div style={{ marginTop: 12 }}>
+                    <Link
+                      href={`/conversations/${c.id}`}
+                      className="retro-btn retro-btn-primary text-xs"
+                      style={{
+                        padding: "8px 14px",
+                        fontWeight: 700,
+                        textDecoration: "none",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 6
+                      }}
+                    >
+                      💬 open full messages →
+                    </Link>
+                  </div>
                   {!sealed && (
                     <div
                       style={{
