@@ -48,10 +48,12 @@ export function Sidebar({
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "💬" },
     { href: "/proposals", label: "Proposals", icon: "🤝" },
-    // /invite kept back in the sidebar per Jack's reversal — the
-    // dedicated invite page has more affordance + analytics than the
-    // dashboard's BulkReachToolkit and is worth its own nav slot.
     { href: "/invite", label: "Invite", icon: "💌" },
+    // Talk with Ghosts — Jack's reframing of the invite ask: paste
+    // someone's profile, watch the conversation play out with their
+    // "ghost" twin (modeled from public data), then send it to them.
+    // See /ghosts route + GhostsConsole.
+    { href: "/ghosts", label: "Talk with ghosts", icon: "👻" },
     { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
     { href: "/feedback", label: "Feedback", icon: "💡" }

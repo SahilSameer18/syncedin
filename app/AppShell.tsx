@@ -21,10 +21,17 @@ export async function AppShell({
   // edge is identical from page to page. Without this, navigating between
   // a max-w-6xl page and a max-w-7xl page made the whole sidebar jump
   // horizontally — the user's eye lost its anchor on every nav.
-  maxWidth = "max-w-7xl"
+  maxWidth = "max-w-7xl",
+  // Optional rail slot that renders BELOW the sidebar nav in the same
+  // 200px left column on lg+ (and inside the mobile drawer below the
+  // nav). Dashboard passes its SyncMeter card here so the clone meter
+  // sits in-line under the menu instead of in a separate right column.
+  // Jack: "this human clone part we can put under it in line."
+  sidebarExtra
 }: {
   children: React.ReactNode;
   maxWidth?: string;
+  sidebarExtra?: React.ReactNode;
 }) {
   const supabase = createClient();
   const {
@@ -43,8 +50,29 @@ export async function AppShell({
     .eq("id", userId)
     .maybeSingle();
 
+  // Display name fallback chain. Jack: "It says Jackson J-E-Z-I-O,
+  // but it should just say Jackson Jesionowski."
+  // Order:
+  //   1. profiles.display_name (real name set in onboarding)
+  //   2. twin_profiles.ai_export_blob doesn't help here (no name field)
+  //   3. email username prettified — "jacksonjezio" → "Jacksonjezio"
+  //   4. "you" as last resort
+  function prettifyEmailUsername(raw: string): string {
+    // Split on common separators + camelCase boundaries.
+    const parts = raw
+      .replace(/[._-]+/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    return parts
+      .map((p) => p[0].toUpperCase() + p.slice(1))
+      .join(" ");
+  }
+  const emailUsername = user.email?.split("@")[0] ?? "";
   const displayName =
-    profile?.display_name || user.email?.split("@")[0] || "you";
+    (profile?.display_name && profile.display_name.trim()) ||
+    (emailUsername ? prettifyEmailUsername(emailUsername) : "you");
 
   // Conferences in the sidebar — fetched in two safe steps so a transient
   // join failure or a missing FK relationship hint can't crash the entire
@@ -217,7 +245,7 @@ export async function AppShell({
           The main content keeps its readable max-width via its own
           inner wrapper. */}
       <main
-        className={`mx-auto px-4 lg:pl-0 lg:pr-5 pt-0 lg:pt-1 pb-6 grid lg:grid-cols-[200px_1fr] gap-4 lg:gap-6 items-start ${maxWidth} lg:max-w-none`}
+        className={`mx-auto px-4 lg:pl-4 lg:pr-5 pt-0 lg:pt-1 pb-6 grid lg:grid-cols-[200px_1fr] gap-4 lg:gap-6 items-start ${maxWidth} lg:max-w-none`}
       >
         {/* Desktop sidebar — hidden on mobile, replaced by MobileShell drawer.
             Sticky on lg+ so it stays in view as the main content scrolls.
@@ -231,10 +259,14 @@ export async function AppShell({
             top: 12,
             alignSelf: "start",
             maxHeight: "calc(100vh - 24px)",
-            overflowY: "auto"
+            overflowY: "auto",
+            display: "flex",
+            flexDirection: "column",
+            gap: 10
           }}
         >
           {sidebar}
+          {sidebarExtra && <div>{sidebarExtra}</div>}
         </div>
 
         <div className="min-w-0">{children}</div>

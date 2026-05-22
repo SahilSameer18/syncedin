@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { Avatar } from "../Avatar";
 import { ExpandProposalInline } from "./ExpandProposalInline";
+import { InlineActions } from "./InlineActions";
 
 /**
  * /proposals — dedicated view of every conversation's END proposal.
@@ -321,81 +322,11 @@ export default async function ProposalsPage() {
                     fullText={fullTextByConv.get(c.id) ?? c.summary}
                   />
                   {!sealed && (
-                    <div
-                      style={{
-                        marginTop: 10,
-                        display: "flex",
-                        gap: 8,
-                        flexWrap: "wrap"
-                      }}
-                    >
-                      {/* "Open full messages" sits LEFT of Accept on
-                          the same row so we don't take up another row. */}
-                      <Link
-                        href={`/conversations/${c.id}`}
-                        className="retro-btn text-xs"
-                        style={{
-                          padding: "6px 12px",
-                          fontWeight: 700,
-                          textDecoration: "none",
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 4
-                        }}
-                      >
-                        💬 open full messages
-                      </Link>
-                      {myResp?.response !== "accepted" && (
-                        <Link
-                          href={`/conversations/${c.id}#agreement`}
-                          className="retro-btn retro-btn-primary text-xs"
-                          style={{
-                            padding: "6px 12px",
-                            fontWeight: 700,
-                            textDecoration: "none"
-                          }}
-                        >
-                          ✓ accept
-                        </Link>
-                      )}
-                      <Link
-                        href={`/conversations/${c.id}?action=change`}
-                        className="retro-btn text-xs"
-                        style={{
-                          padding: "6px 12px",
-                          fontWeight: 700,
-                          textDecoration: "none"
-                        }}
-                      >
-                        ✎ change proposal
-                      </Link>
-                      <Link
-                        href={`/conversations/${c.id}?action=counter`}
-                        className="retro-btn text-xs"
-                        style={{
-                          padding: "6px 12px",
-                          fontWeight: 700,
-                          textDecoration: "none"
-                        }}
-                      >
-                        ↺ counter
-                      </Link>
-                      {myResp?.response !== "rejected" && (
-                        <Link
-                          href={`/conversations/${c.id}?action=deny`}
-                          className="retro-btn text-xs"
-                          style={{
-                            padding: "6px 12px",
-                            fontWeight: 700,
-                            color: "#ef4444",
-                            borderColor: "rgba(239, 68, 68, 0.35)",
-                            textDecoration: "none"
-                          }}
-                        >
-                          ✕ deny with reason
-                        </Link>
-                      )}
-                    </div>
+                    <InlineActions
+                      conversationId={c.id}
+                      alreadyAccepted={myResp?.response === "accepted"}
+                      alreadyRejected={myResp?.response === "rejected"}
+                    />
                   )}
                   {/* Even when sealed, give a way back to the full
                       messages thread for context — but as a quiet text

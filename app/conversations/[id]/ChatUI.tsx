@@ -503,7 +503,8 @@ export function ChatUI({
   initialDone,
   initialMyResponse,
   initialOtherResponse,
-  otherLastReadAt
+  otherLastReadAt,
+  initialSummary = null
 }: {
   conversationId: string;
   selfUserId: string;
@@ -531,6 +532,15 @@ export function ChatUI({
   /** Counterpart's most recent /api/conversations/[id]/read timestamp.
    *  Used to render ✓✓ (read) vs ✓ (delivered) on outgoing bubbles. */
   otherLastReadAt?: string | null;
+  /** Server-fetched summary so the outcome card renders at the top of
+   *  the page on first load — no need to click "summarize" first.
+   *  Jack: "We should actually just be a summary of the conversation
+   *  and the outcome, probably automatically." */
+  initialSummary?: {
+    summary: string;
+    counterpart_summary: string;
+    excitement_score: number;
+  } | null;
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [done, setDone] = useState(initialDone);
@@ -554,7 +564,7 @@ export function ChatUI({
     summary: string;
     counterpart_summary: string;
     excitement_score: number;
-  } | null>(null);
+  } | null>(initialSummary);
 
   async function summarizeNow() {
     if (summarizing) return;

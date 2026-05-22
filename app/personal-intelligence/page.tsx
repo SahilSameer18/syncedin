@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
+import { RecGeneratorCard } from "./RecGeneratorCard";
 
 /**
  * PERSONAL INTELLIGENCE — Jack's vision: every user gets a generated,
@@ -32,18 +33,32 @@ export default async function PersonalIntelligencePage() {
   if (!user) redirect("/login?next=/personal-intelligence");
 
   const service = createServiceClient();
-  const [{ data: profile }, { data: twin }] = await Promise.all([
+  const [
+    { data: profile },
+    { data: twin },
+    { count: claimedInvites }
+  ] = await Promise.all([
     service
       .from("profiles")
-      .select("display_name, email")
+      .select("display_name, email, handle")
       .eq("id", user.id)
       .maybeSingle(),
     service
       .from("twin_profiles")
       .select("goals, deal_preferences, ai_export_blob")
       .eq("user_id", user.id)
-      .maybeSingle()
+      .maybeSingle(),
+    // Successful invites = pending_invites this user created that have
+    // been claimed by a real signup. Drives the invite-unlock gating
+    // on the PI cards below per Jack: "the merch line should unlock
+    // with five invites who sign up."
+    service
+      .from("pending_invites")
+      .select("id", { count: "exact", head: true })
+      .eq("inviter_user_id", user.id)
+      .not("claimed_by_user_id", "is", null)
   ]);
+  const referrals = claimedInvites ?? 0;
 
   const firstName =
     ((profile as any)?.display_name || "").split(/\s+/)[0] ||
@@ -264,19 +279,50 @@ export default async function PersonalIntelligencePage() {
       `}</style>
 
       <section className="pi-grid">
-        {cards.map((c) => (
-          <article key={c.key} className="pi-card">
-            <span className="icon" aria-hidden="true">
-              {c.icon}
-            </span>
-            <span className="eyebrow" style={{ color: c.accent }}>
-              {c.eyebrow}
-            </span>
-            <h3>{c.title}</h3>
-            <p>{c.blurb}</p>
-            <span className="soon">Shipping soon</span>
-          </article>
-        ))}
+        {cards.map((c) => {
+          // Movies + Books are wired up to the real /api/personal-intelligence/recs
+          // endpoint via the RecGeneratorCard component. The other six cards still
+          // ship as "Shipping soon" placeholders until their backends land.
+          if (c.key === "movies") {
+            return (
+              <RecGeneratorCard
+                key={c.key}
+                kind="movies"
+                icon={c.icon}
+                eyebrow={c.eyebrow}
+                title={c.title}
+                blurb={c.blurb}
+                accent={c.accent}
+              />
+            );
+          }
+          if (c.key === "books") {
+            return (
+              <RecGeneratorCard
+                key={c.key}
+                kind="books"
+                icon={c.icon}
+                eyebrow={c.eyebrow}
+                title={c.title}
+                blurb={c.blurb}
+                accent={c.accent}
+              />
+            );
+          }
+          return (
+            <article key={c.key} className="pi-card">
+              <span className="icon" aria-hidden="true">
+                {c.icon}
+              </span>
+              <span className="eyebrow" style={{ color: c.accent }}>
+                {c.eyebrow}
+              </span>
+              <h3>{c.title}</h3>
+              <p>{c.blurb}</p>
+              <span className="soon">Shipping soon</span>
+            </article>
+          );
+        })}
       </section>
 
       <p

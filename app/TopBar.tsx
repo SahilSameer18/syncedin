@@ -84,12 +84,14 @@ export function TopBar({
         padding: "8px 16px",
         display: "flex",
         alignItems: "center",
-        justifyContent: "space-between",
-        gap: 16,
+        justifyContent: "flex-end",
+        gap: 8,
         marginBottom: 12
       }}
     >
-      {/* Left side: top-level menu items */}
+      {/* Nav items — pinned to the RIGHT next to the profile chip per
+          Jack: "move these items in the top menu all the way to the
+          right side next to the profile piece." */}
       <nav
         style={{
           display: "flex",

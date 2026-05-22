@@ -177,6 +177,20 @@ export default async function ConversationPage({
       }}
       initialMessages={msgs}
       initialDone={done}
+      // Surface the persisted outcome summary on first load so the user
+      // doesn't have to click "summarize" — the existing summary card
+      // renders at the top of the chat automatically.
+      initialSummary={
+        (conv as any)?.summary
+          ? {
+              summary: (conv as any).summary as string,
+              counterpart_summary:
+                ((conv as any).counterpart_summary as string) ?? "",
+              excitement_score:
+                Number((conv as any).excitement_score) || 0
+            }
+          : null
+      }
       // Read receipt — counterpart's last_read_* timestamp. ChatUI
       // compares each outgoing message's sent_at against this to choose
       // between ✓ (delivered) and ✓✓ (read by counterpart).
