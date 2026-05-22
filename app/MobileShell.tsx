@@ -201,31 +201,24 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
           {children}
         </div>
         <style>{`
-          /* Kill the desktop Sidebar's wordmark + its empty space when it
-             renders inside the mobile drawer. The mobile top bar already
-             shows the wordmark — duplicating it in the drawer wastes
-             ~300px of vertical room (Jack flagged this with screenshots
-             multiple times). Descendant selectors (no '>') so this still
-             matches even when the Sidebar wraps in additional divs. */
-          .syncedin-mobile-drawer img.wordmark-themed,
-          .syncedin-mobile-drawer img[src*="syncedin-wordmark"],
-          .syncedin-mobile-drawer a[aria-label="SyncedIn — home"] {
-            display: none !important;
-            height: 0 !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
+          /* Wordmark is now SHOWN inside the mobile drawer too (Jack:
+             "on mobile in menu logo isnt visible lets bring that back").
+             The hide rules below used to kill it because earlier the
+             drawer had its own top bar; now the drawer's only chrome is
+             the 3px sweep band, so the Sidebar's wordmark gets to act
+             as the menu header without competing. We still keep tight
+             padding overrides so the nav items don't sit miles below
+             the wordmark. */
           .syncedin-mobile-drawer > div {
-            padding-top: 0 !important;
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-            margin-top: 0 !important;
-            gap: 2px !important;
+            padding-top: 6px !important;
+            padding-left: 6px !important;
+            padding-right: 6px !important;
+            gap: 6px !important;
           }
-          .syncedin-mobile-drawer > div > *:first-child,
-          .syncedin-mobile-drawer > div > *:first-child > * {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
+          .syncedin-mobile-drawer img.wordmark-themed,
+          .syncedin-mobile-drawer img[src*="syncedin-wordmark"] {
+            max-height: 28px !important;
+            width: auto !important;
           }
           @keyframes drawerSweep {
             0%   { background-position: 0% 50%; }

@@ -62,15 +62,10 @@ export function TopBar({
     };
   }, [profileOpen]);
 
-  // Three groups. Conversation-tier (Messages / Proposals) on the left
-  // — these are the highest-frequency clicks and they get red unread
-  // badges so the user can scan them at a glance. Then the
-  // network-tier items (Hypernetwork, Sync a conference, Sync a
-  // community) — clicks-per-session are lower but Jack wants them
-  // top-of-page so visitors discover them.
+  // TopBar holds the NETWORK-tier nav only (Hypernetwork + the two
+  // Sync surfaces). Messages + Proposals removed per Jack — they live
+  // in the sidebar already and were duplicating chrome at the top.
   const items: Array<{ href: string; label: string }> = [
-    { href: "/messages", label: "Messages" },
-    { href: "/proposals", label: "Proposals" },
     { href: "/hypernetwork", label: "Hypernetwork" },
     { href: "/conferences/new", label: "Sync a conference" },
     { href: "/communities/new", label: "Sync a community" }
