@@ -48,9 +48,10 @@ export function Sidebar({
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "💬" },
     { href: "/proposals", label: "Proposals", icon: "🤝" },
-    // /invite removed (Jack: "Why is there an invite button?") — the
-    // invite flow is already surfaced on the dashboard via
-    // BulkReachToolkit, so this item was redundant nav weight.
+    // /invite kept back in the sidebar per Jack's reversal — the
+    // dedicated invite page has more affordance + analytics than the
+    // dashboard's BulkReachToolkit and is worth its own nav slot.
+    { href: "/invite", label: "Invite", icon: "💌" },
     { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
     { href: "/feedback", label: "Feedback", icon: "💡" }
