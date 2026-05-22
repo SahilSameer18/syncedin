@@ -243,16 +243,15 @@ export async function ConversationRail({
           position: "fixed",
           top: 16,
           bottom: 16,
-          // Sits immediately right of the main AppShell sidebar (220px
-          // wide @ left:16 + 16px gap = 252px). On the conversation page
-          // the main sidebar is rendered from /conversations/[id]/page.tsx
-          // as a fixed-position element so ChatUI's h-screen layout stays
-          // intact.
+          // Sits immediately right of the main AppShell sidebar.
+          // Widened from 76 → 110px (Jack: "this part's too small
+          // width-wise and can be made bigger") so avatar photos render
+          // at full size without the squish that was cropping faces.
           left: 252,
-          width: 76,
+          width: 110,
           flexDirection: "column",
           gap: 6,
-          padding: 8,
+          padding: 10,
           background: "var(--panel-solid)",
           border: "1px solid var(--border)",
           borderRadius: 14,
@@ -331,7 +330,7 @@ export async function ConversationRail({
                 id={otherId}
                 name={fullName}
                 avatarUrl={p?.avatar_url ?? null}
-                size={40}
+                size={56}
               />
               {dot !== "transparent" && (
                 <span

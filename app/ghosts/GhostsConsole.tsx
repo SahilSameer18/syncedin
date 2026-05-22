@@ -57,17 +57,42 @@ export function GhostsConsole({
     setGhost(null);
     setMessages([]);
     try {
-      const looksLikeUrl = /^https?:\/\//i.test(contact.trim());
-      const looksLikeEmail = /@/.test(contact.trim());
+      const raw = contact.trim();
+      // Detect input shape. Order matters — URL > email > bare-handle.
+      // Bare handles ("@jackjay.io" or "jackjay.io") become a synthetic
+      // profile URL (best-effort: try linkedin.com/in/{handle} as the
+      // default lookup since LinkedIn handles are the most common shape).
+      const looksLikeUrl = /^https?:\/\//i.test(raw);
+      const looksLikeEmail = /^\S+@\S+\.\S+$/.test(raw);
+      let profile_url: string | undefined;
+      let email: string | undefined;
+      let name: string | undefined;
+      if (looksLikeUrl) {
+        profile_url = raw;
+      } else if (looksLikeEmail) {
+        email = raw;
+      } else {
+        // Treat as a handle. Strip leading @ and any non-handle chars.
+        // For ".io"-style ("jackjay.io"), strip the TLD — we'll route
+        // it to LinkedIn as the default platform.
+        const handle = raw
+          .replace(/^@+/, "")
+          .replace(/\.(io|com|net|co|app|me|fm)$/i, "")
+          .trim();
+        if (handle.length < 2) {
+          throw new Error(
+            "Need a profile URL (linkedin.com/in/..., x.com/..., instagram.com/...), an email, or a handle with at least 2 characters."
+          );
+        }
+        // Generate a synthetic LinkedIn URL. The scrape pipeline will
+        // try LinkedIn first; if it fails it'll fall through to other
+        // vendors. Either way the user sees something instead of
+        // "no_contacts."
+        profile_url = `https://www.linkedin.com/in/${handle}`;
+        name = handle;
+      }
       const payload = {
-        contacts: [
-          {
-            profile_url: looksLikeUrl ? contact.trim() : undefined,
-            email: looksLikeEmail && !looksLikeUrl ? contact.trim() : undefined,
-            handle:
-              !looksLikeUrl && !looksLikeEmail ? contact.trim() : undefined
-          }
-        ]
+        contacts: [{ profile_url, email, name }]
       };
       const res = await fetch("/api/bulk-create-invites", {
         method: "POST",
@@ -76,9 +101,21 @@ export function GhostsConsole({
       });
       const j = await res.json();
       if (!res.ok) {
-        throw new Error(
-          j.detail || j.error || `Couldn't summon ghost (HTTP ${res.status}).`
-        );
+        const detail = j.detail || j.error || `HTTP ${res.status}`;
+        // Map back-end error codes to human-readable copy. Jack hit
+        // "no_contacts" raw — make every error message tell the user
+        // what to do next.
+        if (detail === "no_contacts") {
+          throw new Error(
+            "We couldn't read that input as a person. Try pasting a full URL (linkedin.com/in/jane-doe), an email, or a name like 'Jane Doe'."
+          );
+        }
+        if (/scrape|vendor|apify|scrapingdog/i.test(detail)) {
+          throw new Error(
+            "Our scrape vendors couldn't find that profile right now. Try a different URL or come back in a minute."
+          );
+        }
+        throw new Error(detail);
       }
       const r = (j.results ?? [])[0] as GhostInvite | undefined;
       if (!r) {

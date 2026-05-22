@@ -255,18 +255,35 @@ export async function AppShell({
         <div
           className="hidden lg:block"
           style={{
+            // Drop the internal scroll on the sticky column — it was
+            // creating a new stacking context that let the SyncMeter's
+            // absolute-positioned tooltip + figure escape into the
+            // sidebar nav area on scroll (Jack: "this part scrolls
+            // wrong and weird"). Sticky positioning still keeps the
+            // sidebar visible while main content scrolls; the column
+            // just grows naturally now.
             position: "sticky",
             top: 12,
             alignSelf: "start",
-            maxHeight: "calc(100vh - 24px)",
-            overflowY: "auto",
             display: "flex",
             flexDirection: "column",
             gap: 10
           }}
         >
           {sidebar}
-          {sidebarExtra && <div>{sidebarExtra}</div>}
+          {sidebarExtra && (
+            <div
+              style={{
+                // Clip any absolute-positioned children of the
+                // SyncMeter (tooltips, gradient bloom) so they can't
+                // escape into the sidebar nav.
+                overflow: "hidden",
+                borderRadius: 14
+              }}
+            >
+              {sidebarExtra}
+            </div>
+          )}
         </div>
 
         <div className="min-w-0">{children}</div>

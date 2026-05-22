@@ -84,39 +84,12 @@ export function Sidebar({
         // when the user has few nav items; let content size the sidebar.
       }}
     >
-      {/* Wordmark — fills the sidebar width. Width:100% forces it to spread
-          to the full available column instead of rendering at the PNG's
-          natural pixel size. Tight top + bottom padding so the wordmark
-          sits flush against the profile block below it. */}
-      <Link
-        href="/"
-        aria-label="SyncedIn — home"
-        style={{
-          display: "block",
-          padding: 0,
-          margin: 0,
-          textDecoration: "none",
-          width: "100%"
-        }}
-      >
-        {/* Use the TIGHT wordmark variant — the regular PNG has ~80%
-            transparent padding baked into the 500x500 image (task #103),
-            which is why the previous Sidebar-padding cuts didn't visibly
-            change anything: the whitespace was inside the image, not
-            around it. Hard max-height cap as belt-and-suspenders. */}
-        <img
-          src="/syncedin-wordmark-tight.png"
-          alt="SyncedIn"
-          className="wordmark-themed"
-          style={{
-            width: "100%",
-            height: "auto",
-            maxHeight: 34,
-            objectFit: "contain",
-            display: "block"
-          }}
-        />
-      </Link>
+      {/* Wordmark moved to the TopBar (Jack: "move the logo to the top
+          part up above, bring up some space"). The sidebar is shorter
+          now since the nav items can start right at the top of the
+          column. We still render the wordmark inside the mobile drawer
+          via MobileShell's own top bar, so this hidden lg-only block
+          is dead in the desktop sidebar. */}
 
       {/* Profile chip removed per Jack — the same name + avatar already
           lives in the top-right TopBar dropdown, so the sidebar chip was

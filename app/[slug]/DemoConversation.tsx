@@ -932,8 +932,13 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
             onClick={() => setActiveTab("context")}
             aria-selected={activeTab === "context"}
           >
-            <BrandLogo brand="linkedin" size={14} />
-            <span>Bio</span>
+            {/* Tab label is source-agnostic now — the scrape pipeline
+                may have pulled bio text from LinkedIn, X, IG, or the
+                public web, so hard-coding "LinkedIn / Bio" here was
+                misleading (Jack flagged: "I never added LinkedIn,
+                that was from X"). */}
+            <span aria-hidden="true">📄</span>
+            <span>Public bio</span>
           </button>
           <button
             role="tab"
@@ -967,15 +972,31 @@ Be concrete and first-person. No fluff, no marketing language. Aim for ~150 word
           <div className="ctx-section">
             <h4>What we pulled from your public footprint</h4>
             <p className="hint">
-              Edit anything that&apos;s off. The simulation rebuilds against
-              your corrections.
+              Pulled from whichever public source we could reach
+              (LinkedIn, X, Instagram, or the open web). Edit anything
+              that&apos;s off — the simulation rebuilds against your
+              corrections.
             </p>
+            {/* Taller textarea + autosize on focus so the whole bio is
+                visible without scrolling. Jack: "it cuts off, which I
+                feel like is not perfect." */}
             <textarea
               value={linkedinAbout}
-              onChange={(e) => setLinkedinAbout(e.target.value.slice(0, 3000))}
-              placeholder="We didn't find a public LinkedIn — paste a bio paragraph here."
+              onChange={(e) => {
+                setLinkedinAbout(e.target.value.slice(0, 3000));
+                // Autosize: grow to fit content up to a generous cap.
+                const t = e.currentTarget;
+                t.style.height = "auto";
+                t.style.height = Math.min(540, t.scrollHeight + 4) + "px";
+              }}
+              onFocus={(e) => {
+                const t = e.currentTarget;
+                t.style.height = "auto";
+                t.style.height = Math.min(540, t.scrollHeight + 4) + "px";
+              }}
+              placeholder="We didn't find a public bio — paste a paragraph about yourself here."
               className="ctx-textarea"
-              style={{ minHeight: 160 }}
+              style={{ minHeight: 260, maxHeight: 540, overflow: "auto" }}
             />
             <div className="ctx-count">{linkedinAbout.length}/3000</div>
 

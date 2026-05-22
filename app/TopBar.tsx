@@ -84,14 +84,50 @@ export function TopBar({
         padding: "8px 16px",
         display: "flex",
         alignItems: "center",
-        justifyContent: "flex-end",
+        justifyContent: "space-between",
         gap: 8,
         marginBottom: 12
       }}
     >
+      {/* Wordmark — pulled up out of the sidebar (Jack: "move the logo
+          to the top part up above, bring up some space"). Always
+          links home. */}
+      <Link
+        href="/"
+        aria-label="SyncedIn — home"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          padding: "2px 0",
+          flexShrink: 0,
+          textDecoration: "none"
+        }}
+      >
+        <img
+          src="/syncedin-wordmark-tight.png"
+          alt="SyncedIn"
+          className="wordmark-themed"
+          style={{
+            height: 28,
+            width: "auto",
+            display: "block"
+          }}
+        />
+      </Link>
+
       {/* Nav items — pinned to the RIGHT next to the profile chip per
           Jack: "move these items in the top menu all the way to the
           right side next to the profile piece." */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+          justifyContent: "flex-end",
+          flex: 1
+        }}
+      >
       <nav
         style={{
           display: "flex",
@@ -273,6 +309,7 @@ export function TopBar({
             </form>
           </div>
         )}
+      </div>
       </div>
     </div>
   );
