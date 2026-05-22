@@ -423,8 +423,42 @@ export default async function DashboardPage() {
     edit_count: editCount ?? 0
   };
 
+  // Clone Sync card rendered into AppShell's sidebar slot so it sits
+  // UNDER the sidebar nav (in-line with the menu) on desktop instead
+  // of a separate column. Jack: "this human clone part we can put
+  // under it in line."
+  const cloneSyncCard = (
+    <aside
+      className="flex flex-col items-center gap-3"
+      style={{
+        padding: 10,
+        borderRadius: 14,
+        background: "var(--panel-solid)",
+        border: "1px solid var(--border)"
+      }}
+    >
+      <SyncMeter
+        inputs={syncInputs}
+        size={120}
+        avatarUrl={(myProfile as any)?.avatar_url ?? null}
+        userId={user.id}
+      />
+      <Link
+        href="/onboarding"
+        className="retro-btn retro-btn-primary text-center"
+        style={{
+          width: "100%",
+          fontSize: 12,
+          padding: "8px 10px"
+        }}
+      >
+        + add context
+      </Link>
+    </aside>
+  );
+
   return (
-    <AppShell>
+    <AppShell sidebarExtra={cloneSyncCard}>
       {/* Fire-and-forget backfill for missing summaries/scores */}
       <SummaryBackfill conversationIds={needsBackfillIds} />
       {/* Scrolls to top when arriving with ?saved=1 (post-onboarding). */}
@@ -445,11 +479,12 @@ export default async function DashboardPage() {
           </div>
         )}
 
-        {/* Two-column inner: SyncMeter (sticky) + Discover/everything.
-            Left rail shrunk to 200px to match the 150px meter + chrome. */}
-        <div className="mt-8 grid md:grid-cols-[200px_1fr] gap-8 items-start">
-        {/* LEFT — clone meter */}
-        <aside className="md:sticky md:top-6 flex flex-col items-center gap-4">
+        {/* Single-column main content. The Clone Sync widget lives in
+            the sidebar column now (via AppShell's sidebarExtra slot),
+            so the right column is full-width. */}
+        <div className="mt-6">
+        {/* Hidden legacy left-rail block kept for layout-equiv. */}
+        <aside className="hidden" aria-hidden="true">
           <SyncMeter
             inputs={syncInputs}
             size={150}

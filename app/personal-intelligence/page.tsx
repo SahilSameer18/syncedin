@@ -66,6 +66,12 @@ export default async function PersonalIntelligencePage() {
     "you";
   const hasTwin = Boolean((twin as any)?.goals);
 
+  // Invite-unlock thresholds. Jack: "the merch line should unlock with
+  // five invites who sign up." Lower-effort modules unlock at 0-1 so the
+  // user has something to play with on day one; the harder / more
+  // expensive ones gate behind real referral signups so the user has
+  // an incentive to share SyncedIn.
+  const handle = (profile as any)?.handle as string | null;
   const cards: {
     key: string;
     eyebrow: string;
@@ -73,42 +79,17 @@ export default async function PersonalIntelligencePage() {
     blurb: string;
     accent: string;
     icon: string;
+    unlockAt: number; // referrals needed
   }[] = [
     {
-      key: "images",
-      eyebrow: "Images 2.0",
-      title: `Generate ${firstName}-themed images`,
+      key: "portfolio",
+      eyebrow: "Public portfolio",
+      title: "Your public portfolio page",
       blurb:
-        "Viral-style portrait series built from your real context — your background, your work, your style. Pick a prompt, get a set you can post anywhere.",
+        "One click and we publish your portfolio — a clean public page (syncedin.org/u/your-handle) people can land on after a conversation with you. Auto-generated from your twin context.",
       accent: "#1f8bff",
-      icon: "🎨"
-    },
-    {
-      key: "merch",
-      eyebrow: "Merch",
-      title: "A merch line that's actually you",
-      blurb:
-        "Auto-generated t-shirt + hoodie + sticker designs from your twin's archetype. Print-ready files, no design skill needed.",
-      accent: "#6b2dc9",
-      icon: "👕"
-    },
-    {
-      key: "song",
-      eyebrow: "Audio",
-      title: "Your personal song",
-      blurb:
-        "Generated track that captures your story arc — tempo, lyrics, and feel pulled from your twin context. Shareable as a personal anthem.",
-      accent: "#d83bff",
-      icon: "🎵"
-    },
-    {
-      key: "blueprint",
-      eyebrow: "Life Path",
-      title: "Your life path blueprint",
-      blurb:
-        "A visual map of where you've been, where the network thinks you're headed, and the highest-leverage next moves to get there.",
-      accent: "#22c55e",
-      icon: "🗺️"
+      icon: "🪪",
+      unlockAt: 0
     },
     {
       key: "movies",
@@ -117,7 +98,8 @@ export default async function PersonalIntelligencePage() {
       blurb:
         "Curated picks based on your bio + tastes. Tell us why you loved one and the next 5 sharpen up.",
       accent: "#f97316",
-      icon: "🎬"
+      icon: "🎬",
+      unlockAt: 0
     },
     {
       key: "books",
@@ -126,7 +108,38 @@ export default async function PersonalIntelligencePage() {
       blurb:
         "Same loop for reading. The longer you tell your twin what landed and why, the more useful the next list becomes.",
       accent: "#eab308",
-      icon: "📚"
+      icon: "📚",
+      unlockAt: 0
+    },
+    {
+      key: "blueprint",
+      eyebrow: "Life Path",
+      title: "Your life path blueprint",
+      blurb:
+        "A visual map of where you've been, where the network thinks you're headed, and the highest-leverage next moves to get there.",
+      accent: "#22c55e",
+      icon: "🗺️",
+      unlockAt: 3
+    },
+    {
+      key: "images",
+      eyebrow: "Images 2.0",
+      title: `Generate ${firstName}-themed images`,
+      blurb:
+        "Viral-style portrait series built from your real context — your background, your work, your style. Pick a prompt, get a set you can post anywhere.",
+      accent: "#1f8bff",
+      icon: "🎨",
+      unlockAt: 3
+    },
+    {
+      key: "merch",
+      eyebrow: "Merch",
+      title: "A merch line that's actually you",
+      blurb:
+        "Auto-generated t-shirt + hoodie + sticker designs from your twin's archetype. Print-ready files, no design skill needed.",
+      accent: "#6b2dc9",
+      icon: "👕",
+      unlockAt: 5
     },
     {
       key: "creative",
@@ -135,7 +148,8 @@ export default async function PersonalIntelligencePage() {
       blurb:
         "Starter outline for a memoir, novel, or screenplay built from the most distinctive parts of your story. Three structural options to pick from.",
       accent: "#ec4899",
-      icon: "✍️"
+      icon: "✍️",
+      unlockAt: 7
     },
     {
       key: "business",
@@ -144,7 +158,18 @@ export default async function PersonalIntelligencePage() {
       blurb:
         "If you mentioned a business in your twin context, we sketch the potential huge-success path: TAM, GTM, the 18-month milestone arc.",
       accent: "#10b981",
-      icon: "🚀"
+      icon: "🚀",
+      unlockAt: 10
+    },
+    {
+      key: "song",
+      eyebrow: "Audio",
+      title: "Your personal song",
+      blurb:
+        "Generated track that captures your story arc — tempo, lyrics, and feel pulled from your twin context. Shareable as a personal anthem.",
+      accent: "#d83bff",
+      icon: "🎵",
+      unlockAt: 10
     }
   ];
 
@@ -278,12 +303,134 @@ export default async function PersonalIntelligencePage() {
         }
       `}</style>
 
+      {/* Referral progress strip — tells the user where their next
+          unlock is. Jack: "Upgrades happen from making multiple invites
+          for people to join." */}
+      <div
+        style={{
+          marginBottom: 14,
+          padding: "10px 14px",
+          borderRadius: 12,
+          background: "var(--panel-2)",
+          border: "1px solid var(--border)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 12,
+          flexWrap: "wrap"
+        }}
+      >
+        <div style={{ fontSize: 13 }}>
+          <strong style={{ color: "var(--text)" }}>{referrals}</strong>{" "}
+          <span style={{ color: "var(--text-dim)" }}>
+            successful invite{referrals === 1 ? "" : "s"} so far
+          </span>
+          {(() => {
+            const next = cards.find((c) => c.unlockAt > referrals);
+            if (!next) return null;
+            return (
+              <span style={{ color: "var(--text-dim)" }}>
+                {" · "}
+                next unlock at{" "}
+                <strong style={{ color: "var(--text)" }}>
+                  {next.unlockAt}
+                </strong>{" "}
+                ({next.icon} {next.title.split(" ").slice(0, 3).join(" ")}…)
+              </span>
+            );
+          })()}
+        </div>
+        <a
+          href="/invite"
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            padding: "7px 14px",
+            borderRadius: 999,
+            background:
+              "linear-gradient(135deg, #1f8bff 0%, #6b2dc9 100%)",
+            color: "#fff",
+            textDecoration: "none",
+            boxShadow:
+              "0 6px 18px -6px rgba(31, 139, 255, 0.45)"
+          }}
+        >
+          💌 send more invites
+        </a>
+      </div>
+
       <section className="pi-grid">
         {cards.map((c) => {
-          // Movies + Books are wired up to the real /api/personal-intelligence/recs
-          // endpoint via the RecGeneratorCard component. The other six cards still
-          // ship as "Shipping soon" placeholders until their backends land.
-          if (c.key === "movies") {
+          const locked = referrals < c.unlockAt;
+          // Movies + Books are wired up to the real
+          // /api/personal-intelligence/recs endpoint via RecGeneratorCard.
+          // Portfolio is a real one-click claim card. Everything else
+          // is a "Shipping soon" placeholder gated by referral unlocks.
+          if (c.key === "portfolio") {
+            return (
+              <article
+                key={c.key}
+                className="pi-card"
+                style={{
+                  borderColor: "rgba(31, 139, 255, 0.35)",
+                  background:
+                    "linear-gradient(180deg, rgba(31, 139, 255, 0.05) 0%, var(--panel-solid) 60%)"
+                }}
+              >
+                <span className="icon" aria-hidden="true">
+                  {c.icon}
+                </span>
+                <span className="eyebrow" style={{ color: c.accent }}>
+                  {c.eyebrow}
+                </span>
+                <h3>{c.title}</h3>
+                <p>{c.blurb}</p>
+                {handle ? (
+                  <div style={{ marginTop: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <a
+                      href={`/u/${handle}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="retro-btn retro-btn-primary"
+                      style={{
+                        fontSize: 12,
+                        padding: "8px 14px",
+                        textDecoration: "none"
+                      }}
+                    >
+                      🔗 view your portfolio
+                    </a>
+                    <a
+                      href="/settings"
+                      className="retro-btn"
+                      style={{
+                        fontSize: 12,
+                        padding: "8px 14px",
+                        textDecoration: "none"
+                      }}
+                    >
+                      edit handle
+                    </a>
+                  </div>
+                ) : (
+                  <a
+                    href="/settings"
+                    className="retro-btn retro-btn-primary"
+                    style={{
+                      marginTop: "auto",
+                      alignSelf: "flex-start",
+                      fontSize: 12,
+                      padding: "8px 14px",
+                      textDecoration: "none"
+                    }}
+                  >
+                    ✨ build my portfolio (1 click)
+                  </a>
+                )}
+              </article>
+            );
+          }
+          if (c.key === "movies" && !locked) {
             return (
               <RecGeneratorCard
                 key={c.key}
@@ -296,7 +443,7 @@ export default async function PersonalIntelligencePage() {
               />
             );
           }
-          if (c.key === "books") {
+          if (c.key === "books" && !locked) {
             return (
               <RecGeneratorCard
                 key={c.key}
@@ -310,7 +457,19 @@ export default async function PersonalIntelligencePage() {
             );
           }
           return (
-            <article key={c.key} className="pi-card">
+            <article
+              key={c.key}
+              className="pi-card"
+              style={
+                locked
+                  ? {
+                      opacity: 0.55,
+                      borderStyle: "dashed",
+                      borderColor: "var(--border-bright)"
+                    }
+                  : undefined
+              }
+            >
               <span className="icon" aria-hidden="true">
                 {c.icon}
               </span>
@@ -319,7 +478,26 @@ export default async function PersonalIntelligencePage() {
               </span>
               <h3>{c.title}</h3>
               <p>{c.blurb}</p>
-              <span className="soon">Shipping soon</span>
+              <span
+                className="soon"
+                style={
+                  locked
+                    ? {
+                        background:
+                          "linear-gradient(135deg, rgba(31, 139, 255, 0.12) 0%, rgba(107, 45, 201, 0.12) 100%)",
+                        borderColor:
+                          "rgba(107, 45, 201, 0.35)",
+                        color: "#6b2dc9"
+                      }
+                    : undefined
+                }
+              >
+                {locked
+                  ? `🔒 Unlocks at ${c.unlockAt} invite${
+                      c.unlockAt === 1 ? "" : "s"
+                    }`
+                  : "Shipping soon"}
+              </span>
             </article>
           );
         })}
