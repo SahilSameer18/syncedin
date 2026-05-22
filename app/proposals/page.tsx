@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { Avatar } from "../Avatar";
-import { ExpandProposal } from "./ExpandProposal";
+import { ExpandProposalInline } from "./ExpandProposalInline";
 
 /**
  * /proposals — dedicated view of every conversation's END proposal.
@@ -108,6 +108,41 @@ export default async function ProposalsPage() {
         reason: r.reason ?? null
       });
       respsByConv.set(r.conversation_id, list);
+    }
+  }
+
+  // Pre-fetch the FULL agreement text for every proposal so the
+  // "show the full proposal" expand is instant (no loading). One
+  // batched query for all messages across all proposal conversations,
+  // then per-conversation extract of the AGREEMENT: marker text.
+  const fullTextByConv = new Map<string, string>();
+  if (convIds.length > 0) {
+    const { data: allMsgs } = await service
+      .from("messages")
+      .select("conversation_id, final_text, sent_at")
+      .in("conversation_id", convIds)
+      .order("sent_at", { ascending: false });
+    // Walk newest-first; first message per conv containing the marker wins.
+    const seen = new Set<string>();
+    for (const m of ((allMsgs ?? []) as any[])) {
+      if (seen.has(m.conversation_id)) continue;
+      const text = (m.final_text ?? "").toString();
+      const marker = text.match(/>>>\s*AGREEMENT:?\s*/i);
+      if (marker) {
+        const agreement = text
+          .slice(marker.index! + marker[0].length)
+          .trim();
+        if (agreement) {
+          fullTextByConv.set(m.conversation_id, agreement);
+          seen.add(m.conversation_id);
+        }
+      }
+    }
+    // For convs without a marker, fall back to the conversation's summary.
+    for (const c of rows) {
+      if (!fullTextByConv.has(c.id) && c.summary) {
+        fullTextByConv.set(c.id, c.summary);
+      }
     }
   }
 
@@ -280,29 +315,11 @@ export default async function ProposalsPage() {
                   >
                     {c.summary}
                   </p>
-                  {/* Expand → reveals the full agreement text (vs. the
-                      short summary headline above). Lazy-fetched on
-                      first click via /api/conversations/<id>/agreement-text. */}
-                  <ExpandProposal conversationId={c.id} />
-                  {/* Primary "open full conversation" link — most direct
-                      path back to the full messages thread for context
-                      before deciding accept/change/counter/deny. */}
-                  <div style={{ marginTop: 12 }}>
-                    <Link
-                      href={`/conversations/${c.id}`}
-                      className="retro-btn retro-btn-primary text-xs"
-                      style={{
-                        padding: "8px 14px",
-                        fontWeight: 700,
-                        textDecoration: "none",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 6
-                      }}
-                    >
-                      💬 open full messages →
-                    </Link>
-                  </div>
+                  {/* Inline expand — full agreement text pre-fetched
+                      server-side so no loading state. Click is instant. */}
+                  <ExpandProposalInline
+                    fullText={fullTextByConv.get(c.id) ?? c.summary}
+                  />
                   {!sealed && (
                     <div
                       style={{
@@ -312,6 +329,22 @@ export default async function ProposalsPage() {
                         flexWrap: "wrap"
                       }}
                     >
+                      {/* "Open full messages" sits LEFT of Accept on
+                          the same row so we don't take up another row. */}
+                      <Link
+                        href={`/conversations/${c.id}`}
+                        className="retro-btn text-xs"
+                        style={{
+                          padding: "6px 12px",
+                          fontWeight: 700,
+                          textDecoration: "none",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 4
+                        }}
+                      >
+                        💬 open full messages
+                      </Link>
                       {myResp?.response !== "accepted" && (
                         <Link
                           href={`/conversations/${c.id}#agreement`}
@@ -362,6 +395,24 @@ export default async function ProposalsPage() {
                           ✕ deny with reason
                         </Link>
                       )}
+                    </div>
+                  )}
+                  {/* Even when sealed, give a way back to the full
+                      messages thread for context — but as a quiet text
+                      link instead of a button. */}
+                  {sealed && (
+                    <div style={{ marginTop: 10 }}>
+                      <Link
+                        href={`/conversations/${c.id}`}
+                        style={{
+                          fontSize: 12,
+                          color: "#1f8bff",
+                          fontWeight: 700,
+                          textDecoration: "none"
+                        }}
+                      >
+                        💬 open full messages →
+                      </Link>
                     </div>
                   )}
                 </div>

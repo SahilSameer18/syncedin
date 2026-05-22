@@ -66,63 +66,82 @@ export async function AppShell({
   }
 
   // === Unread counts for the sidebar's red badges ===
-  // Counts "things waiting on me" for /messages (conversations where
-  // last message arrived AFTER my last_read timestamp) and /poll (open
-  // polls I haven't voted on). Both wrapped in try/catch so a missing
-  // table or column never crashes the shell.
+  // Three counts: /messages (a message from the other side arrived
+  // after my last_read), /poll (a poll exists I haven't responded
+  // to), /proposals (a conversation has a summary I haven't acted on).
+  // Each block wrapped in try/catch so missing tables silently degrade
+  // to zero — they never crash the shell.
   const unreadCounts: Record<string, number> = {};
   try {
-    // Messages: conversations where I'm a participant AND there's a
-    // newer message than my last_read. We use a cheap heuristic — count
-    // conversations whose updated_at is after my last_read_a/_b timestamp
-    // depending on which participant I am. Fall back to "no unread"
-    // silently if the columns don't exist.
+    // Pull my conversations with last_read timestamps.
     const { data: convs } = await supabase
       .from("conversations")
-      .select("id, participant_a, participant_b, last_read_a, last_read_b, updated_at, created_at")
+      .select(
+        "id, participant_a, participant_b, last_read_a, last_read_b, created_at"
+      )
       .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`);
-    let messagesUnread = 0;
-    for (const c of ((convs ?? []) as any[])) {
-      const isA = c.participant_a === user.id;
-      const myLastRead = isA ? c.last_read_a : c.last_read_b;
-      const latest = c.updated_at || c.created_at;
-      if (!latest) continue;
-      if (!myLastRead || new Date(latest) > new Date(myLastRead)) {
-        messagesUnread += 1;
+    const myConvs = (convs ?? []) as any[];
+    const convIds = myConvs.map((c) => c.id);
+
+    if (convIds.length > 0) {
+      // Fetch the latest message per conversation (NOT from me). One
+      // batched query, then bucket by conversation_id in memory.
+      const { data: msgs } = await supabase
+        .from("messages")
+        .select("conversation_id, sender_user_id, sent_at")
+        .in("conversation_id", convIds)
+        .neq("sender_user_id", user.id)
+        .order("sent_at", { ascending: false });
+      const latestByConv = new Map<string, string>();
+      for (const m of ((msgs ?? []) as any[])) {
+        if (!latestByConv.has(m.conversation_id)) {
+          latestByConv.set(m.conversation_id, m.sent_at);
+        }
       }
+      let messagesUnread = 0;
+      for (const c of myConvs) {
+        const isA = c.participant_a === user.id;
+        const myLastRead = isA ? c.last_read_a : c.last_read_b;
+        const latest = latestByConv.get(c.id);
+        if (!latest) continue;
+        if (!myLastRead || new Date(latest) > new Date(myLastRead)) {
+          messagesUnread += 1;
+        }
+      }
+      if (messagesUnread > 0) unreadCounts["/messages"] = messagesUnread;
     }
-    if (messagesUnread > 0) unreadCounts["/messages"] = messagesUnread;
-  } catch (e) {
+  } catch {
     /* schema drift — skip */
   }
   try {
-    // Poll: count open polls where I haven't cast a vote yet. Best-
-    // effort — if polls or poll_votes table isn't present in this
-    // deployment, the count is just zero.
+    // Polls: count polls where my twin hasn't responded yet AND the
+    // poll isn't closed. The table is `poll_responses` (not
+    // `poll_votes` — earlier bug) and uses `twin_user_id` not user_id.
     const { data: polls } = await supabase
       .from("polls")
-      .select("id, closed")
-      .eq("closed", false);
-    const ids = ((polls ?? []) as any[]).map((p) => p.id);
-    if (ids.length > 0) {
-      const { data: myVotes } = await supabase
-        .from("poll_votes")
+      .select("id, status")
+      .neq("status", "closed");
+    const pollIds = ((polls ?? []) as any[]).map((p) => p.id);
+    if (pollIds.length > 0) {
+      const { data: myResponses } = await supabase
+        .from("poll_responses")
         .select("poll_id")
-        .eq("user_id", user.id)
-        .in("poll_id", ids);
-      const votedSet = new Set(
-        ((myVotes ?? []) as any[]).map((v) => v.poll_id)
+        .eq("twin_user_id", user.id)
+        .in("poll_id", pollIds);
+      const respondedSet = new Set(
+        ((myResponses ?? []) as any[]).map((r) => r.poll_id)
       );
-      const pollUnread = ids.filter((id: string) => !votedSet.has(id))
-        .length;
+      const pollUnread = pollIds.filter(
+        (id: string) => !respondedSet.has(id)
+      ).length;
       if (pollUnread > 0) unreadCounts["/poll"] = pollUnread;
     }
-  } catch (e) {
+  } catch {
     /* polls table not present yet — skip */
   }
   try {
-    // Proposals: count summaries on my conversations that I haven't
-    // accepted/rejected yet (no agreement_responses row from me).
+    // Proposals: conversations with a summary that I haven't responded
+    // to in agreement_responses yet.
     const { data: convs } = await supabase
       .from("conversations")
       .select("id, participant_a, participant_b, summary")
@@ -143,7 +162,7 @@ export async function AppShell({
       ).length;
       if (proposalsUnread > 0) unreadCounts["/proposals"] = proposalsUnread;
     }
-  } catch (e) {
+  } catch {
     /* skip */
   }
 
