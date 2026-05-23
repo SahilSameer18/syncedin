@@ -35,11 +35,7 @@ export default async function PersonalIntelligencePage() {
   if (!user) redirect("/login?next=/personal-intelligence");
 
   const service = createServiceClient();
-  const [
-    { data: profile },
-    { data: twin },
-    { count: claimedInvites }
-  ] = await Promise.all([
+  const [{ data: profile }, { data: twin }] = await Promise.all([
     service
       .from("profiles")
       .select("display_name, email, handle")
@@ -49,18 +45,64 @@ export default async function PersonalIntelligencePage() {
       .from("twin_profiles")
       .select("goals, deal_preferences, ai_export_blob")
       .eq("user_id", user.id)
-      .maybeSingle(),
-    // Successful invites = pending_invites this user created that have
-    // been claimed by a real signup. Drives the invite-unlock gating
-    // on the PI cards below per Jack: "the merch line should unlock
-    // with five invites who sign up."
-    service
-      .from("pending_invites")
-      .select("id", { count: "exact", head: true })
-      .eq("inviter_user_id", user.id)
-      .not("claimed_by_user_id", "is", null)
+      .maybeSingle()
   ]);
-  const referrals = claimedInvites ?? 0;
+
+  // Successful invite count = invites this user created whose
+  // recipient ended up signing up. Two ways to count:
+  //   1. pending_invites.claimed_by_user_id non-null (direct claim
+  //      via /claim/<slug>)
+  //   2. profiles where email matches a pending_invites.recipient_email
+  //      this user created (signup without going through /claim/)
+  // Take the union so neither path under-counts.
+  // Jack: "I have 0 successful invites but I have 2" — the .not()
+  // chain was returning 0 because of PostgREST + RLS quirks on the
+  // is-null filter. Fetch the rows + count in memory instead.
+  let referrals = 0;
+  try {
+    const { data: claimed } = await service
+      .from("pending_invites")
+      .select("id, claimed_by_user_id, recipient_email")
+      .eq("inviter_user_id", user.id);
+    const rows = (claimed ?? []) as Array<{
+      id: string;
+      claimed_by_user_id: string | null;
+      recipient_email: string | null;
+    }>;
+    const claimedIds = new Set(
+      rows
+        .filter((r) => r.claimed_by_user_id)
+        .map((r) => r.id)
+    );
+    // Email-match fallback — recipient signed up with the same email
+    // but never clicked the claim slug. Scan once.
+    const inviteEmails = Array.from(
+      new Set(
+        rows
+          .map((r) => (r.recipient_email || "").toLowerCase())
+          .filter(Boolean)
+      )
+    );
+    if (inviteEmails.length > 0) {
+      const { data: matched } = await service
+        .from("profiles")
+        .select("email")
+        .in("email", inviteEmails);
+      const signedUpEmails = new Set(
+        ((matched ?? []) as Array<{ email: string | null }>)
+          .map((m) => (m.email || "").toLowerCase())
+          .filter(Boolean)
+      );
+      for (const r of rows) {
+        const e = (r.recipient_email || "").toLowerCase();
+        if (e && signedUpEmails.has(e)) claimedIds.add(r.id);
+      }
+    }
+    referrals = claimedIds.size;
+  } catch (e) {
+    console.warn("[pi] referral count failed", e);
+    referrals = 0;
+  }
 
   const firstName =
     ((profile as any)?.display_name || "").split(/\s+/)[0] ||
@@ -303,6 +345,47 @@ export default async function PersonalIntelligencePage() {
           color: var(--text-dim);
           align-self: flex-start;
         }
+        /* Locked-card hover animation — shimmer sweep + lift + the
+           progress bar glows. Click-through routes to /invite. */
+        .pi-locked {
+          opacity: 0.78;
+          transition:
+            transform 0.2s ease,
+            opacity 0.2s ease,
+            box-shadow 0.25s ease,
+            border-color 0.2s ease;
+        }
+        .pi-locked:hover {
+          transform: translateY(-2px);
+          opacity: 1;
+          border-color: rgba(107, 45, 201, 0.55);
+          box-shadow: 0 18px 40px -20px rgba(107, 45, 201, 0.45);
+        }
+        .pi-shimmer {
+          position: absolute;
+          top: 0;
+          left: -120%;
+          width: 80%;
+          height: 100%;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(216, 59, 255, 0.10) 50%,
+            transparent 100%
+          );
+          pointer-events: none;
+          z-index: 0;
+          transition: left 0.6s ease;
+        }
+        .pi-locked:hover .pi-shimmer {
+          left: 140%;
+        }
+        .pi-locked .pi-progress-fill {
+          transition: filter 0.25s ease, width 0.5s ease;
+        }
+        .pi-locked:hover .pi-progress-fill {
+          filter: brightness(1.3) drop-shadow(0 0 6px rgba(216, 59, 255, 0.5));
+        }
       `}</style>
 
       {/* Referral progress strip — tells the user where their next
@@ -469,20 +552,94 @@ export default async function PersonalIntelligencePage() {
               />
             );
           }
+          // Locked cards are anchor tags that route to /invite, with a
+          // hover animation: shimmer sweeps across the card + a faint
+          // unlock-progress bar fills the bottom showing how close you
+          // are to the threshold. Jack: "let's have an unlock
+          // animation on whats not unlocked on hover and if I click it
+          // send me to invite page."
+          if (locked) {
+            const pct = Math.min(
+              100,
+              Math.round((referrals / c.unlockAt) * 100)
+            );
+            const remaining = c.unlockAt - referrals;
+            return (
+              <a
+                key={c.key}
+                href="/invite"
+                className="pi-card pi-locked"
+                style={{
+                  position: "relative",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  textDecoration: "none",
+                  borderStyle: "dashed",
+                  borderColor: "var(--border-bright)",
+                  overflow: "hidden",
+                  cursor: "pointer"
+                }}
+              >
+                <div className="pi-shimmer" aria-hidden="true" />
+                <span
+                  className="icon"
+                  aria-hidden="true"
+                  style={{ position: "relative", zIndex: 1 }}
+                >
+                  {c.icon}
+                </span>
+                <span
+                  className="eyebrow"
+                  style={{ color: c.accent, position: "relative", zIndex: 1 }}
+                >
+                  {c.eyebrow}
+                </span>
+                <h3 style={{ position: "relative", zIndex: 1 }}>{c.title}</h3>
+                <p style={{ position: "relative", zIndex: 1 }}>{c.blurb}</p>
+                <span
+                  className="soon"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(31, 139, 255, 0.12) 0%, rgba(107, 45, 201, 0.12) 100%)",
+                    borderColor: "rgba(107, 45, 201, 0.35)",
+                    color: "#6b2dc9",
+                    position: "relative",
+                    zIndex: 1
+                  }}
+                >
+                  🔒 {remaining} more invite{remaining === 1 ? "" : "s"} to
+                  unlock
+                </span>
+                {/* Progress bar at the bottom — fills as referrals
+                    accumulate. Visible at rest, glows brighter on hover. */}
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 3,
+                    background: "var(--panel-2)",
+                    overflow: "hidden"
+                  }}
+                >
+                  <div
+                    className="pi-progress-fill"
+                    style={{
+                      width: `${pct}%`,
+                      height: "100%",
+                      background:
+                        "linear-gradient(90deg, #1f8bff 0%, #6b2dc9 50%, #d83bff 100%)"
+                    }}
+                  />
+                </div>
+              </a>
+            );
+          }
           return (
-            <article
-              key={c.key}
-              className="pi-card"
-              style={
-                locked
-                  ? {
-                      opacity: 0.55,
-                      borderStyle: "dashed",
-                      borderColor: "var(--border-bright)"
-                    }
-                  : undefined
-              }
-            >
+            <article key={c.key} className="pi-card">
               <span className="icon" aria-hidden="true">
                 {c.icon}
               </span>
@@ -491,26 +648,7 @@ export default async function PersonalIntelligencePage() {
               </span>
               <h3>{c.title}</h3>
               <p>{c.blurb}</p>
-              <span
-                className="soon"
-                style={
-                  locked
-                    ? {
-                        background:
-                          "linear-gradient(135deg, rgba(31, 139, 255, 0.12) 0%, rgba(107, 45, 201, 0.12) 100%)",
-                        borderColor:
-                          "rgba(107, 45, 201, 0.35)",
-                        color: "#6b2dc9"
-                      }
-                    : undefined
-                }
-              >
-                {locked
-                  ? `🔒 Unlocks at ${c.unlockAt} invite${
-                      c.unlockAt === 1 ? "" : "s"
-                    }`
-                  : "Shipping soon"}
-              </span>
+              <span className="soon">Shipping soon</span>
             </article>
           );
         })}

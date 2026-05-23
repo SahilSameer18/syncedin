@@ -79,6 +79,20 @@ export async function POST() {
     .update({ handle })
     .eq("id", user.id);
   if (error) {
+    // PostgREST schema-cache miss: the `handle` column exists in
+    // schema.sql but the live DB hasn't been migrated yet. Tell the
+    // user EXACTLY what SQL to run instead of bouncing back with the
+    // raw error.
+    if (/handle.*column|column.*handle|schema cache/i.test(error.message)) {
+      return NextResponse.json(
+        {
+          error: "schema_missing",
+          detail:
+            "Your Supabase DB doesn't have the 'handle' column yet. Run this SQL once in Supabase → SQL Editor:\n\nalter table public.profiles add column if not exists handle text unique;\ncreate index if not exists profiles_handle_idx on public.profiles (lower(handle));\n\nThen click 'build my portfolio' again."
+        },
+        { status: 500 }
+      );
+    }
     return NextResponse.json(
       { error: "save_failed", detail: error.message },
       { status: 500 }

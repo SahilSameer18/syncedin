@@ -252,21 +252,18 @@ export async function AppShell({
             top:12 leaves a hair of breathing room below the viewport top;
             maxHeight + overflow keep tall sidebars (lots of conferences)
             from going off the bottom of the screen. */}
+        {/* Desktop sidebar column. CRITICAL: use the className for
+            display, NOT inline style — inline `display: flex` was
+            overriding the `hidden` class on mobile, causing the
+            CloneSync card to render through the drawer overlay
+            (Jack: "MOBILE VIEW VERY BROKEN" screenshots). Now we use
+            lg:flex so the column is genuinely display:none on mobile. */}
         <div
-          className="hidden lg:block"
+          className="hidden lg:flex lg:flex-col"
           style={{
-            // Drop the internal scroll on the sticky column — it was
-            // creating a new stacking context that let the SyncMeter's
-            // absolute-positioned tooltip + figure escape into the
-            // sidebar nav area on scroll (Jack: "this part scrolls
-            // wrong and weird"). Sticky positioning still keeps the
-            // sidebar visible while main content scrolls; the column
-            // just grows naturally now.
             position: "sticky",
             top: 12,
             alignSelf: "start",
-            display: "flex",
-            flexDirection: "column",
             gap: 10
           }}
         >
