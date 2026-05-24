@@ -23,18 +23,24 @@ import { useState } from "react";
 export function InlineActions({
   conversationId,
   alreadyAccepted,
-  alreadyRejected
+  alreadyRejected,
+  currentProposal
 }: {
   conversationId: string;
   alreadyAccepted: boolean;
   alreadyRejected: boolean;
+  /** The existing proposal text — pre-fills the Change textarea so
+   *  the user edits instead of writes from blank. */
+  currentProposal?: string;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState<"accept" | "deny" | null>(null);
+  const [busy, setBusy] = useState<"accept" | "deny" | "change" | null>(null);
   const [err, setErr] = useState<string>("");
   const [denyOpen, setDenyOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [acceptedJustNow, setAcceptedJustNow] = useState(false);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [changeText, setChangeText] = useState(currentProposal ?? "");
 
   async function accept() {
     if (busy) return;
@@ -56,6 +62,32 @@ export function InlineActions({
       setAcceptedJustNow(true);
       // Refresh the server-rendered page so the row re-renders in the
       // "accepted" state without a hard navigation.
+      router.refresh();
+    } catch (e: any) {
+      setErr(e?.message || String(e));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function submitChange() {
+    if (busy || !changeText.trim()) return;
+    setBusy("change");
+    setErr("");
+    try {
+      const res = await fetch(
+        `/api/conversations/${conversationId}/change-proposal`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ text: changeText.trim() })
+        }
+      );
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}) as any);
+        throw new Error(j.detail || j.error || `HTTP ${res.status}`);
+      }
+      setChangeOpen(false);
       router.refresh();
     } catch (e: any) {
       setErr(e?.message || String(e));
@@ -133,17 +165,27 @@ export function InlineActions({
               : "✓ accept"}
           </button>
         )}
-        <a
-          href={`/conversations/${conversationId}?action=change#agreement`}
+        <button
+          type="button"
+          onClick={() => {
+            // Toggle the inline editor. Reset to the current proposal
+            // text each time it opens so the user edits the latest.
+            setChangeOpen((v) => {
+              if (!v) setChangeText(currentProposal ?? "");
+              return !v;
+            });
+            // Close the deny panel if open — only one editor at a time.
+            setDenyOpen(false);
+          }}
+          disabled={busy !== null}
           className="retro-btn text-xs"
           style={{
             padding: "6px 12px",
-            fontWeight: 700,
-            textDecoration: "none"
+            fontWeight: 700
           }}
         >
-          ✎ change proposal
-        </a>
+          {changeOpen ? "cancel" : "✎ change proposal"}
+        </button>
         <a
           href={`/conversations/${conversationId}?action=counter#agreement`}
           className="retro-btn text-xs"
@@ -172,6 +214,94 @@ export function InlineActions({
           </button>
         )}
       </div>
+      {changeOpen && (
+        <div
+          style={{
+            padding: 10,
+            borderRadius: 10,
+            border: "1px solid rgba(31, 139, 255, 0.35)",
+            background: "rgba(31, 139, 255, 0.05)"
+          }}
+        >
+          <label
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              color: "#1f8bff",
+              letterSpacing: "0.04em",
+              textTransform: "uppercase"
+            }}
+          >
+            Edit the proposal
+          </label>
+          <p
+            style={{
+              margin: "4px 0 6px",
+              fontSize: 11,
+              color: "var(--text-dim)",
+              lineHeight: 1.45
+            }}
+          >
+            Tweak the deal terms below. Saving clears both sides&apos;
+            previous accept / reject so the counterpart sees the new
+            version fresh.
+          </p>
+          <textarea
+            value={changeText}
+            onChange={(e) => setChangeText(e.target.value.slice(0, 4000))}
+            rows={6}
+            className="retro-input mt-1"
+            style={{
+              width: "100%",
+              fontSize: 13,
+              padding: 10,
+              minHeight: 140,
+              resize: "vertical"
+            }}
+          />
+          <div
+            style={{
+              marginTop: 6,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8
+            }}
+          >
+            <span
+              style={{ fontSize: 11, color: "var(--text-dim)" }}
+            >
+              {changeText.length}/4000
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setChangeOpen(false);
+                  setChangeText(currentProposal ?? "");
+                }}
+                className="retro-btn text-xs"
+                style={{ padding: "6px 12px" }}
+              >
+                cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitChange}
+                disabled={
+                  !changeText.trim() ||
+                  changeText.trim() === (currentProposal ?? "").trim() ||
+                  busy !== null
+                }
+                className="retro-btn retro-btn-primary text-xs"
+                style={{ padding: "6px 12px" }}
+              >
+                {busy === "change" ? "saving…" : "save new proposal"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {denyOpen && (
         <div
           style={{

@@ -2,7 +2,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Wordmark } from "./Wordmark";
+import { LandingHandleHero } from "./LandingHandleHero";
 
+/**
+ * Public home page — completely redesigned May 2026 per Jack: "we
+ * need to look more modern and elite." Replaces the retro-panel
+ * cassette-futurism block with a clean white hero, social proof,
+ * platform picker, and a single oversized CTA. Three-card "how it
+ * works" row sits underneath for context without crowding the
+ * conversion surface.
+ *
+ * Signed-in users still bounce to /dashboard.
+ */
 export default async function HomePage() {
   const supabase = createClient();
   const {
@@ -11,57 +22,139 @@ export default async function HomePage() {
   if (user) redirect("/dashboard");
 
   return (
-    <main className="max-w-3xl mx-auto px-6 py-16">
-      <Wordmark size="lg" href={null} />
+    <main>
+      <style>{`
+        .lh-page {
+          min-height: 100vh;
+          background: var(--bg);
+          color: var(--text);
+        }
+        .lh-topbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 22px 32px;
+          max-width: 1180px;
+          margin: 0 auto;
+        }
+        .lh-topbar-links {
+          display: inline-flex;
+          align-items: center;
+          gap: 22px;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--text-dim);
+        }
+        .lh-topbar-links a {
+          color: var(--text-dim);
+          text-decoration: none;
+          transition: color 0.15s ease;
+        }
+        .lh-topbar-links a:hover { color: var(--text); }
+        .lh-topbar-cta {
+          padding: 9px 16px;
+          border-radius: 999px;
+          background: var(--text);
+          color: var(--bg);
+          font-weight: 700;
+          font-size: 14px;
+          text-decoration: none;
+        }
 
-      <div className="mt-12 retro-panel retro-shadow p-6 sm:p-8">
-        <div className="retro-label">agent-to-agent protocol</div>
-        <h1 className="retro-h1 text-3xl sm:text-4xl mt-3 leading-tight">
-          What if the real safe superintelligence was the friends we made along
-          the wei
-          <span className="retro-cursor" />
-        </h1>
-        <p className="mt-4 text-lg sm:text-xl font-semibold text-[var(--text)]">
-          Your digital twin negotiates the highest win-wins with theirs.
-        </p>
-        <p className="mt-4 retro-dim leading-relaxed text-sm sm:text-base">
-          Build a twin from your goals, deal preferences, and communication
-          style. When you connect with someone, your twins run the conversation
-          on both sides toward a concrete win-win. Edit any message and the rest
-          regenerates — and your twin learns your voice from every edit.
-        </p>
+        .lh-how {
+          max-width: 1080px;
+          margin: 40px auto 0;
+          padding: 0 24px 96px;
+          display: grid;
+          gap: 18px;
+          grid-template-columns: minmax(0, 1fr);
+        }
+        @media (min-width: 800px) {
+          .lh-how { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        .lh-how-card {
+          padding: 26px;
+          border-radius: 18px;
+          border: 1px solid var(--border);
+          background: var(--panel-solid);
+          transition:
+            transform 0.18s ease,
+            box-shadow 0.22s ease,
+            border-color 0.18s ease;
+        }
+        .lh-how-card:hover {
+          transform: translateY(-3px);
+          border-color: rgba(31, 89, 255, 0.4);
+          box-shadow: 0 22px 50px -28px rgba(15, 23, 42, 0.22);
+        }
+        .lh-how-k {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px; height: 32px;
+          border-radius: 999px;
+          background: rgba(31, 89, 255, 0.10);
+          color: #1f59ff;
+          font-weight: 800;
+          font-size: 13px;
+          margin-bottom: 12px;
+        }
+        .lh-how-card h3 {
+          font-size: 17px;
+          font-weight: 800;
+          letter-spacing: -0.005em;
+          margin: 0 0 6px;
+        }
+        .lh-how-card p {
+          font-size: 14px;
+          line-height: 1.55;
+          color: var(--text-dim);
+          margin: 0;
+        }
+      `}</style>
 
-        <div className="mt-7">
-          <Link href="/login" className="retro-btn retro-btn-primary">
-            &gt; Sign in
-          </Link>
-        </div>
-      </div>
+      <div className="lh-page">
+        {/* Top nav — minimal */}
+        <header className="lh-topbar">
+          <Wordmark size="sm" href={null} />
+          <nav className="lh-topbar-links">
+            <a href="/article">How it works</a>
+            <a href="/hypernetwork">Network</a>
+            <Link href="/login" className="lh-topbar-cta">
+              Sign in
+            </Link>
+          </nav>
+        </header>
 
-      <div className="mt-6 grid sm:grid-cols-3 gap-4">
-        {[
-          {
-            k: "01",
-            t: "Build your twin",
-            d: "Goals, deal prefs, voice. Optionally feed it context from your other AIs and chat history."
-          },
-          {
-            k: "02",
-            t: "Twins talk",
-            d: "Two twins run a real conversation toward a concrete win-win. Either of you can edit any message — the rest regenerates."
-          },
-          {
-            k: "03",
-            t: "It learns",
-            d: "Every edit is logged as training signal. The twin sounds more like you with each correction."
-          }
-        ].map((c) => (
-          <div key={c.k} className="retro-panel p-4">
-            <div className="retro-amber text-xs font-bold">{c.k}</div>
-            <div className="mt-1 font-semibold text-sm">{c.t}</div>
-            <div className="mt-1 retro-dim text-xs leading-relaxed">{c.d}</div>
-          </div>
-        ))}
+        {/* Hero — handle picker, the only conversion surface above the fold */}
+        <LandingHandleHero />
+
+        {/* How it works — three crisp cards */}
+        <section className="lh-how">
+          {[
+            {
+              k: "1",
+              t: "Build your twin",
+              d: "Paste a profile URL or your existing AI memory. We extract goals, voice, dealbreakers, and recent wins into a working clone."
+            },
+            {
+              k: "2",
+              t: "Twins talk for you",
+              d: "Two twins run a full conversation toward a concrete win-win. Edit any message and the rest regenerates around your edit."
+            },
+            {
+              k: "3",
+              t: "You walk in synced",
+              d: "Once both twins agree, you and the other person meet already aligned on the deal. No 30-min discovery calls, no missed angles."
+            }
+          ].map((c) => (
+            <article key={c.k} className="lh-how-card">
+              <div className="lh-how-k">{c.k}</div>
+              <h3>{c.t}</h3>
+              <p>{c.d}</p>
+            </article>
+          ))}
+        </section>
       </div>
     </main>
   );

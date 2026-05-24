@@ -326,6 +326,9 @@ export default async function ProposalsPage() {
                       conversationId={c.id}
                       alreadyAccepted={myResp?.response === "accepted"}
                       alreadyRejected={myResp?.response === "rejected"}
+                      currentProposal={
+                        fullTextByConv.get(c.id) ?? c.summary ?? ""
+                      }
                     />
                   )}
                   {/* Even when sealed, give a way back to the full
