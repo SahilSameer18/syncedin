@@ -282,16 +282,28 @@ export default async function PersonalIntelligencePage() {
       </header>
 
       <style>{`
+        /* Masonry-style columns instead of grid — cards keep their
+           NATURAL height instead of stretching to match the tallest
+           sibling in their row (Jack: "lets not have these sections
+           height matched because now its super long now that I
+           generated movies"). CSS columns auto-balance, no row stretch. */
         .pi-grid {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 14px;
+          column-count: 1;
+          column-gap: 14px;
         }
         @media (min-width: 740px) {
-          .pi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+          .pi-grid { column-count: 2; }
         }
         @media (min-width: 1100px) {
-          .pi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+          .pi-grid { column-count: 3; }
+        }
+        .pi-grid > * {
+          break-inside: avoid;
+          -webkit-column-break-inside: avoid;
+          page-break-inside: avoid;
+          display: block;
+          width: 100%;
+          margin-bottom: 14px;
         }
         .pi-card {
           position: relative;

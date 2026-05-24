@@ -29,7 +29,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  let body: { kind?: string; why_loved?: string };
+  let body: {
+    kind?: string;
+    why_loved?: string;
+    already_recommended?: string[];
+    loved?: string[];
+    disliked?: string[];
+  };
   try {
     body = await req.json();
   } catch {
@@ -40,6 +46,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "bad_kind" }, { status: 400 });
   }
   const why = (body.why_loved ?? "").trim().slice(0, 2000);
+  // Accumulation signals from the client. The card persists every
+  // generation locally + tracks per-item ❤ / ✕ ratings; both flow back
+  // here so the next batch avoids duplicates AND learns from feedback.
+  const already = Array.isArray(body.already_recommended)
+    ? body.already_recommended.filter((s) => typeof s === "string").slice(0, 200)
+    : [];
+  const loved = Array.isArray(body.loved)
+    ? body.loved.filter((s) => typeof s === "string").slice(0, 50)
+    : [];
+  const disliked = Array.isArray(body.disliked)
+    ? body.disliked.filter((s) => typeof s === "string").slice(0, 50)
+    : [];
 
   const service = createServiceClient();
   const [{ data: profile }, { data: twin }, { data: exports }] =
@@ -91,11 +109,39 @@ Return ONLY JSON in this exact shape:
   ]
 }`;
 
-  const userContent = `${context}\n\n${
-    why
-      ? `What I loved that you should use as a signal:\n${why}\n\n`
-      : ""
-  }Generate 5 personalized ${kind} recommendations now. JSON only.`;
+  // Build the per-batch instruction block. Tells Claude:
+  //   - what NOT to re-recommend (already in the user's list)
+  //   - what the user has ❤'d (lean into the traits these share)
+  //   - what the user has ✕'d (steer away from those traits)
+  const instructionLines: string[] = [];
+  if (why) {
+    instructionLines.push(
+      `Free-text signal from the user:\n${why}`
+    );
+  }
+  if (loved.length > 0) {
+    instructionLines.push(
+      `\nThe user LOVED these — lean into their shared traits (tone, genre, themes, era, creator DNA):\n- ${loved.join(
+        "\n- "
+      )}`
+    );
+  }
+  if (disliked.length > 0) {
+    instructionLines.push(
+      `\nThe user EXPLICITLY DID NOT LIKE these — avoid picks that share their core traits:\n- ${disliked.join(
+        "\n- "
+      )}`
+    );
+  }
+  if (already.length > 0) {
+    instructionLines.push(
+      `\nAlready in their list (DO NOT recommend any of these again — pick 5 NEW ones):\n- ${already.join(
+        "\n- "
+      )}`
+    );
+  }
+
+  const userContent = `${context}\n\n${instructionLines.join("\n")}\n\nGenerate 5 personalized ${kind} recommendations now. JSON only.`;
 
   try {
     const response = await anthropic.messages.create({
