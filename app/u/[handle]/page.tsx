@@ -57,14 +57,84 @@ export default async function PortfolioPage({
 }) {
   const handle = (params.handle || "").toLowerCase();
   const service = createServiceClient();
-  const { data: profile } = await service
-    .from("profiles")
-    .select(
-      "id, display_name, email, avatar_url, handle, portfolio_about, portfolio_theme, is_test_persona"
-    )
-    .ilike("handle", handle)
-    .maybeSingle();
-  if (!profile) notFound();
+
+  // Split the lookup into CORE (always-present columns) and OPTIONAL
+  // (portfolio_about, portfolio_theme, is_test_persona may not yet be
+  // migrated on a given prod DB). Without the split, selecting a missing
+  // column threw and the whole row came back null — every freshly-built
+  // portfolio 404'd. Jack hit this on /u/jackson-jesionowski.
+  let coreProfile:
+    | {
+        id: string;
+        display_name: string | null;
+        email: string | null;
+        avatar_url: string | null;
+        handle: string | null;
+      }
+    | null = null;
+  try {
+    const { data } = await service
+      .from("profiles")
+      .select("id, display_name, email, avatar_url, handle")
+      .ilike("handle", handle)
+      .maybeSingle();
+    coreProfile = (data as any) ?? null;
+  } catch {
+    coreProfile = null;
+  }
+
+  // Fallback: if no profile matches by handle, also try matching by a
+  // slug of the display_name. Catches the case where the user clicked
+  // "build portfolio" but the row update silently no-op'd (schema-cache
+  // miss recovery) — we can still render their page deterministically.
+  if (!coreProfile) {
+    try {
+      const { data } = await service
+        .from("profiles")
+        .select("id, display_name, email, avatar_url, handle");
+      const norm = (s: string) =>
+        s
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      const match = ((data ?? []) as any[]).find(
+        (p) => p.display_name && norm(p.display_name) === handle
+      );
+      if (match) coreProfile = match;
+    } catch {
+      /* still null */
+    }
+  }
+
+  if (!coreProfile) notFound();
+
+  // OPTIONAL columns — fetched separately so a missing column on prod
+  // doesn't take down the whole page. These three were added via later
+  // migrations and may not exist on every deployed DB.
+  let portfolio_about: string | null = null;
+  let portfolio_theme: Theme | null = null;
+  let is_test_persona = false;
+  try {
+    const { data: opt } = await service
+      .from("profiles")
+      .select("portfolio_about, portfolio_theme, is_test_persona")
+      .eq("id", coreProfile.id)
+      .maybeSingle();
+    if (opt) {
+      portfolio_about = ((opt as any).portfolio_about as string) ?? null;
+      portfolio_theme = ((opt as any).portfolio_theme as Theme) ?? null;
+      is_test_persona = !!(opt as any).is_test_persona;
+    }
+  } catch {
+    /* columns may not exist on this DB; defaults are fine */
+  }
+
+  const profile = {
+    ...coreProfile,
+    portfolio_about,
+    portfolio_theme,
+    is_test_persona
+  };
 
   const { data: twin } = await service
     .from("twin_profiles")

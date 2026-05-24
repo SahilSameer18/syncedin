@@ -229,6 +229,12 @@ alter table public.twin_profiles
 alter table public.twin_profiles
   add column if not exists current_city text;
 
+-- "Greatest life achievements" — surfaced on onboarding step 4. Used by
+-- the twin as proof-of-capability when negotiating credibility-bound
+-- deals, and rendered on the public portfolio + community summaries.
+alter table public.twin_profiles
+  add column if not exists achievements text;
+
 -- =========================================================================
 -- Conferences — a conference head signs up, gets a shareable join URL,
 -- and discovery within that conference is limited to fellow members.

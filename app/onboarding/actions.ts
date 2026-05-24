@@ -22,7 +22,7 @@ export async function saveTwin(formData: FormData) {
 
   const display_name = s(formData.get("display_name"));
   const avatar_url = s(formData.get("avatar_url"));
-  const fields = {
+  const fields: Record<string, any> = {
     user_id: user.id,
     goals: s(formData.get("goals")),
     deal_preferences: s(formData.get("deal_preferences")),
@@ -31,6 +31,7 @@ export async function saveTwin(formData: FormData) {
     ai_export_blob: s(formData.get("ai_export_blob")),
     hometown: s(formData.get("hometown")),
     current_city: s(formData.get("current_city")),
+    achievements: s(formData.get("achievements")),
     updated_at: new Date().toISOString()
   };
 

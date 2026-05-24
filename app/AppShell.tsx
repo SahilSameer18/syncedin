@@ -22,11 +22,6 @@ export async function AppShell({
   // a max-w-6xl page and a max-w-7xl page made the whole sidebar jump
   // horizontally — the user's eye lost its anchor on every nav.
   maxWidth = "max-w-7xl",
-  // Optional rail slot that renders BELOW the sidebar nav in the same
-  // 200px left column on lg+ (and inside the mobile drawer below the
-  // nav). Dashboard passes its SyncMeter card here so the clone meter
-  // sits in-line under the menu instead of in a separate right column.
-  // Jack: "this human clone part we can put under it in line."
   sidebarExtra
 }: {
   children: React.ReactNode;
