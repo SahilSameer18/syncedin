@@ -8,6 +8,7 @@ import { startConversationWithUser } from "../../dashboard/actions";
 import { BulkReachToolkit } from "../../BulkReachToolkit";
 import { ShareUrlBox } from "./ShareUrlBox";
 import { ScrollTopOnFlag } from "../../ScrollTopOnFlag";
+import { NetworkDensityCompare } from "../../communities/NetworkDensityCompare";
 
 export async function generateMetadata({
   params
@@ -78,43 +79,54 @@ export default async function ConferencePage({
     .select("user_id", { count: "exact", head: true })
     .eq("conference_slug", slug);
 
-  // Members directory (only loaded if the visitor is a member).
+  // PUBLIC member list — just id + name + avatar (no goals / email-as-
+  // identity / contact info). Always loaded so external visitors see
+  // the room's density visual + a real preview of who's in. This is
+  // the same minimum-PII a public LinkedIn profile lists.
+  type PublicMember = {
+    id: string;
+    display_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  };
+  let publicMembers: PublicMember[] = [];
+  // Full directory (with goals) — gated to members so we don't leak
+  // intent/strategy data outside the room.
   let members:
-    | {
-        id: string;
-        display_name: string | null;
-        email: string | null;
-        avatar_url: string | null;
-        goals: string | null;
-      }[]
+    | (PublicMember & { goals: string | null })[]
     | null = null;
-  if (isMember) {
+
+  {
     const { data: memberRows } = await service
       .from("conference_members")
       .select("user_id")
       .eq("conference_slug", slug);
     const ids = (memberRows ?? []).map((r) => r.user_id);
     if (ids.length > 0) {
-      const [{ data: profs }, { data: twins }] = await Promise.all([
-        service
-          .from("profiles")
-          .select("id, display_name, email, avatar_url")
-          .in("id", ids),
-        service
-          .from("twin_profiles")
-          .select("user_id, goals")
-          .in("user_id", ids)
-      ]);
-      const goalById = new Map(
-        (twins ?? []).map((t) => [t.user_id, t.goals as string | null])
-      );
-      members = (profs ?? []).map((p) => ({
+      const { data: profs } = await service
+        .from("profiles")
+        .select("id, display_name, email, avatar_url")
+        .in("id", ids);
+      publicMembers = (profs ?? []).map((p) => ({
         id: p.id,
         display_name: p.display_name,
         email: p.email,
-        avatar_url: (p as any).avatar_url ?? null,
-        goals: goalById.get(p.id) ?? null
+        avatar_url: (p as any).avatar_url ?? null
       }));
+
+      if (isMember) {
+        const { data: twins } = await service
+          .from("twin_profiles")
+          .select("user_id, goals")
+          .in("user_id", ids);
+        const goalById = new Map(
+          (twins ?? []).map((t) => [t.user_id, t.goals as string | null])
+        );
+        members = publicMembers.map((p) => ({
+          ...p,
+          goals: goalById.get(p.id) ?? null
+        }));
+      }
     }
   }
 
@@ -352,20 +364,20 @@ export default async function ConferencePage({
           creator)." Owner pinned first, then top N members. Full
           directory still gates behind membership below. */}
       {(() => {
-        const preview =
-          (members ?? []).slice(0, 6) ||
-          (ownerProfile
-            ? [
-                {
-                  id: conf.owner_user_id,
-                  display_name:
-                    (ownerProfile as any).display_name ?? null,
-                  email: (ownerProfile as any).email ?? null,
-                  avatar_url: (ownerProfile as any).avatar_url ?? null,
-                  goals: null
-                }
-              ]
-            : []);
+        const base = publicMembers.length > 0
+          ? publicMembers.slice(0, 6)
+          : (ownerProfile
+              ? [
+                  {
+                    id: conf.owner_user_id,
+                    display_name:
+                      (ownerProfile as any).display_name ?? null,
+                    email: (ownerProfile as any).email ?? null,
+                    avatar_url: (ownerProfile as any).avatar_url ?? null
+                  }
+                ]
+              : []);
+        const preview = base;
         if (preview.length === 0) return null;
         // Pin owner to the front if not already there.
         const sorted = [
@@ -449,81 +461,15 @@ export default async function ConferencePage({
         );
       })()}
 
-      {/* HYPERNETWORK VS HUMAN BANDWIDTH — visual showing the leverage
-          this {kindLabel} unlocks. Quick math: a single human in a
-          room of N can hold ~3-5 deep conversations in 2 hours; twins
-          can negotiate N*(N-1)/2 in parallel. Render two stacked bars
-          so the gap reads at a glance. */}
-      {(() => {
-        const n = attendeeCount ?? 0;
-        const humanReach = Math.min(n, 5);
-        const twinReach = Math.max(0, (n * (n - 1)) / 2);
-        // Bar lengths capped so the human bar is always visible.
-        const max = Math.max(twinReach, humanReach, 1);
-        const humanPct = (humanReach / max) * 100;
-        const twinPct = (twinReach / max) * 100;
-        return (
-          <section className="mt-10">
-            <div className="retro-label">leverage in this room</div>
-            <h3
-              className="mt-1"
-              style={{
-                fontSize: 18,
-                fontWeight: 800,
-                letterSpacing: "-0.005em"
-              }}
-            >
-              Twin bandwidth vs human bandwidth.
-            </h3>
-            <p
-              className="text-sm mt-2"
-              style={{ color: "var(--text-dim)", maxWidth: 600 }}
-            >
-              You can have maybe 5 real conversations at a {kindLabel}.
-              Your twin can run every possible pairing in parallel and
-              hand you only the win-wins worth your time.
-            </p>
-            <div
-              style={{
-                marginTop: 18,
-                display: "flex",
-                flexDirection: "column",
-                gap: 12
-              }}
-            >
-              <BandwidthBar
-                label="You alone"
-                value={humanReach}
-                unit="conversations · ~2 hr"
-                pct={humanPct}
-                color="var(--text-dim)"
-                bg="var(--panel-2)"
-              />
-              <BandwidthBar
-                label="Your twin × this room"
-                value={twinReach}
-                unit={`possible pairings · ${
-                  twinReach > humanReach
-                    ? `${Math.round(twinReach / Math.max(humanReach, 1))}× more reach`
-                    : "compounds as people join"
-                }`}
-                pct={twinPct}
-                color="#fff"
-                bg="linear-gradient(90deg, #1f8bff 0%, #6b2dc9 60%, #d83bff 100%)"
-              />
-            </div>
-            {n < 3 && (
-              <p
-                className="text-xs mt-3"
-                style={{ color: "var(--text-dim)" }}
-              >
-                Bars grow as more people sign up — the gap between human
-                bandwidth and twin bandwidth widens fast.
-              </p>
-            )}
-          </section>
-        );
-      })()}
+      {/* NETWORK DENSITY COMPARE — side-by-side "today (scattered
+          dots) vs. on SyncedIn (fully-connected polygon with real
+          member avatars)". Visible to EVERY visitor including
+          external ones so the "why join" lands immediately. */}
+      <NetworkDensityCompare
+        members={publicMembers}
+        totalCount={attendeeCount ?? 0}
+        kindLabel={kindLabel}
+      />
 
       {/* ATTENDEE DIRECTORY (members only) */}
       {isMember && members && (
@@ -577,68 +523,6 @@ export default async function ConferencePage({
         </section>
       )}
     </main>
-  );
-}
-
-function BandwidthBar({
-  label,
-  value,
-  unit,
-  pct,
-  color,
-  bg
-}: {
-  label: string;
-  value: number;
-  unit: string;
-  pct: number;
-  color: string;
-  bg: string;
-}) {
-  return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "baseline",
-          justifyContent: "space-between",
-          marginBottom: 4
-        }}
-      >
-        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
-          {label}
-        </span>
-        <span
-          style={{
-            fontSize: 12,
-            color: "var(--text-dim)",
-            fontFamily: '"IBM Plex Mono", ui-monospace, monospace'
-          }}
-        >
-          {Math.round(value).toLocaleString()} {unit}
-        </span>
-      </div>
-      <div
-        style={{
-          width: "100%",
-          height: 12,
-          borderRadius: 999,
-          background: "var(--panel-2)",
-          border: "1px solid var(--border)",
-          overflow: "hidden"
-        }}
-      >
-        <div
-          style={{
-            width: `${Math.max(2, pct)}%`,
-            height: "100%",
-            background: bg,
-            transition: "width 0.4s ease",
-            display: "inline-block"
-          }}
-        />
-      </div>
-    </div>
   );
 }
 
