@@ -1,9 +1,11 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import { MobileShell } from "./MobileShell";
 import { SitewidePrefetch } from "./SitewidePrefetch";
+import { SyncMeter } from "./SyncMeter";
 import { signOut } from "./login/actions";
 
 /**
@@ -188,9 +190,97 @@ export async function AppShell({
   if (propRes.status === "fulfilled" && propRes.value > 0)
     unreadCounts["/proposals"] = propRes.value;
 
+  // === SYNC METER inputs ===
+  // Pulled INTO AppShell (was per-page via sidebarExtra) so the meter
+  // renders on EVERY signed-in page from one source — preloaded, no
+  // re-mount jitter on navigation, scrolls inside the sticky sidebar
+  // as one block. Jack: "SYNC AVATAR WEIRDLY SCROLLS TOO, IT SHOULD
+  // BE IN THE SAME SCROLL SECTION AS THE MENU."
+  const service = createServiceClient();
+  const [
+    { data: twinForMeter },
+    { data: myMsgsForMeter },
+    { count: agreedForMeter },
+    { count: editsForMeter }
+  ] = await Promise.all([
+    service
+      .from("twin_profiles")
+      .select(
+        "goals, ai_export_blob, deal_preferences, communication_style, deal_breakers, hometown, current_city"
+      )
+      .eq("user_id", userId)
+      .maybeSingle(),
+    service
+      .from("messages")
+      .select("conversation_id")
+      .eq("sender_user_id", userId),
+    service
+      .from("agreement_responses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("response", "accepted"),
+    service
+      .from("edit_deltas")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+  ]);
+  const completedConvs = new Set(
+    ((myMsgsForMeter ?? []) as Array<{ conversation_id: string }>).map(
+      (m) => m.conversation_id
+    )
+  ).size;
+  const syncInputs = {
+    name: displayName,
+    goals: (twinForMeter as any)?.goals ?? null,
+    ai_export_blob: (twinForMeter as any)?.ai_export_blob ?? null,
+    deal_preferences: (twinForMeter as any)?.deal_preferences ?? null,
+    comm_style: (twinForMeter as any)?.communication_style ?? null,
+    deal_breakers: (twinForMeter as any)?.deal_breakers ?? null,
+    hometown: (twinForMeter as any)?.hometown ?? null,
+    current_city: (twinForMeter as any)?.current_city ?? null,
+    completed_conversations: completedConvs,
+    accepted_agreements: agreedForMeter ?? 0,
+    edit_count: editsForMeter ?? 0
+  };
+
+  // Clone-sync card rendered INSIDE the Sidebar (passed via the new
+  // `cloneCard` prop) so it sits inside the one sticky aside and
+  // scrolls/sticks as one block with the nav. Identical on every page.
+  const cloneCard = (
+    <aside
+      style={{
+        // Lives inside the sidebar aside — no own background/border;
+        // the sidebar's panel already provides the surface.
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+        paddingTop: 8,
+        borderTop: "1px solid var(--border)",
+        // Clip the SyncMeter's drop-shadow glow so it can't bleed up
+        // into the sign-out row above.
+        overflow: "hidden"
+      }}
+    >
+      <SyncMeter inputs={syncInputs} size={110} />
+      <Link
+        href="/onboarding"
+        className="retro-btn retro-btn-primary text-center"
+        style={{
+          width: "100%",
+          fontSize: 11,
+          padding: "7px 10px"
+        }}
+      >
+        + add context
+      </Link>
+    </aside>
+  );
+
   // Render the Sidebar ONCE — it gets handed both to the desktop slot
   // (hidden < lg) and to the MobileShell drawer (hidden ≥ lg) so the same
-  // server-fetched data backs both surfaces.
+  // server-fetched data backs both surfaces. The cloneCard ships inside
+  // it as a child so there's only one sticky block on desktop.
   const sidebar = (
     <Sidebar
       userId={userId}
@@ -199,6 +289,7 @@ export async function AppShell({
       signOutAction={signOut}
       conferences={conferences}
       unreadCounts={unreadCounts}
+      cloneCard={cloneCard}
     />
   );
 
@@ -258,24 +349,14 @@ export async function AppShell({
           style={{
             position: "sticky",
             top: 12,
-            alignSelf: "start",
-            gap: 10
+            alignSelf: "start"
           }}
         >
           {sidebar}
-          {sidebarExtra && (
-            <div
-              style={{
-                // Clip any absolute-positioned children of the
-                // SyncMeter (tooltips, gradient bloom) so they can't
-                // escape into the sidebar nav.
-                overflow: "hidden",
-                borderRadius: 14
-              }}
-            >
-              {sidebarExtra}
-            </div>
-          )}
+          {/* sidebarExtra prop is now ignored — kept on the API for
+              back-compat with pages that still pass it. The clone-sync
+              card lives INSIDE the Sidebar so the whole block is one
+              sticky aside. */}
         </div>
 
         <div className="min-w-0">{children}</div>

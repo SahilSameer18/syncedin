@@ -59,6 +59,7 @@ type Initial = {
   avatar_url: string;
   hometown: string;
   current_city: string;
+  achievements: string;
 };
 
 const STEPS = [
@@ -201,7 +202,8 @@ export function OnboardingWizard({
       deal_breakers: state.deal_breakers,
       ai_export_blob: state.ai_export_blob,
       hometown: state.hometown,
-      current_city: state.current_city
+      current_city: state.current_city,
+      achievements: state.achievements
     });
     latestPayload.current = payload;
 
@@ -401,6 +403,7 @@ export function OnboardingWizard({
       <input type="hidden" name="avatar_url" value={state.avatar_url} />
       <input type="hidden" name="hometown" value={state.hometown} />
       <input type="hidden" name="current_city" value={state.current_city} />
+      <input type="hidden" name="achievements" value={state.achievements} />
 
       {/* Progress strip — step pills LEFT, continue/back nav RIGHT, all in
           a single row so the user never has to look around for "what next".
@@ -855,6 +858,19 @@ export function OnboardingWizard({
                 rows={4}
                 value={state.deal_breakers}
                 onChange={(v) => set("deal_breakers", v)}
+              />
+              {/* Achievements — Jack's call: surfaces proof-of-capability
+                  the twin can drop into credibility-bound deal moments
+                  (e.g. "Jackson raised $2m at $20m post and built X").
+                  Renders on the public portfolio + the community member
+                  summary card so other people can vouch quickly. */}
+              <DeepField
+                label="What is a list of your greatest life achievements?"
+                helper="The wins your twin should reach for when establishing trust — companies built, rounds raised, milestones hit, recognition earned, hard things you finished. One per line is fine; the twin will pick the right one for each conversation."
+                placeholder={`e.g.\nRaised $2m at $20m post for Persist Ventures\nLed BUMP to 30k MAUs in 6 weeks\nWon the 2024 ASI Hackathon`}
+                rows={5}
+                value={state.achievements}
+                onChange={(v) => set("achievements", v)}
               />
             </div>
 

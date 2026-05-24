@@ -544,6 +544,13 @@ export function ChatUI({
 }) {
   const [messages, setMessages] = useState<Message[]>(initialMessages);
   const [done, setDone] = useState(initialDone);
+  // Mirror of `done` for the auto-summarize effect — used so the
+  // effect can check the latest `done` value without re-running every
+  // time it flips (which would re-trigger the summary).
+  const doneRef = useRef(initialDone);
+  useEffect(() => {
+    doneRef.current = done;
+  }, [done]);
   const [running, setRunning] = useState(false);
   // Whether the bottom-of-conversation compose textarea is open. Hidden
   // by default after the twin loop finishes — user pops it open with
@@ -594,6 +601,29 @@ export function ChatUI({
       setSummarizing(false);
     }
   }
+
+  // Auto-summarize on conversation complete. Jack: "lets automatically
+  // summarize the conversation" — kill the manual "✦ summarize" button
+  // and trigger as soon as the chat is done + we don't already have a
+  // summary. Only fires once per session per conversation since the
+  // ref guard prevents re-fires after the result is cleared.
+  const autoSummarizedRef = useRef(false);
+  useEffect(() => {
+    if (autoSummarizedRef.current) return;
+    if (summarizing) return;
+    if (summaryResult) return;
+    if (messages.length < 2) return;
+    // `done` is the chat completion flag flipped by the auto-run loop.
+    // Without this guard we'd start summarizing every turn.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // (done is in scope below; we reference it from the surrounding
+    //  component closure)
+    // — see usage further down for the actual definition.
+    if (!doneRef.current) return;
+    autoSummarizedRef.current = true;
+    void summarizeNow();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages.length, summaryResult, summarizing]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [menu, setMenu] = useState<
@@ -1397,27 +1427,52 @@ export function ChatUI({
           above the compose. */}
       {done && !running && !editingId && (
         <>
-          {/* Goal toggle is now a quiet chip above the compose so it
-              doesn't compete with the main affordance. */}
-          <button
-            type="button"
-            onClick={() => setGoalOpen((v) => !v)}
-            className="retro-btn text-xs"
+          {/* Twin-control chips sit together in one row above the
+              compose — "add specific goal" + "let twins continue" are
+              peers per Jack's restructure. Same on desktop and mobile.
+              Both render as low-emphasis chips so the compose textarea
+              stays the dominant affordance. */}
+          <div
             style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              marginTop: 8,
-              alignSelf: "flex-start",
-              borderColor: goalOpen ? "#1f8bff" : undefined,
-              color: goalOpen ? "#1f8bff" : undefined,
-              fontSize: 11,
-              padding: "5px 10px"
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              marginTop: 8
             }}
-            title="Set a goal that's specific to this conversation"
           >
-            {goalOpen ? "× hide goal" : "🎯 add a specific goal for this convo"}
-          </button>
+            <button
+              type="button"
+              onClick={() => setGoalOpen((v) => !v)}
+              className="retro-btn text-xs"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                borderColor: goalOpen ? "#1f8bff" : undefined,
+                color: goalOpen ? "#1f8bff" : undefined,
+                fontSize: 11,
+                padding: "5px 10px"
+              }}
+              title="Set a goal that's specific to this conversation"
+            >
+              {goalOpen ? "× hide goal" : "🎯 add a specific goal for this convo"}
+            </button>
+            <button
+              type="button"
+              onClick={() => runLoop()}
+              className="retro-btn text-xs"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 11,
+                padding: "5px 10px"
+              }}
+              title="Have the twins continue the conversation on their own"
+            >
+              ↻ let twins continue
+            </button>
+          </div>
           {goalOpen && (
             <PerConversationGoal
               conversationId={conversationId}
@@ -1704,38 +1759,25 @@ export function ChatUI({
           </div>
         )}
 
-        {/* Summarize-conversation button — Jack: "Let's add a summarize
-            conversation button into the messaging interface." Calls the
-            same /api/summarize-conversation endpoint the auto-run flow
-            already uses, but on demand. Shows the result inline so the
-            user can read the outcome + excitement score without leaving
-            the chat. Disabled while a turn is generating to avoid racing
-            the auto-run loop on the same conversation row. */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            marginBottom: 8
-          }}
-        >
-          <button
-            type="button"
-            onClick={() => summarizeNow()}
-            disabled={summarizing || running || messages.length === 0}
-            className="retro-btn text-xs"
+        {/* Manual "summarize conversation" button removed — Jack:
+            "lets automatically summarize the conversation." The
+            useEffect at the top of this component triggers
+            summarizeNow() the first time `done` flips true with
+            messages present. A subtle "summarizing…" pill renders
+            below while it's in flight so the user knows. */}
+        {summarizing && (
+          <div
             style={{
-              padding: "6px 12px",
-              fontSize: 12
+              display: "flex",
+              justifyContent: "center",
+              marginBottom: 8,
+              fontSize: 11,
+              color: "var(--text-dim)"
             }}
-            title={
-              messages.length === 0
-                ? "Send at least one message first."
-                : "Generate (or refresh) the outcome summary + excitement score for this conversation."
-            }
           >
-            {summarizing ? "summarizing…" : "✦ summarize conversation"}
-          </button>
-        </div>
+            ✦ auto-summarizing…
+          </div>
+        )}
 
         {summaryResult && (
           <div

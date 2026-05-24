@@ -73,7 +73,8 @@ export default async function OnboardingPage({
     ai_export_blob: twin?.ai_export_blob ?? "",
     avatar_url: profile?.avatar_url ?? "",
     hometown: (twin as any)?.hometown ?? "",
-    current_city: (twin as any)?.current_city ?? ""
+    current_city: (twin as any)?.current_city ?? "",
+    achievements: (twin as any)?.achievements ?? ""
   };
 
   // Welcome-splash data — only used when ?welcome=1 is in the URL (set

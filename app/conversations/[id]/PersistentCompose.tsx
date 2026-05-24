@@ -168,30 +168,22 @@ export function PersistentCompose({
           {sending ? "…" : "send →"}
         </button>
       </div>
+      {/* The "let twins continue" affordance moved OUT of this row and
+          UP next to the "add specific goal" chip per Jack — both twin-
+          control affordances should sit together above the compose,
+          not buried inside it. We still receive onContinueLoop via
+          props so the parent can wire it to whatever button it
+          renders; we just no longer surface our own button here. */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "space-between",
+          justifyContent: "flex-end",
           gap: 8,
           fontSize: 11,
           color: "var(--text-dim)"
         }}
       >
-        <button
-          type="button"
-          onClick={onContinueLoop}
-          className="retro-btn"
-          style={{
-            fontSize: 11,
-            padding: "5px 10px",
-            border: "1px solid var(--border)",
-            background: "transparent"
-          }}
-          title="Have the twins continue the conversation on their own"
-        >
-          ↻ let twins continue
-        </button>
         <span>⌘+Enter to send</span>
       </div>
       {err && (

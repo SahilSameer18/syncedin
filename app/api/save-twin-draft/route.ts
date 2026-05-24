@@ -27,6 +27,7 @@ export async function POST(req: Request) {
     ai_export_blob?: string;
     hometown?: string;
     current_city?: string;
+    achievements?: string;
   };
   try {
     body = await req.json();
@@ -47,21 +48,30 @@ export async function POST(req: Request) {
     await supabase.from("profiles").update(profileUpdate).eq("id", user.id);
   }
 
-  // Twin profile fields
-  await supabase.from("twin_profiles").upsert(
-    {
-      user_id: user.id,
-      goals: clean(body.goals),
-      deal_preferences: clean(body.deal_preferences),
-      communication_style: clean(body.communication_style),
-      deal_breakers: clean(body.deal_breakers),
-      ai_export_blob: clean(body.ai_export_blob),
-      hometown: clean(body.hometown),
-      current_city: clean(body.current_city),
-      updated_at: new Date().toISOString()
-    },
-    { onConflict: "user_id" }
-  );
+  // Twin profile fields. Try the full upsert first (includes the new
+  // `achievements` column added in May 2026). If the column doesn't
+  // exist on this DB yet, retry without it so onboarding still saves.
+  const fullFields: Record<string, any> = {
+    user_id: user.id,
+    goals: clean(body.goals),
+    deal_preferences: clean(body.deal_preferences),
+    communication_style: clean(body.communication_style),
+    deal_breakers: clean(body.deal_breakers),
+    ai_export_blob: clean(body.ai_export_blob),
+    hometown: clean(body.hometown),
+    current_city: clean(body.current_city),
+    achievements: clean(body.achievements),
+    updated_at: new Date().toISOString()
+  };
+  const { error: upErr } = await supabase
+    .from("twin_profiles")
+    .upsert(fullFields, { onConflict: "user_id" });
+  if (upErr && /achievements|column|schema cache/i.test(upErr.message)) {
+    const { achievements: _drop, ...minus } = fullFields;
+    await supabase
+      .from("twin_profiles")
+      .upsert(minus, { onConflict: "user_id" });
+  }
 
   return NextResponse.json({ ok: true });
 }

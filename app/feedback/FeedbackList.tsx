@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 type Post = {
   id: string;
@@ -13,6 +13,9 @@ type Post = {
   created_at: string;
   score: number;
   my_vote: 1 | -1 | null;
+  status?: string | null;
+  admin_reply?: string | null;
+  admin_reply_at?: string | null;
 };
 
 const CATEGORIES = [
@@ -22,13 +25,42 @@ const CATEGORIES = [
   { key: "other", label: "Other", color: "#a060ff" }
 ];
 
+// Lifecycle filter tabs at the top of the list. "Open" is the default
+// for a normal visitor — "what's being asked for"; "Completed" is the
+// proof-of-shipping wall.
+const STATUSES: Array<{
+  key: "all" | "open" | "in_progress" | "completed";
+  label: string;
+  color: string;
+}> = [
+  { key: "all", label: "All", color: "var(--text)" },
+  { key: "open", label: "Open", color: "#3a4dff" },
+  { key: "in_progress", label: "In progress", color: "#f59e0b" },
+  { key: "completed", label: "Completed", color: "#10b981" }
+];
+
+function statusMeta(s: string | null | undefined) {
+  const v = (s ?? "open").toLowerCase();
+  if (v === "completed")
+    return { label: "✓ shipped", color: "#10b981", bg: "rgba(16,185,129,0.12)" };
+  if (v === "in_progress")
+    return {
+      label: "↻ in progress",
+      color: "#f59e0b",
+      bg: "rgba(245,158,11,0.12)"
+    };
+  return { label: "open", color: "#3a4dff", bg: "rgba(58,77,255,0.12)" };
+}
+
 export function FeedbackList({
   signedIn,
   userId,
+  isAdmin = false,
   posts
 }: {
   signedIn: boolean;
   userId: string | null;
+  isAdmin?: boolean;
   posts: Post[];
 }) {
   const router = useRouter();
@@ -38,15 +70,23 @@ export function FeedbackList({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voting, setVoting] = useState<string | null>(null);
+  const [filter, setFilter] = useState<
+    "all" | "open" | "in_progress" | "completed"
+  >("all");
   // Optimistic vote state
   const [optimistic, setOptimistic] = useState<
     Record<string, { score: number; my_vote: 1 | -1 | null }>
   >({});
+  // Admin reply drafts: keyed by post id. Lets Jack type replies inline
+  // without losing state when other posts re-render after vote refresh.
+  const [draftReply, setDraftReply] = useState<Record<string, string>>({});
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [adminError, setAdminError] = useState<string | null>(null);
 
   function viewOf(p: Post) {
     const o = optimistic[p.id];
     return o
-      ? { score: p.score + (o.score - (p.score + (o.score - p.score))), my_vote: o.my_vote }
+      ? { score: o.score, my_vote: o.my_vote }
       : { score: p.score, my_vote: p.my_vote };
   }
 
@@ -82,12 +122,10 @@ export function FeedbackList({
       return;
     }
     setVoting(post.id);
-    // Optimistic update
     const prevMy = post.my_vote;
     let nextMy: 1 | -1 | null;
     let delta = 0;
     if (prevMy === value) {
-      // toggle off
       nextMy = null;
       delta = -value;
     } else if (prevMy === null) {
@@ -95,7 +133,7 @@ export function FeedbackList({
       delta = value;
     } else {
       nextMy = value;
-      delta = 2 * value; // flip
+      delta = 2 * value;
     }
     setOptimistic((o) => ({
       ...o,
@@ -109,7 +147,6 @@ export function FeedbackList({
       });
       router.refresh();
     } catch {
-      // Roll back optimistic on error
       setOptimistic((o) => {
         const { [post.id]: _, ...rest } = o;
         return rest;
@@ -119,8 +156,79 @@ export function FeedbackList({
     }
   }
 
+  async function saveAdmin(post: Post, patch: { reply?: string; status?: string }) {
+    setSavingId(post.id);
+    setAdminError(null);
+    try {
+      const r = await fetch("/api/admin/feedback-update", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          post_id: post.id,
+          reply: patch.reply,
+          status: patch.status
+        })
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        setAdminError(j.detail || j.error || `HTTP ${r.status}`);
+        return;
+      }
+      // Clear draft if reply was saved, then refresh server data.
+      if (typeof patch.reply === "string") {
+        setDraftReply((d) => ({ ...d, [post.id]: "" }));
+      }
+      router.refresh();
+    } catch (e: any) {
+      setAdminError(e?.message || "Save failed.");
+    } finally {
+      setSavingId(null);
+    }
+  }
+
+  // Count per status for the tab pill badges.
+  const counts = useMemo(() => {
+    const c = { all: posts.length, open: 0, in_progress: 0, completed: 0 };
+    for (const p of posts) {
+      const s = (p.status ?? "open").toLowerCase();
+      if (s === "in_progress") c.in_progress += 1;
+      else if (s === "completed") c.completed += 1;
+      else c.open += 1;
+    }
+    return c;
+  }, [posts]);
+
+  const visible = useMemo(() => {
+    if (filter === "all") return posts;
+    return posts.filter((p) => (p.status ?? "open").toLowerCase() === filter);
+  }, [posts, filter]);
+
   return (
     <>
+      {/* Admin badge — only Jack sees this. Sits inline so it's obvious
+          which session is admin without leaking that info to others. */}
+      {isAdmin && (
+        <div
+          className="mt-4"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: "5px 12px",
+            borderRadius: 999,
+            background: "rgba(245, 158, 11, 0.12)",
+            border: "1px solid #f59e0b",
+            color: "#f59e0b",
+            fontSize: 11,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase"
+          }}
+        >
+          <span aria-hidden="true">★</span> admin · you can reply &amp; mark shipped
+        </div>
+      )}
+
       {/* Submission form */}
       <section className="mt-8 retro-panel retro-shadow p-5">
         <div className="retro-label">submit a request</div>
@@ -203,33 +311,94 @@ export function FeedbackList({
         )}
       </section>
 
-      {/* List */}
+      {/* Filter tabs — group requests by lifecycle so completed items
+          read as a "shipped" wall instead of cluttering the active list. */}
       <section className="mt-8">
         <div
-          className="retro-label flex items-baseline justify-between"
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 6,
+            marginBottom: 14
+          }}
         >
+          {STATUSES.map((s) => {
+            const active = filter === s.key;
+            const n = counts[s.key as keyof typeof counts];
+            return (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => setFilter(s.key)}
+                style={{
+                  padding: "7px 14px",
+                  borderRadius: 999,
+                  border: `1.5px solid ${
+                    active ? s.color : "var(--border-bright)"
+                  }`,
+                  background: active ? `${s.color}1f` : "transparent",
+                  color: active ? s.color : "var(--text-dim)",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8
+                }}
+              >
+                <span>{s.label}</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    padding: "1px 7px",
+                    borderRadius: 999,
+                    background: active ? s.color : "var(--panel-2)",
+                    color: active ? "#fff" : "var(--text-dim)",
+                    fontWeight: 800
+                  }}
+                >
+                  {n}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="retro-label flex items-baseline justify-between">
           <span>community requests · sorted by upvotes</span>
           <span
             className="text-xs font-normal"
             style={{ color: "var(--text-dim)", letterSpacing: 0 }}
           >
-            {posts.length} total
+            {visible.length} of {posts.length}
           </span>
         </div>
 
-        {posts.length === 0 ? (
+        {adminError && (
+          <div
+            className="mt-3 text-xs p-3 retro-panel whitespace-pre-wrap"
+            style={{ borderColor: "var(--red)", color: "var(--red)" }}
+          >
+            {adminError}
+          </div>
+        )}
+
+        {visible.length === 0 ? (
           <p
             className="mt-5 text-sm"
             style={{ color: "var(--text-dim)" }}
           >
-            No requests yet. Be the first.
+            Nothing here yet.
           </p>
         ) : (
           <ul className="mt-5 space-y-3">
-            {posts.map((p) => {
+            {visible.map((p) => {
               const view = viewOf(p);
               const cat =
                 CATEGORIES.find((c) => c.key === p.category) ?? CATEGORIES[0];
+              const sm = statusMeta(p.status);
+              const isMine = !!userId && p.user_id === userId;
+              const draft = draftReply[p.id] ?? "";
               return (
                 <li
                   key={p.id}
@@ -313,6 +482,20 @@ export function FeedbackList({
                         {cat.label}
                       </span>
                       <span
+                        className="text-[10px]"
+                        style={{
+                          padding: "2px 8px",
+                          borderRadius: 4,
+                          background: sm.bg,
+                          color: sm.color,
+                          fontWeight: 700,
+                          letterSpacing: "0.08em",
+                          textTransform: "uppercase"
+                        }}
+                      >
+                        {sm.label}
+                      </span>
+                      <span
                         className="text-[11px]"
                         style={{ color: "var(--text-dim)" }}
                       >
@@ -332,6 +515,167 @@ export function FeedbackList({
                         style={{ color: "var(--text-dim)" }}
                       >
                         {p.body}
+                      </div>
+                    )}
+
+                    {/* Existing admin reply — shown to EVERYONE so the
+                        original poster + the community see how Jack
+                        responded. Distinctive gold border so it reads
+                        as the canonical answer, not just a comment. */}
+                    {p.admin_reply && (
+                      <div
+                        className="mt-3"
+                        style={{
+                          padding: "10px 12px",
+                          borderRadius: 10,
+                          background: "rgba(245, 158, 11, 0.08)",
+                          border: "1px solid rgba(245, 158, 11, 0.45)",
+                          color: "var(--text)",
+                          fontSize: 13,
+                          lineHeight: 1.5
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            letterSpacing: "0.12em",
+                            textTransform: "uppercase",
+                            color: "#f59e0b",
+                            marginBottom: 5
+                          }}
+                        >
+                          reply from Jack {isMine ? "· to you" : ""}
+                          {p.admin_reply_at && (
+                            <span
+                              style={{
+                                color: "var(--text-dim)",
+                                fontWeight: 400,
+                                marginLeft: 8,
+                                letterSpacing: 0,
+                                textTransform: "none"
+                              }}
+                            >
+                              {new Date(p.admin_reply_at).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        <div style={{ whiteSpace: "pre-wrap" }}>
+                          {p.admin_reply}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Admin-only controls — reply textarea + status
+                        buttons. Hidden from every non-Jack viewer. */}
+                    {isAdmin && (
+                      <div
+                        className="mt-3"
+                        style={{
+                          padding: 10,
+                          borderRadius: 10,
+                          background: "var(--panel-2)",
+                          border: "1px dashed var(--border-bright)"
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            letterSpacing: "0.12em",
+                            textTransform: "uppercase",
+                            color: "var(--text-dim)",
+                            marginBottom: 6
+                          }}
+                        >
+                          admin controls
+                        </div>
+                        <textarea
+                          value={draft}
+                          onChange={(e) =>
+                            setDraftReply((d) => ({
+                              ...d,
+                              [p.id]: e.target.value.slice(0, 4000)
+                            }))
+                          }
+                          rows={2}
+                          placeholder={
+                            p.admin_reply
+                              ? "Edit your reply…"
+                              : "Reply publicly to this request…"
+                          }
+                          className="retro-input"
+                          style={{ fontSize: 13 }}
+                        />
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 6,
+                            marginTop: 8,
+                            alignItems: "center"
+                          }}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              saveAdmin(p, { reply: draft })
+                            }
+                            disabled={
+                              savingId === p.id ||
+                              (draft.trim().length === 0 &&
+                                !p.admin_reply)
+                            }
+                            className="retro-btn retro-btn-primary"
+                            style={{ fontSize: 12, padding: "6px 12px" }}
+                          >
+                            {savingId === p.id ? "saving…" : "save reply"}
+                          </button>
+                          <span
+                            style={{
+                              marginLeft: 4,
+                              fontSize: 10,
+                              color: "var(--text-dim)",
+                              letterSpacing: "0.1em",
+                              textTransform: "uppercase"
+                            }}
+                          >
+                            status
+                          </span>
+                          {(["open", "in_progress", "completed"] as const).map(
+                            (s) => {
+                              const meta = statusMeta(s);
+                              const active = (p.status ?? "open") === s;
+                              return (
+                                <button
+                                  key={s}
+                                  type="button"
+                                  onClick={() => saveAdmin(p, { status: s })}
+                                  disabled={savingId === p.id || active}
+                                  style={{
+                                    padding: "5px 10px",
+                                    borderRadius: 999,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    border: `1px solid ${
+                                      active ? meta.color : "var(--border-bright)"
+                                    }`,
+                                    background: active
+                                      ? meta.bg
+                                      : "transparent",
+                                    color: active ? meta.color : "var(--text-dim)",
+                                    cursor:
+                                      savingId === p.id || active
+                                        ? "default"
+                                        : "pointer"
+                                  }}
+                                >
+                                  {meta.label}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>

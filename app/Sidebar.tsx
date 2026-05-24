@@ -21,18 +21,20 @@ export function Sidebar({
   avatarUrl,
   signOutAction,
   conferences = [],
-  unreadCounts = {}
+  unreadCounts = {},
+  cloneCard
 }: {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
   signOutAction: () => void | Promise<void>;
   conferences?: { slug: string; name: string }[];
-  /** Per-route unread badges. Key is the route href (e.g. "/messages",
-   *  "/poll"); value is the count to display in a small red bubble.
-   *  0 or missing = no badge. AppShell computes these server-side so
-   *  the nav badges stay accurate without a client round-trip. */
   unreadCounts?: Record<string, number>;
+  /** Clone-sync card rendered INSIDE the sidebar at the bottom (above
+   *  sign-out). Lives inside the single sticky <aside> so it scrolls
+   *  with the nav as one block — preloaded, identical on every page,
+   *  no jitter. AppShell builds + passes this once. */
+  cloneCard?: React.ReactNode;
 }) {
   const pathname = usePathname() ?? "";
 
@@ -250,6 +252,11 @@ export function Sidebar({
       >
         + new conversation
       </Link>
+
+      {/* Clone-sync card — rendered INSIDE the sticky aside so it
+          scrolls with the nav as one block (fixes the "sync avatar
+          floats away" bug Jack flagged). */}
+      {cloneCard}
 
       {/* Bottom row: sign out + compact theme toggle */}
       <div

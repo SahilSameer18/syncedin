@@ -583,6 +583,22 @@ drop policy if exists "feedback_posts_delete_own" on public.feedback_posts;
 create policy "feedback_posts_delete_own" on public.feedback_posts
   for delete using (auth.uid() = user_id);
 
+-- Admin-reply + lifecycle columns for /feedback. Jack as admin can reply
+-- to any post + move it through open → in_progress → completed so the
+-- requester sees the resolution + the page can group by status. Updates
+-- happen via the /api/admin/feedback-update server route which gates on
+-- the admin email; the column is publicly readable.
+alter table public.feedback_posts
+  add column if not exists status text default 'open'
+    check (status in ('open', 'in_progress', 'completed'));
+alter table public.feedback_posts
+  add column if not exists admin_reply text;
+alter table public.feedback_posts
+  add column if not exists admin_reply_at timestamptz;
+
+create index if not exists feedback_posts_status_idx
+  on public.feedback_posts (status, created_at desc);
+
 create table if not exists public.feedback_votes (
   post_id uuid not null references public.feedback_posts(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,

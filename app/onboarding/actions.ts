@@ -76,9 +76,18 @@ export async function saveTwin(formData: FormData) {
       .eq("id", user.id);
   }
 
-  await supabase
+  // Try the full upsert (includes the new `achievements` column).
+  // Fall back to the legacy field set if the column isn't migrated on
+  // this DB yet — onboarding must always succeed end-to-end.
+  const { error: upErr } = await supabase
     .from("twin_profiles")
     .upsert(fields, { onConflict: "user_id" });
+  if (upErr && /achievements|column|schema cache/i.test(upErr.message)) {
+    const { achievements: _drop, ...legacy } = fields;
+    await supabase
+      .from("twin_profiles")
+      .upsert(legacy, { onConflict: "user_id" });
+  }
 
   // Portfolio-from-LinkedIn auto-pull. If the user's blob contains a
   // LinkedIn URL and they don't yet have portfolio_about set, scrape the

@@ -11,6 +11,8 @@ export const metadata = {
 // Don't cache — vote totals should reflect within seconds.
 export const dynamic = "force-dynamic";
 
+const ADMIN_EMAIL = "jacksonjezio@gmail.com";
+
 type Post = {
   id: string;
   user_id: string | null;
@@ -19,6 +21,9 @@ type Post = {
   body: string | null;
   category: string;
   created_at: string;
+  status?: string | null;
+  admin_reply?: string | null;
+  admin_reply_at?: string | null;
 };
 
 export default async function FeedbackPage() {
@@ -28,16 +33,31 @@ export default async function FeedbackPage() {
   } = await supabase.auth.getUser();
 
   const service = createServiceClient();
+  const isAdmin =
+    !!user && (user.email ?? "").toLowerCase() === ADMIN_EMAIL;
 
-  // Load posts
-  const { data: postsData } = await service
-    .from("feedback_posts")
-    .select(
-      "id, user_id, author_name, title, body, category, created_at"
-    )
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const posts = (postsData ?? []) as Post[];
+  // Load posts. The new admin columns (status, admin_reply,
+  // admin_reply_at) may not yet exist in every prod DB — try the full
+  // select first and fall back to the core columns if Postgres complains.
+  let posts: Post[] = [];
+  try {
+    const { data, error } = await service
+      .from("feedback_posts")
+      .select(
+        "id, user_id, author_name, title, body, category, created_at, status, admin_reply, admin_reply_at"
+      )
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    posts = (data ?? []) as Post[];
+  } catch {
+    const { data } = await service
+      .from("feedback_posts")
+      .select("id, user_id, author_name, title, body, category, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+    posts = (data ?? []) as Post[];
+  }
 
   // Load every vote, compute totals and the viewer's own vote per post.
   const { data: votesData } = posts.length
@@ -91,6 +111,7 @@ export default async function FeedbackPage() {
       <FeedbackList
         signedIn={!!user}
         userId={user?.id ?? null}
+        isAdmin={isAdmin}
         posts={ranked}
       />
     </AppShell>

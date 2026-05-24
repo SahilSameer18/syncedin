@@ -79,22 +79,27 @@ export default async function ConferencePage({
     .select("user_id", { count: "exact", head: true })
     .eq("conference_slug", slug);
 
-  // PUBLIC member list — just id + name + avatar (no goals / email-as-
-  // identity / contact info). Always loaded so external visitors see
-  // the room's density visual + a real preview of who's in. This is
-  // the same minimum-PII a public LinkedIn profile lists.
+  // PUBLIC member list — id + name + avatar + goals + portfolio_about
+  // + handle. Loaded for EVERY visitor so the "already in the room"
+  // preview reads as a full summary instead of just a name. Jack: "THIS
+  // SHOULD HAVE A FULL SUMMARY OF ME." Goals are the high-level "what
+  // I'm working toward" line already shown on the public /u/[handle]
+  // portfolio page, so leaking it here adds no new exposure.
   type PublicMember = {
     id: string;
     display_name: string | null;
     email: string | null;
     avatar_url: string | null;
+    goals: string | null;
+    portfolio_about: string | null;
+    handle: string | null;
   };
   let publicMembers: PublicMember[] = [];
-  // Full directory (with goals) — gated to members so we don't leak
-  // intent/strategy data outside the room.
-  let members:
-    | (PublicMember & { goals: string | null })[]
-    | null = null;
+  // Full directory (still gated on isMember) — reuses publicMembers
+  // for now since goals is already in the public payload. Kept as a
+  // separate ref so the bottom "attendees · N" directory keeps reading
+  // a logged-in-only data source.
+  let members: PublicMember[] | null = null;
 
   {
     const { data: memberRows } = await service
@@ -103,31 +108,58 @@ export default async function ConferencePage({
       .eq("conference_slug", slug);
     const ids = (memberRows ?? []).map((r) => r.user_id);
     if (ids.length > 0) {
-      const { data: profs } = await service
-        .from("profiles")
-        .select("id, display_name, email, avatar_url")
-        .in("id", ids);
-      publicMembers = (profs ?? []).map((p) => ({
+      // Profiles + portfolio_about + handle. Wrap in try so missing
+      // columns on prod don't blank the page.
+      let profs: any[] = [];
+      try {
+        const { data } = await service
+          .from("profiles")
+          .select("id, display_name, email, avatar_url, handle, portfolio_about")
+          .in("id", ids);
+        profs = data ?? [];
+      } catch {
+        const { data } = await service
+          .from("profiles")
+          .select("id, display_name, email, avatar_url")
+          .in("id", ids);
+        profs = data ?? [];
+      }
+      const { data: twins } = await service
+        .from("twin_profiles")
+        .select("user_id, goals")
+        .in("user_id", ids);
+      const goalById = new Map(
+        (twins ?? []).map((t: any) => [t.user_id, t.goals as string | null])
+      );
+      publicMembers = profs.map((p: any) => ({
         id: p.id,
         display_name: p.display_name,
         email: p.email,
-        avatar_url: (p as any).avatar_url ?? null
+        avatar_url: p.avatar_url ?? null,
+        goals: goalById.get(p.id) ?? null,
+        portfolio_about: p.portfolio_about ?? null,
+        handle: p.handle ?? null
       }));
-
-      if (isMember) {
-        const { data: twins } = await service
-          .from("twin_profiles")
-          .select("user_id, goals")
-          .in("user_id", ids);
-        const goalById = new Map(
-          (twins ?? []).map((t) => [t.user_id, t.goals as string | null])
-        );
-        members = publicMembers.map((p) => ({
-          ...p,
-          goals: goalById.get(p.id) ?? null
-        }));
-      }
+      if (isMember) members = publicMembers;
     }
+  }
+
+  // OTHER COMMUNITIES BY THIS HOST — surfaces at the page bottom so a
+  // visitor who connects with the host's ecosystem can jump straight
+  // into the next room. Jack: "on communities page bottom show any
+  // communities that person created."
+  let otherByHost: { slug: string; name: string; kind: string }[] = [];
+  try {
+    const { data: others } = await service
+      .from("conferences")
+      .select("slug, name, kind")
+      .eq("owner_user_id", conf.owner_user_id)
+      .neq("slug", slug)
+      .order("created_at", { ascending: false })
+      .limit(8);
+    otherByHost = (others ?? []) as any[];
+  } catch {
+    /* table may not exist on this DB; skip silently */
   }
 
   // Owner profile (lookup so we can render "hosted by ..." nicely)
@@ -285,7 +317,162 @@ export default async function ConferencePage({
         <ShareUrlBox url={joinUrl} conferenceName={conf.name} />
       </div>
 
-      {/* CTAs based on viewer state */}
+      {/* PUBLIC MEMBER PREVIEW — full summary cards (avatar + name +
+          host badge + goals line + portfolio link). Visible to EVERY
+          visitor including external ones. Owner pinned first. Jack:
+          "THIS SHOULD HAVE A FULL SUMMARY OF ME." */}
+      {(() => {
+        const base = publicMembers.length > 0
+          ? publicMembers.slice(0, 6)
+          : (ownerProfile
+              ? [
+                  {
+                    id: conf.owner_user_id,
+                    display_name:
+                      (ownerProfile as any).display_name ?? null,
+                    email: (ownerProfile as any).email ?? null,
+                    avatar_url: (ownerProfile as any).avatar_url ?? null,
+                    goals: null,
+                    portfolio_about: null,
+                    handle: null
+                  } as any
+                ]
+              : []);
+        const preview = base;
+        if (preview.length === 0) return null;
+        const sorted = [
+          ...preview.filter((m) => m.id === conf.owner_user_id),
+          ...preview.filter((m) => m.id !== conf.owner_user_id)
+        ];
+        return (
+          <section className="mt-8">
+            <div className="retro-label">already in the room</div>
+            <p
+              className="text-xs mt-1"
+              style={{ color: "var(--text-dim)" }}
+            >
+              Public preview of the first {sorted.length} member
+              {sorted.length === 1 ? "" : "s"}. Sign up to see everyone
+              and start a twin conversation with anyone here.
+            </p>
+            <div
+              className="mt-3"
+              style={{
+                display: "grid",
+                gap: 12,
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(280px, 1fr))"
+              }}
+            >
+              {sorted.map((m) => {
+                const isHost = m.id === conf.owner_user_id;
+                const name = m.display_name ?? m.email ?? "Member";
+                const summary =
+                  ((m as any).portfolio_about ?? "").toString().trim() ||
+                  ((m as any).goals ?? "").toString().trim();
+                return (
+                  <div
+                    key={m.id}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                      padding: 14,
+                      borderRadius: 14,
+                      background: "var(--panel-solid)",
+                      border: isHost
+                        ? "1px solid var(--amber)"
+                        : "1px solid var(--border)"
+                    }}
+                  >
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      <Avatar
+                        id={m.id}
+                        name={name}
+                        avatarUrl={m.avatar_url}
+                        size={44}
+                      />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: 14,
+                            color: "var(--text)",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap"
+                          }}
+                        >
+                          {name}
+                        </div>
+                        {isHost && (
+                          <div
+                            style={{
+                              fontSize: 9,
+                              fontWeight: 800,
+                              letterSpacing: "0.12em",
+                              textTransform: "uppercase",
+                              color: "var(--amber-bright)",
+                              marginTop: 2
+                            }}
+                          >
+                            host
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    {summary && (
+                      <div
+                        style={{
+                          fontSize: 12,
+                          lineHeight: 1.5,
+                          color: "var(--text-dim)",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 4,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden"
+                        }}
+                      >
+                        {summary}
+                      </div>
+                    )}
+                    {(m as any).handle && (
+                      <Link
+                        href={`/u/${(m as any).handle}`}
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 700,
+                          color: "#1f8bff",
+                          textDecoration: "none",
+                          marginTop: "auto"
+                        }}
+                      >
+                        view full portfolio →
+                      </Link>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* NETWORK DENSITY COMPARE — side-by-side "today (scattered
+          dots) vs. on SyncedIn (fully-connected polygon with real
+          member avatars)". Visible to EVERY visitor including
+          external ones so the "why join" lands immediately. */}
+      <NetworkDensityCompare
+        members={publicMembers}
+        totalCount={attendeeCount ?? 0}
+        kindLabel={kindLabel}
+      />
+
+      {/* CTAs based on viewer state — moved BELOW the value blocks
+          (preview + density) per Jack: "lets move the already in the
+          room and the density compounds forever block above BROADCAST
+          AND INVITE PART FOCUS ON VALUE TO THE USER." Visitors see
+          why-join first, then the join button. */}
       {!user && (
         <section className="mt-8 retro-panel p-6">
           <div className="retro-label">join {conf.name}</div>
@@ -320,12 +507,11 @@ export default async function ConferencePage({
         </section>
       )}
 
-      {/* OWNER toolkit — relabeled per Jack: "Have your twin talk to
-          anyone else's based on their public profiles + make custom
-          invites" instead of the generic "who do you want to invite."
-          BulkReachToolkit owns the full input flow underneath. */}
+      {/* OWNER toolkit — the broadcast/invite block. Moved below the
+          value blocks too so the host's own page also leads with the
+          room's social proof, not the outbound tool. */}
       {isOwner && (
-        <section className="mt-3">
+        <section className="mt-8">
           <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
             host toolkit
           </div>
@@ -357,119 +543,6 @@ export default async function ConferencePage({
           </div>
         </section>
       )}
-
-      {/* PUBLIC MEMBER PREVIEW — surface a few profiles to non-members
-          too (FOMO + social proof). Per Jack: "below the broadcast,
-          show any existing users profiles who are on (so mine as the
-          creator)." Owner pinned first, then top N members. Full
-          directory still gates behind membership below. */}
-      {(() => {
-        const base = publicMembers.length > 0
-          ? publicMembers.slice(0, 6)
-          : (ownerProfile
-              ? [
-                  {
-                    id: conf.owner_user_id,
-                    display_name:
-                      (ownerProfile as any).display_name ?? null,
-                    email: (ownerProfile as any).email ?? null,
-                    avatar_url: (ownerProfile as any).avatar_url ?? null
-                  }
-                ]
-              : []);
-        const preview = base;
-        if (preview.length === 0) return null;
-        // Pin owner to the front if not already there.
-        const sorted = [
-          ...preview.filter((m) => m.id === conf.owner_user_id),
-          ...preview.filter((m) => m.id !== conf.owner_user_id)
-        ];
-        return (
-          <section className="mt-8">
-            <div className="retro-label">already in the room</div>
-            <p
-              className="text-xs mt-1"
-              style={{ color: "var(--text-dim)" }}
-            >
-              Public preview of the first {sorted.length} member
-              {sorted.length === 1 ? "" : "s"}. Sign up to see everyone
-              and start a twin conversation with anyone here.
-            </p>
-            <div
-              className="mt-3"
-              style={{
-                display: "grid",
-                gap: 10,
-                gridTemplateColumns:
-                  "repeat(auto-fit, minmax(180px, 1fr))"
-              }}
-            >
-              {sorted.map((m) => (
-                <div
-                  key={m.id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 10,
-                    padding: 10,
-                    borderRadius: 12,
-                    background: "var(--panel-solid)",
-                    border:
-                      m.id === conf.owner_user_id
-                        ? "1px solid var(--amber)"
-                        : "1px solid var(--border)"
-                  }}
-                >
-                  <Avatar
-                    id={m.id}
-                    name={m.display_name ?? m.email ?? "Member"}
-                    avatarUrl={m.avatar_url}
-                    size={36}
-                  />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontSize: 13,
-                        color: "var(--text)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap"
-                      }}
-                    >
-                      {m.display_name ?? m.email}
-                    </div>
-                    {m.id === conf.owner_user_id && (
-                      <div
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          letterSpacing: "0.06em",
-                          textTransform: "uppercase",
-                          color: "var(--amber-bright)",
-                          marginTop: 2
-                        }}
-                      >
-                        host
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        );
-      })()}
-
-      {/* NETWORK DENSITY COMPARE — side-by-side "today (scattered
-          dots) vs. on SyncedIn (fully-connected polygon with real
-          member avatars)". Visible to EVERY visitor including
-          external ones so the "why join" lands immediately. */}
-      <NetworkDensityCompare
-        members={publicMembers}
-        totalCount={attendeeCount ?? 0}
-        kindLabel={kindLabel}
-      />
 
       {/* ATTENDEE DIRECTORY (members only) */}
       {isMember && members && (
@@ -520,6 +593,75 @@ export default async function ConferencePage({
               your twin can start finding win-wins inside the room.
             </p>
           )}
+        </section>
+      )}
+
+      {/* OTHER COMMUNITIES BY THIS HOST — surfaces other rooms the
+          owner has spun up so a visitor who likes this one can jump
+          straight into the next. Jack: "on communities page bottom
+          show any communities that person created." */}
+      {otherByHost.length > 0 && (
+        <section className="mt-10">
+          <div className="retro-label">
+            more from {ownerName}
+          </div>
+          <p
+            className="text-xs mt-1"
+            style={{ color: "var(--text-dim)" }}
+          >
+            Other {otherByHost.length === 1 ? "room" : "rooms"}{" "}
+            {ownerName} hosts on SyncedIn.
+          </p>
+          <div
+            className="mt-3"
+            style={{
+              display: "grid",
+              gap: 10,
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(220px, 1fr))"
+            }}
+          >
+            {otherByHost.map((o) => {
+              const prefix =
+                o.kind === "community" ? "/communities" : "/conferences";
+              const tag = o.kind === "community" ? "community" : "conference";
+              return (
+                <Link
+                  key={o.slug}
+                  href={`${prefix}/${o.slug}`}
+                  className="retro-panel retro-panel-hover"
+                  style={{
+                    padding: 14,
+                    textDecoration: "none",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 6
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 800,
+                      letterSpacing: "0.12em",
+                      textTransform: "uppercase",
+                      color: "var(--text-dim)"
+                    }}
+                  >
+                    {tag}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: "var(--text)"
+                    }}
+                  >
+                    {o.name}
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </section>
       )}
     </main>

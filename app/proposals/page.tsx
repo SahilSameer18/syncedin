@@ -5,6 +5,7 @@ import { AppShell } from "../AppShell";
 import { Avatar } from "../Avatar";
 import { ExpandProposalInline } from "./ExpandProposalInline";
 import { InlineActions } from "./InlineActions";
+import { SocialIconRow } from "../SocialIconRow";
 
 /**
  * /proposals — dedicated view of every conversation's END proposal.
@@ -77,16 +78,33 @@ export default async function ProposalsPage() {
       display_name: string | null;
       email: string | null;
       avatar_url: string | null;
+      linkedin_url?: string | null;
+      x_url?: string | null;
+      instagram_url?: string | null;
+      facebook_url?: string | null;
+      website_url?: string | null;
     }
   >();
   if (otherIds.length > 0) {
-    const { data: profs } = await service
-      .from("profiles")
-      .select("id, display_name, email, avatar_url")
-      .in("id", otherIds);
-    profilesById = new Map(
-      ((profs ?? []) as any[]).map((p) => [p.id, p])
-    );
+    // Try with social columns; fall back to core columns if any are
+    // missing on this DB — proposals page must not 500.
+    let profs: any[] = [];
+    try {
+      const { data } = await service
+        .from("profiles")
+        .select(
+          "id, display_name, email, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+        )
+        .in("id", otherIds);
+      profs = data ?? [];
+    } catch {
+      const { data } = await service
+        .from("profiles")
+        .select("id, display_name, email, avatar_url")
+        .in("id", otherIds);
+      profs = data ?? [];
+    }
+    profilesById = new Map((profs as any[]).map((p) => [p.id, p]));
   }
 
   // Also pull agreement_responses so we can show which proposals
@@ -252,6 +270,20 @@ export default async function ProposalsPage() {
                     >
                       {otherName}
                     </span>
+                    <SocialIconRow
+                      urls={
+                        other
+                          ? {
+                              linkedin_url: other.linkedin_url ?? null,
+                              x_url: other.x_url ?? null,
+                              instagram_url: other.instagram_url ?? null,
+                              facebook_url: other.facebook_url ?? null,
+                              website_url: other.website_url ?? null
+                            }
+                          : null
+                      }
+                      size={14}
+                    />
                     <span
                       style={{
                         fontSize: 11,

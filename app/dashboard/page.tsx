@@ -17,6 +17,7 @@ import { ClientDate } from "../ClientDate";
 import { computePairScore } from "@/lib/pair-score";
 import { QuickFeedbackWidget } from "./QuickFeedbackWidget";
 import { PremiumProgressCard } from "./PremiumProgressCard";
+import { ConversationsList, type ConversationRow } from "./ConversationsList";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -129,7 +130,9 @@ export default async function DashboardPage() {
     otherIds.length
       ? service
           .from("profiles")
-          .select("id, display_name, email, is_test_persona, avatar_url")
+          .select(
+            "id, display_name, email, is_test_persona, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+          )
           .in("id", otherIds)
       : Promise.resolve({ data: [] as any[] }),
     personaIds.length
@@ -157,6 +160,35 @@ export default async function DashboardPage() {
   const avatarById = new Map(
     (others ?? []).map((p) => [p.id, p.avatar_url ?? null] as const)
   );
+  // Per-counterpart social URLs map for inline icon rendering on each
+  // conversation card. Profiles without any URLs map to null so the
+  // <SocialIconRow/> component renders nothing.
+  const socialsById = new Map<
+    string,
+    {
+      linkedin_url?: string | null;
+      x_url?: string | null;
+      instagram_url?: string | null;
+      facebook_url?: string | null;
+      website_url?: string | null;
+    } | null
+  >();
+  for (const p of (others ?? []) as any[]) {
+    const u = {
+      linkedin_url: p.linkedin_url ?? null,
+      x_url: p.x_url ?? null,
+      instagram_url: p.instagram_url ?? null,
+      facebook_url: p.facebook_url ?? null,
+      website_url: p.website_url ?? null
+    };
+    const hasAny =
+      u.linkedin_url ||
+      u.x_url ||
+      u.instagram_url ||
+      u.facebook_url ||
+      u.website_url;
+    socialsById.set(p.id, hasAny ? u : null);
+  }
   const personaGoal = new Map(
     (personaTwins ?? []).map((t) => [t.user_id, t.goals ?? ""] as const)
   );
@@ -298,6 +330,23 @@ export default async function DashboardPage() {
       (a, b) =>
         (b.excitement_score ?? -1) - (a.excitement_score ?? -1)
     );
+
+  // Last-message-at per conversation — drives the "most recent active"
+  // sort in the dashboard ConversationsList filter.
+  const realConvIds = realConversations.map((c) => c.id);
+  const lastMsgByConv = new Map<string, string>();
+  if (realConvIds.length > 0) {
+    const { data: latestMsgs } = await service
+      .from("messages")
+      .select("conversation_id, sent_at")
+      .in("conversation_id", realConvIds)
+      .order("sent_at", { ascending: false });
+    for (const m of (latestMsgs ?? []) as any[]) {
+      if (!lastMsgByConv.has(m.conversation_id)) {
+        lastMsgByConv.set(m.conversation_id, m.sent_at);
+      }
+    }
+  }
   const testConversations = (conversations ?? []).filter((c) =>
     isTestById.get(
       c.participant_a === user.id ? c.participant_b : c.participant_a
@@ -409,6 +458,11 @@ export default async function DashboardPage() {
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";
 
+  // SyncMeter now lives INSIDE AppShell's sidebar so every signed-in
+  // page renders it identically. The legacy syncInputs + cloneSyncCard
+  // below are kept ONLY for the hidden legacy left-rail block (so the
+  // dashboard's old layout proxy keeps building) — they don't reach
+  // the user.
   const syncInputs = {
     name: myProfile?.display_name ?? null,
     goals: twin?.goals ?? null,
@@ -422,11 +476,7 @@ export default async function DashboardPage() {
     accepted_agreements: acceptedAgreementsCount ?? 0,
     edit_count: editCount ?? 0
   };
-
-  // Clone Sync card rendered into AppShell's sidebar slot so it sits
-  // UNDER the sidebar nav (in-line with the menu) on desktop instead
-  // of a separate column. Jack: "this human clone part we can put
-  // under it in line."
+  // Kept as a dead reference for the hidden legacy aside below.
   const cloneSyncCard = (
     <aside
       className="flex flex-col items-center gap-3"
@@ -458,7 +508,7 @@ export default async function DashboardPage() {
   );
 
   return (
-    <AppShell sidebarExtra={cloneSyncCard}>
+    <AppShell>
       {/* Fire-and-forget backfill for missing summaries/scores */}
       <SummaryBackfill conversationIds={needsBackfillIds} />
       {/* Scrolls to top when arriving with ?saved=1 (post-onboarding). */}
@@ -515,86 +565,36 @@ export default async function DashboardPage() {
             (Already on SyncedIn + Find people) below it. */}
         <div className="space-y-8">
 
-          {/* Real conversations — sorted by excitement */}
-          {realConversations.length > 0 && (
-        <section>
-          <div className="retro-label">
-            your conversations · sorted by excitement
-          </div>
-          <div className="mt-3 space-y-2">
-            {realConversations.map((c) => {
+          {/* Real conversations — handed off to a client component
+              that exposes a SYNC SCORE header, the (i) tooltip, the
+              filter dropdown (excitement / sync / recent active /
+              recent convo), and per-row SocialIconRow buttons. */}
+          {realConversations.length > 0 && (() => {
+            const rows: ConversationRow[] = realConversations.map((c) => {
               const otherId =
                 c.participant_a === user.id
                   ? c.participant_b
                   : c.participant_a;
-              return (
-                <div
-                  key={c.id}
-                  className="retro-panel retro-panel-hover p-3"
-                >
-                  <div className="flex items-start gap-3">
-                    <Link
-                      href={`/conversations/${c.id}`}
-                      className="shrink-0"
-                    >
-                      <Avatar
-                        id={otherId}
-                        name={nameById.get(otherId) ?? "Unknown"}
-                        avatarUrl={avatarById.get(otherId) ?? null}
-                        size={40}
-                      />
-                    </Link>
-                    <Link
-                      href={`/conversations/${c.id}`}
-                      className="min-w-0 flex-1"
-                    >
-                      <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
-                        <span>{nameById.get(otherId) ?? "Unknown"}</span>
-                        {(() => {
-                          const st = statusForConv(c);
-                          if (!st) return null;
-                          return (
-                            <span
-                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
-                              style={{
-                                color: st.color,
-                                border: `1px solid ${st.color}`,
-                                background: "transparent",
-                                letterSpacing: "0.04em"
-                              }}
-                            >
-                              {st.label}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                      {c.counterpart_summary && (
-                        <div className="retro-dim text-xs mt-1">
-                          {c.counterpart_summary}
-                        </div>
-                      )}
-                      {c.summary && (
-                        <div className="text-xs mt-1.5">
-                          <span className="retro-dim">outcome: </span>
-                          {c.summary}
-                        </div>
-                      )}
-                      <div className="retro-dim text-[11px] mt-1">
-                        <ClientDate value={c.created_at} />
-                      </div>
-                    </Link>
-                    <ExcitementControl
-                      conversationId={c.id}
-                      score={c.excitement_score}
-                      locked={c.excitement_locked}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+              const otherTwin = (twinByUser.get(otherId) as any) ?? null;
+              const sync_score = computePairScore(twin ?? {}, otherTwin ?? {});
+              return {
+                id: c.id,
+                other_id: otherId,
+                other_name: nameById.get(otherId) ?? "Unknown",
+                other_avatar: avatarById.get(otherId) ?? null,
+                other_socials: socialsById.get(otherId) ?? null,
+                status: statusForConv(c),
+                counterpart_summary: c.counterpart_summary ?? null,
+                summary: c.summary ?? null,
+                created_at: c.created_at,
+                excitement_score: c.excitement_score ?? null,
+                excitement_locked: c.excitement_locked ?? null,
+                sync_score,
+                last_message_at: lastMsgByConv.get(c.id) ?? null
+              };
+            });
+            return <ConversationsList rows={rows} />;
+          })()}
 
           {/* Sample twins */}
           {twinComplete && (testPersonas?.length ?? 0) > 0 && (
