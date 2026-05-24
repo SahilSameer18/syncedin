@@ -129,6 +129,54 @@ export default async function HomePage() {
         {/* Hero — handle picker, the only conversion surface above the fold */}
         <LandingHandleHero />
 
+        {/* Manifesto line — the soul of the project. Jack: "under
+            this lets put the prior copy we made about what if the real
+            friends we make was the superintelligence along the way."
+            Big serif italic so it reads as a thesis statement, not
+            another feature card. */}
+        <section
+          style={{
+            maxWidth: 880,
+            margin: "12px auto 0",
+            padding: "32px 32px 8px",
+            textAlign: "center"
+          }}
+        >
+          <p
+            style={{
+              fontSize: "clamp(22px, 3.4vw, 32px)",
+              fontWeight: 600,
+              lineHeight: 1.25,
+              letterSpacing: "-0.015em",
+              fontStyle: "italic",
+              color: "var(--text)",
+              margin: 0
+            }}
+          >
+            What if the real safe superintelligence was the friends we
+            made along the wei
+            <span
+              aria-hidden="true"
+              style={{
+                display: "inline-block",
+                width: "0.6ch",
+                height: "0.95em",
+                marginLeft: 2,
+                verticalAlign: "-0.12em",
+                background:
+                  "linear-gradient(135deg, #1f59ff 0%, #6b2dc9 100%)",
+                animation: "lh-cursor 1.05s steps(2) infinite"
+              }}
+            />
+          </p>
+          <style>{`
+            @keyframes lh-cursor {
+              0%, 100% { opacity: 1; }
+              50%      { opacity: 0; }
+            }
+          `}</style>
+        </section>
+
         {/* How it works — three crisp cards */}
         <section className="lh-how">
           {[

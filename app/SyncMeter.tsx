@@ -212,7 +212,12 @@ export function SyncMeter({
         width: `min(${size}px, 70vw)`,
         maxWidth: size,
         height: "auto",
-        filter: `drop-shadow(0 0 ${glowStrength * 0.5}px ${innerGlow}) drop-shadow(0 0 ${glowStrength}px ${glowColor})`
+        // Cap the outer drop-shadow at a value that can't escape its
+        // parent card (was scaling to ~51px at high sync, bleeding
+        // pink/purple haze into the sidebar nav rendered above this
+        // element on the desktop column). 24px max keeps the glow
+        // contained while still reading as "powered up."
+        filter: `drop-shadow(0 0 ${Math.min(12, glowStrength * 0.5)}px ${innerGlow}) drop-shadow(0 0 ${Math.min(24, glowStrength)}px ${glowColor})`
       }}
     >
       <svg
