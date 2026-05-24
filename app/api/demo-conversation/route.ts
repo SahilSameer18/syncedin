@@ -120,26 +120,30 @@ ${
       : "";
 
   // Prompt asks for one JSON object per line inside the array so we can
-  // detect a completed message as soon as a newline lands during streaming.
+  // detect a completed message as soon as a newline lands during
+  // streaming. Length is UNBOUNDED — the conversation runs until one
+  // side floats a concrete win-win proposal and the other accepts (or
+  // counter-proposes a specific tweak). Jack: "not limit the amount
+  // of messages between the two parties but go all the way until a
+  // proposal is reached."
   const systemPrompt = `You're generating a SIMULATED conversation between two people's digital twins to show a recipient what a real twin-to-twin negotiation on SyncedIn would look like. The recipient is reading this BEFORE signing up — your job is to make them think "wow, that's exactly the conversation I'd want to have."
 
 Hard rules:
-- Generate EXACTLY 6 messages, alternating senders. Message 1 = "${inviterName}'s twin" (sender: "inviter"). Message 2 = "${recipientName}'s twin" (sender: "recipient"). Continue alternating through 6 messages total.
+- Alternate senders strictly. Message 1 = "${inviterName}'s twin" (sender: "inviter"). Message 2 = "${recipientName}'s twin" (sender: "recipient"). Keep alternating.
+- Do NOT cap the conversation at a fixed length. Keep going until one side puts a CONCRETE win-win proposal on the table (specific deliverable, specific channel, specific timing) and the other side either accepts it cleanly or counter-proposes one specific tweak the first side then accepts. Most realistic conversations land in 6–14 messages; some need more — let it run as long as needed. Never stop short of a proposal.
+- The FINAL message must be the one that accepts the proposal, and it must END with the literal marker line "PROPOSAL:" followed by a one-sentence restatement of the agreed-on next step (who does what, when, on what channel). Example final-message ending: "Sounds great, I'll send the calendar invite tonight. PROPOSAL: 30-min Zoom Tuesday at 10am PT to review the cohort metrics, ${inviterName} to send the deck the night before."
 - Each message: 2-4 sentences, conversational, specific. NO em-dashes, NO emojis, NO markdown.
 - Every message must reference concrete details from the profile blocks below — names of products, companies, specific projects. Generic chat is wrong.
-- The conversation should progress: opener → context exchange → identify overlap → propose a specific next step. Message 6 should propose a concrete win-win.
+- The conversation should progress: opener → context exchange → identify the overlap → put a specific next step on the table → resolve any pushback → land the proposal.
 - ${recipientName}'s twin should sound like ${recipientName} would sound — pulled from the public footprint + any added context. If the footprint is thin, infer cautiously and hedge claims.
 - It's a CONVERSATION, not pitches at each other. Each side should ask things or react to what the other just said.
 
-Output format — return ONLY valid JSON in this EXACT shape, with each message object on its own line (newline-separated inside the array). This formatting matters for streaming:
+Output format — return ONLY valid JSON in this EXACT shape, with each message object on its own line (newline-separated inside the array). This formatting matters for streaming. Continue the array for as many messages as it takes to land the proposal:
 {
 "messages": [
 {"sender": "inviter", "text": "..."},
 {"sender": "recipient", "text": "..."},
-{"sender": "inviter", "text": "..."},
-{"sender": "recipient", "text": "..."},
-{"sender": "inviter", "text": "..."},
-{"sender": "recipient", "text": "..."}
+{"sender": "inviter", "text": "..."}
 ]
 }`;
 
@@ -175,7 +179,11 @@ Generate the JSON now. ${
           // and watch for completed message objects in the stream.
           const stream = anthropic.messages.stream({
             model: TWIN_MODEL,
-            max_tokens: 1400,
+            // Was 1400 when capped at 6 messages. Bumped to leave room
+            // for the conversation to actually reach a proposal — 14
+            // 2-4-sentence turns + JSON scaffolding fits comfortably
+            // inside ~3500 tokens.
+            max_tokens: 3500,
             system: systemPrompt,
             messages: [{ role: "user", content: userContent }]
           });
@@ -241,7 +249,9 @@ Generate the JSON now. ${
   try {
     const response = await anthropic.messages.create({
       model: TWIN_MODEL,
-      max_tokens: 1400,
+      // Matches the streaming path — room for a full proposal-lands
+      // conversation (was 1400 when capped at 6 messages).
+      max_tokens: 3500,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }]
     });
@@ -263,6 +273,9 @@ Generate the JSON now. ${
     );
   }
 
+  // No hard cap on message count — the conversation runs until a
+  // proposal lands. We still defensively clamp to a generous upper
+  // bound (40) to prevent a runaway model from blowing out the UI.
   const cleaned = (parsed.messages ?? [])
     .map((m) => ({
       sender:
@@ -272,7 +285,7 @@ Generate the JSON now. ${
       text: (m.text || "").toString().trim()
     }))
     .filter((m) => m.text.length > 0)
-    .slice(0, 6);
+    .slice(0, 40);
 
   return NextResponse.json({
     messages: cleaned,
