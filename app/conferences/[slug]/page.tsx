@@ -218,11 +218,14 @@ export default async function ConferencePage({
             <p className="mt-4 text-base leading-relaxed">{conf.description}</p>
           )}
 
-          {/* STATS */}
+          {/* STATS — relabeled per Jack: "let's not call it attendee
+              lets call it signs up so far." Same number; clearer for
+              both community + conference contexts since neither is an
+              event until people actually sign up. */}
           <div className="mt-5 grid grid-cols-3 gap-2 max-w-md">
             <Stat
               n={attendeeCount ?? 0}
-              label="attendees"
+              label="signed up so far"
               accent="var(--amber-bright)"
             />
             <Stat
@@ -305,22 +308,222 @@ export default async function ConferencePage({
         </section>
       )}
 
-      {/* OWNER toolkit */}
+      {/* OWNER toolkit — relabeled per Jack: "Have your twin talk to
+          anyone else's based on their public profiles + make custom
+          invites" instead of the generic "who do you want to invite."
+          BulkReachToolkit owns the full input flow underneath. */}
       {isOwner && (
         <section className="mt-3">
           <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
             host toolkit
           </div>
-          <p className="retro-dim text-xs mt-1">
-            Invite {kind === "community" ? "members" : "attendees"} in bulk.
-            Every link you generate carries the {conf.name} {kindLabel}
-            tag so signups land them inside this {kindLabel} automatically.
+          <h2
+            className="retro-h1 mt-1"
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              letterSpacing: "-0.01em",
+              lineHeight: 1.2
+            }}
+          >
+            Have your twin talk to anyone else&apos;s
+            <br className="hidden sm:inline" /> based on their public
+            profiles + make custom invites.
+          </h2>
+          <p
+            className="text-sm mt-2"
+            style={{ color: "var(--text-dim)", maxWidth: 620 }}
+          >
+            Paste a LinkedIn, X, Instagram, or any URL. We&apos;ll
+            scrape it into a ghost twin, simulate the conversation, and
+            ship a personalized landing page so when they click they
+            already see what a deal between you would look like. Every
+            invite carries the {conf.name} {kindLabel} tag.
           </p>
           <div className="mt-4">
             <BulkReachToolkit appUrl={joinUrl} variant="card" />
           </div>
         </section>
       )}
+
+      {/* PUBLIC MEMBER PREVIEW — surface a few profiles to non-members
+          too (FOMO + social proof). Per Jack: "below the broadcast,
+          show any existing users profiles who are on (so mine as the
+          creator)." Owner pinned first, then top N members. Full
+          directory still gates behind membership below. */}
+      {(() => {
+        const preview =
+          (members ?? []).slice(0, 6) ||
+          (ownerProfile
+            ? [
+                {
+                  id: conf.owner_user_id,
+                  display_name:
+                    (ownerProfile as any).display_name ?? null,
+                  email: (ownerProfile as any).email ?? null,
+                  avatar_url: (ownerProfile as any).avatar_url ?? null,
+                  goals: null
+                }
+              ]
+            : []);
+        if (preview.length === 0) return null;
+        // Pin owner to the front if not already there.
+        const sorted = [
+          ...preview.filter((m) => m.id === conf.owner_user_id),
+          ...preview.filter((m) => m.id !== conf.owner_user_id)
+        ];
+        return (
+          <section className="mt-8">
+            <div className="retro-label">already in the room</div>
+            <p
+              className="text-xs mt-1"
+              style={{ color: "var(--text-dim)" }}
+            >
+              Public preview of the first {sorted.length} member
+              {sorted.length === 1 ? "" : "s"}. Sign up to see everyone
+              and start a twin conversation with anyone here.
+            </p>
+            <div
+              className="mt-3"
+              style={{
+                display: "grid",
+                gap: 10,
+                gridTemplateColumns:
+                  "repeat(auto-fit, minmax(180px, 1fr))"
+              }}
+            >
+              {sorted.map((m) => (
+                <div
+                  key={m.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: 10,
+                    borderRadius: 12,
+                    background: "var(--panel-solid)",
+                    border:
+                      m.id === conf.owner_user_id
+                        ? "1px solid var(--amber)"
+                        : "1px solid var(--border)"
+                  }}
+                >
+                  <Avatar
+                    id={m.id}
+                    name={m.display_name ?? m.email ?? "Member"}
+                    avatarUrl={m.avatar_url}
+                    size={36}
+                  />
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: "var(--text)",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {m.display_name ?? m.email}
+                    </div>
+                    {m.id === conf.owner_user_id && (
+                      <div
+                        style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          color: "var(--amber-bright)",
+                          marginTop: 2
+                        }}
+                      >
+                        host
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* HYPERNETWORK VS HUMAN BANDWIDTH — visual showing the leverage
+          this {kindLabel} unlocks. Quick math: a single human in a
+          room of N can hold ~3-5 deep conversations in 2 hours; twins
+          can negotiate N*(N-1)/2 in parallel. Render two stacked bars
+          so the gap reads at a glance. */}
+      {(() => {
+        const n = attendeeCount ?? 0;
+        const humanReach = Math.min(n, 5);
+        const twinReach = Math.max(0, (n * (n - 1)) / 2);
+        // Bar lengths capped so the human bar is always visible.
+        const max = Math.max(twinReach, humanReach, 1);
+        const humanPct = (humanReach / max) * 100;
+        const twinPct = (twinReach / max) * 100;
+        return (
+          <section className="mt-10">
+            <div className="retro-label">leverage in this room</div>
+            <h3
+              className="mt-1"
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                letterSpacing: "-0.005em"
+              }}
+            >
+              Twin bandwidth vs human bandwidth.
+            </h3>
+            <p
+              className="text-sm mt-2"
+              style={{ color: "var(--text-dim)", maxWidth: 600 }}
+            >
+              You can have maybe 5 real conversations at a {kindLabel}.
+              Your twin can run every possible pairing in parallel and
+              hand you only the win-wins worth your time.
+            </p>
+            <div
+              style={{
+                marginTop: 18,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12
+              }}
+            >
+              <BandwidthBar
+                label="You alone"
+                value={humanReach}
+                unit="conversations · ~2 hr"
+                pct={humanPct}
+                color="var(--text-dim)"
+                bg="var(--panel-2)"
+              />
+              <BandwidthBar
+                label="Your twin × this room"
+                value={twinReach}
+                unit={`possible pairings · ${
+                  twinReach > humanReach
+                    ? `${Math.round(twinReach / Math.max(humanReach, 1))}× more reach`
+                    : "compounds as people join"
+                }`}
+                pct={twinPct}
+                color="#fff"
+                bg="linear-gradient(90deg, #1f8bff 0%, #6b2dc9 60%, #d83bff 100%)"
+              />
+            </div>
+            {n < 3 && (
+              <p
+                className="text-xs mt-3"
+                style={{ color: "var(--text-dim)" }}
+              >
+                Bars grow as more people sign up — the gap between human
+                bandwidth and twin bandwidth widens fast.
+              </p>
+            )}
+          </section>
+        );
+      })()}
 
       {/* ATTENDEE DIRECTORY (members only) */}
       {isMember && members && (
@@ -374,6 +577,68 @@ export default async function ConferencePage({
         </section>
       )}
     </main>
+  );
+}
+
+function BandwidthBar({
+  label,
+  value,
+  unit,
+  pct,
+  color,
+  bg
+}: {
+  label: string;
+  value: number;
+  unit: string;
+  pct: number;
+  color: string;
+  bg: string;
+}) {
+  return (
+    <div>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          justifyContent: "space-between",
+          marginBottom: 4
+        }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text)" }}>
+          {label}
+        </span>
+        <span
+          style={{
+            fontSize: 12,
+            color: "var(--text-dim)",
+            fontFamily: '"IBM Plex Mono", ui-monospace, monospace'
+          }}
+        >
+          {Math.round(value).toLocaleString()} {unit}
+        </span>
+      </div>
+      <div
+        style={{
+          width: "100%",
+          height: 12,
+          borderRadius: 999,
+          background: "var(--panel-2)",
+          border: "1px solid var(--border)",
+          overflow: "hidden"
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.max(2, pct)}%`,
+            height: "100%",
+            background: bg,
+            transition: "width 0.4s ease",
+            display: "inline-block"
+          }}
+        />
+      </div>
+    </div>
   );
 }
 

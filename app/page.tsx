@@ -153,8 +153,8 @@ export default async function HomePage() {
               margin: 0
             }}
           >
-            What if the real safe superintelligence was the friends we
-            made along the wei
+            What if the real superintelligence was the friends we
+            make along the way
             <span
               aria-hidden="true"
               style={{

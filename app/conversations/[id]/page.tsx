@@ -7,6 +7,9 @@ import { Sidebar } from "../../Sidebar";
 import { MobileShell } from "../../MobileShell";
 import { SitewidePrefetch } from "../../SitewidePrefetch";
 import { signOut } from "../../login/actions";
+import { TopBar } from "../../TopBar";
+import { SyncMeter } from "../../SyncMeter";
+import Link from "next/link";
 import type { Message, AgreementResponse } from "@/lib/types";
 
 export default async function ConversationPage({
@@ -79,19 +82,39 @@ export default async function ConversationPage({
   // want to nest <main> tags or fight ChatUI's mx-auto centering. The
   // sidebar floats over the left edge of the viewport, the convo rail
   // sits right after it, ChatUI's mx-auto centering is unaffected.
+  //
+  // Per Jack: every page should share the SAME elements — TopBar, the
+  // unread-count badges, the Clone Sync card. The old version skipped
+  // them and that's why opening a conversation made the 7 Messages
+  // badge disappear. Now we fetch the same data AppShell does.
+  const userId = user.id;
   const { data: profileForSidebar } = await supabase
     .from("profiles")
-    .select("display_name, avatar_url, email")
-    .eq("id", user.id)
+    .select("display_name, avatar_url, email, handle")
+    .eq("id", userId)
     .maybeSingle();
+  function prettifyEmailUsername(raw: string): string {
+    const parts = raw
+      .replace(/[._-]+/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    return parts
+      .map((p) => p[0].toUpperCase() + p.slice(1))
+      .join(" ");
+  }
+  const emailUsername = user.email?.split("@")[0] ?? "";
   const sidebarDisplayName =
-    profileForSidebar?.display_name || user.email?.split("@")[0] || "you";
+    (profileForSidebar?.display_name &&
+      profileForSidebar.display_name.trim()) ||
+    (emailUsername ? prettifyEmailUsername(emailUsername) : "you");
   let conferences: { slug: string; name: string }[] = [];
   try {
     const { data: memberRows } = await supabase
       .from("conference_members")
       .select("conference_slug")
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
     const slugs = (memberRows ?? []).map((r: any) => r.conference_slug);
     if (slugs.length > 0) {
       const { data: confs } = await supabase
@@ -107,13 +130,152 @@ export default async function ConversationPage({
     /* sidebar still renders without conferences section */
   }
 
+  // Unread counts — mirrors AppShell's parallel fetch so badges show
+  // up identically on the conversation page (Jack flagged: opening a
+  // chat made the "7 messages" badge vanish).
+  const unreadCounts: Record<string, number> = {};
+  async function computeMessagesUnread(): Promise<number> {
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select(
+        "id, participant_a, participant_b, last_read_a, last_read_b, created_at"
+      )
+      .or(`participant_a.eq.${userId},participant_b.eq.${userId}`);
+    const myConvs = (convs ?? []) as any[];
+    const convIds = myConvs.map((c) => c.id);
+    if (convIds.length === 0) return 0;
+    const { data: msgs } = await supabase
+      .from("messages")
+      .select("conversation_id, sender_user_id, sent_at")
+      .in("conversation_id", convIds)
+      .neq("sender_user_id", userId)
+      .order("sent_at", { ascending: false });
+    const latestByConv = new Map<string, string>();
+    for (const m of ((msgs ?? []) as any[])) {
+      if (!latestByConv.has(m.conversation_id)) {
+        latestByConv.set(m.conversation_id, m.sent_at);
+      }
+    }
+    let n = 0;
+    for (const c of myConvs) {
+      const isA = c.participant_a === userId;
+      const myLastRead = isA ? c.last_read_a : c.last_read_b;
+      const latest = latestByConv.get(c.id);
+      if (!latest) continue;
+      if (!myLastRead || new Date(latest) > new Date(myLastRead)) n += 1;
+    }
+    return n;
+  }
+  async function computePollUnread(): Promise<number> {
+    const { data: polls } = await supabase
+      .from("polls")
+      .select("id, status")
+      .neq("status", "closed");
+    const pollIds = ((polls ?? []) as any[]).map((p) => p.id);
+    if (pollIds.length === 0) return 0;
+    const { data: myResponses } = await supabase
+      .from("poll_responses")
+      .select("poll_id")
+      .eq("twin_user_id", userId)
+      .in("poll_id", pollIds);
+    const respondedSet = new Set(
+      ((myResponses ?? []) as any[]).map((r) => r.poll_id)
+    );
+    return pollIds.filter((id: string) => !respondedSet.has(id)).length;
+  }
+  async function computeProposalsUnread(): Promise<number> {
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("id, participant_a, participant_b, summary")
+      .or(`participant_a.eq.${userId},participant_b.eq.${userId}`)
+      .not("summary", "is", null);
+    const convIds = ((convs ?? []) as any[]).map((c) => c.id);
+    if (convIds.length === 0) return 0;
+    const { data: myResps } = await supabase
+      .from("agreement_responses")
+      .select("conversation_id")
+      .eq("user_id", userId)
+      .in("conversation_id", convIds);
+    const respondedSet = new Set(
+      ((myResps ?? []) as any[]).map((r) => r.conversation_id)
+    );
+    return convIds.filter((id: string) => !respondedSet.has(id)).length;
+  }
+  const [mRes, pRes, prRes] = await Promise.allSettled([
+    computeMessagesUnread(),
+    computePollUnread(),
+    computeProposalsUnread()
+  ]);
+  if (mRes.status === "fulfilled" && mRes.value > 0)
+    unreadCounts["/messages"] = mRes.value;
+  if (pRes.status === "fulfilled" && pRes.value > 0)
+    unreadCounts["/poll"] = pRes.value;
+  if (prRes.status === "fulfilled" && prRes.value > 0)
+    unreadCounts["/proposals"] = prRes.value;
+
+  // Clone Sync card — same sidebarExtra slot the dashboard passes to
+  // AppShell. Fetched twin data is light here (just goals); SyncMeter
+  // tolerates missing fields. We don't pass conversation/edit counts
+  // since this is the chat page and the meter is meant as a quick
+  // glance, not a precise score.
+  const { data: twinForMeter } = await supabase
+    .from("twin_profiles")
+    .select(
+      "goals, deal_preferences, communication_style, deal_breakers, ai_export_blob"
+    )
+    .eq("user_id", userId)
+    .maybeSingle();
+  const syncInputs = {
+    name: profileForSidebar?.display_name ?? null,
+    goals: (twinForMeter as any)?.goals ?? null,
+    ai_export_blob: (twinForMeter as any)?.ai_export_blob ?? null,
+    deal_preferences: (twinForMeter as any)?.deal_preferences ?? null,
+    comm_style: (twinForMeter as any)?.communication_style ?? null,
+    deal_breakers: (twinForMeter as any)?.deal_breakers ?? null,
+    hometown: null,
+    current_city: null,
+    completed_conversations: 0,
+    accepted_agreements: 0,
+    edit_count: 0
+  };
+  const cloneSyncCard = (
+    <aside
+      className="flex flex-col items-center gap-3"
+      style={{
+        padding: 10,
+        borderRadius: 14,
+        background: "var(--panel-solid)",
+        border: "1px solid var(--border)"
+      }}
+    >
+      <SyncMeter
+        inputs={syncInputs}
+        size={120}
+        avatarUrl={(profileForSidebar as any)?.avatar_url ?? null}
+        userId={userId}
+      />
+      <Link
+        href="/onboarding"
+        className="retro-btn retro-btn-primary text-center"
+        style={{
+          width: "100%",
+          fontSize: 12,
+          padding: "8px 10px"
+        }}
+      >
+        + add context
+      </Link>
+    </aside>
+  );
+
   const sidebarEl = (
     <Sidebar
-      userId={user.id}
+      userId={userId}
       displayName={sidebarDisplayName}
       avatarUrl={(profileForSidebar as any)?.avatar_url ?? null}
       signOutAction={signOut}
       conferences={conferences}
+      unreadCounts={unreadCounts}
     />
   );
 
@@ -126,29 +288,45 @@ export default async function ConversationPage({
       {/* Warm the router cache for every primary nav destination. */}
       <SitewidePrefetch />
 
-      {/* Desktop left sidebar — fixed-position so ChatUI's h-screen
-          layout doesn't need to know about it. Hidden on mobile (the
-          MobileShell drawer handles nav there). */}
+      {/* Desktop top bar — same Hypernetwork / Sync a conference /
+          Sync a community items + profile dropdown as every other page.
+          Jack: "the real way to win here is gonna be keeping it all
+          same." */}
+      <div className="hidden lg:block">
+        <TopBar
+          userId={userId}
+          displayName={sidebarDisplayName}
+          avatarUrl={(profileForSidebar as any)?.avatar_url ?? null}
+          portfolioHandle={(profileForSidebar as any)?.handle ?? null}
+          signOutAction={signOut}
+          unreadCounts={unreadCounts}
+        />
+      </div>
+
+      {/* Desktop left sidebar + Clone Sync card stacked underneath.
+          Fixed-position so ChatUI's h-screen layout doesn't need to
+          know about it. Hidden on mobile (the MobileShell drawer
+          handles nav there). The Clone Sync card lives in the same
+          column the dashboard renders it in via AppShell's
+          sidebarExtra slot. */}
       <aside
-        className="hidden lg:block"
+        className="hidden lg:flex lg:flex-col"
         style={{
           position: "fixed",
-          top: 16,
+          top: 64,
           bottom: 16,
           left: 16,
           width: 220,
           zIndex: 4,
-          // Sidebar content (Dashboard / Messages / Invite / Poll /
-          // conferences list / Hypernetwork / + new conversation / sign
-          // out + dark toggle) can naturally exceed viewport height once
-          // a user has a few conferences. Constrain to viewport - 32px
-          // (top:16 + bottom:16) and scroll internally so it never bleeds
-          // off the bottom of the page.
-          maxHeight: "calc(100vh - 32px)",
+          gap: 10,
+          maxHeight: "calc(100vh - 80px)",
           overflowY: "auto"
         }}
       >
         {sidebarEl}
+        <div style={{ overflow: "hidden", borderRadius: 14 }}>
+          {cloneSyncCard}
+        </div>
       </aside>
 
       {/* Conversation rail — narrow strip TO THE RIGHT of the main
