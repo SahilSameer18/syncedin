@@ -30,6 +30,11 @@ export type ConversationRow = {
   other_name: string;
   other_avatar: string | null;
   other_socials: SocialUrls | null;
+  /** ISO timestamp of when the counterpart was last seen on SyncedIn
+   *  (stamped by middleware on every authed page load). Null if the
+   *  user hasn't been active since the column was added — we just hide
+   *  the badge in that case. */
+  other_last_active_at: string | null;
   status: { kind: string; label: string; color: string } | null;
   counterpart_summary: string | null;
   summary: string | null;
@@ -39,6 +44,46 @@ export type ConversationRow = {
   sync_score: number;
   last_message_at: string | null;
 };
+
+/**
+ * Format a last-active timestamp into a compact "active Xh ago" pill.
+ * - <2 min: "active now" (green)
+ * - <1 hr:  "active 23m ago" (green)
+ * - <24 hr: "active 4h ago" (amber)
+ * - <7 days: "active 3d ago" (dim)
+ * - <30 days: "active 2w ago" (dim)
+ * - older: "active 4mo ago" (dim)
+ */
+function formatLastActive(iso: string | null): {
+  label: string;
+  color: string;
+} | null {
+  if (!iso) return null;
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return null;
+  const diff = Date.now() - t;
+  if (diff < 2 * 60_000) {
+    return { label: "active now", color: "var(--green)" };
+  }
+  if (diff < 60 * 60_000) {
+    const mins = Math.max(1, Math.round(diff / 60_000));
+    return { label: `active ${mins}m ago`, color: "var(--green)" };
+  }
+  if (diff < 24 * 60 * 60_000) {
+    const hrs = Math.max(1, Math.round(diff / (60 * 60_000)));
+    return { label: `active ${hrs}h ago`, color: "var(--amber-bright)" };
+  }
+  if (diff < 7 * 24 * 60 * 60_000) {
+    const days = Math.max(1, Math.round(diff / (24 * 60 * 60_000)));
+    return { label: `active ${days}d ago`, color: "var(--text-dim)" };
+  }
+  if (diff < 30 * 24 * 60 * 60_000) {
+    const weeks = Math.max(1, Math.round(diff / (7 * 24 * 60 * 60_000)));
+    return { label: `active ${weeks}w ago`, color: "var(--text-dim)" };
+  }
+  const months = Math.max(1, Math.round(diff / (30 * 24 * 60 * 60_000)));
+  return { label: `active ${months}mo ago`, color: "var(--text-dim)" };
+}
 
 type SortKey = "excitement" | "sync" | "active" | "newest";
 
@@ -281,6 +326,26 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
                       {c.status.label}
                     </span>
                   )}
+                  {(() => {
+                    const la = formatLastActive(c.other_last_active_at);
+                    if (!la) return null;
+                    return (
+                      <span
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                        title={`Last seen ${new Date(
+                          c.other_last_active_at!
+                        ).toLocaleString()}`}
+                        style={{
+                          color: la.color,
+                          border: `1px solid ${la.color}`,
+                          background: "transparent",
+                          letterSpacing: "0.04em"
+                        }}
+                      >
+                        {la.label}
+                      </span>
+                    );
+                  })()}
                   <SocialIconRow urls={c.other_socials} size={14} />
                 </div>
                 {c.counterpart_summary && (

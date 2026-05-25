@@ -131,7 +131,7 @@ export default async function DashboardPage() {
       ? service
           .from("profiles")
           .select(
-            "id, display_name, email, is_test_persona, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+            "id, display_name, email, is_test_persona, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url, last_active_at"
           )
           .in("id", otherIds)
       : Promise.resolve({ data: [] as any[] }),
@@ -159,6 +159,14 @@ export default async function DashboardPage() {
   );
   const avatarById = new Map(
     (others ?? []).map((p) => [p.id, p.avatar_url ?? null] as const)
+  );
+  // Last-active stamp per counterpart — drives the "active 3h ago"
+  // pill on each conversation card. May be null if the user hasn't
+  // logged in since the column was added; the badge gracefully hides.
+  const lastActiveById = new Map<string, string | null>(
+    (others ?? []).map(
+      (p) => [p.id, (p as any).last_active_at ?? null] as const
+    )
   );
   // Per-counterpart social URLs map for inline icon rendering on each
   // conversation card. Profiles without any URLs map to null so the
@@ -583,6 +591,7 @@ export default async function DashboardPage() {
                 other_name: nameById.get(otherId) ?? "Unknown",
                 other_avatar: avatarById.get(otherId) ?? null,
                 other_socials: socialsById.get(otherId) ?? null,
+                other_last_active_at: lastActiveById.get(otherId) ?? null,
                 status: statusForConv(c),
                 counterpart_summary: c.counterpart_summary ?? null,
                 summary: c.summary ?? null,

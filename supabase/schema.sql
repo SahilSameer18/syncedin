@@ -50,6 +50,16 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists website_url text;
 
+-- Last-active timestamp on profiles — stamped by middleware on every
+-- authed page load (debounced via cookie so the write only fires when
+-- the value is older than 5 minutes). Drives the "active 3h ago" pill
+-- on dashboard conversation cards so users know who's online vs. dormant.
+alter table public.profiles
+  add column if not exists last_active_at timestamptz;
+
+create index if not exists profiles_last_active_idx
+  on public.profiles (last_active_at desc);
+
 -- Funny mode flag — when ON for a conversation, the twin prompt
 -- builder swaps to personality-first wiring (more emojis, lighter
 -- tone, still drives toward outcome but in a much more fun
