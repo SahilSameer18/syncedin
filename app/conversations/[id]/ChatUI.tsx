@@ -9,6 +9,7 @@ import { ComposeAtEnd } from "./ComposeAtEnd";
 import { SocialIconRow } from "../../SocialIconRow";
 import { PersistentCompose } from "./PersistentCompose";
 import { FunnyModeToggle } from "./FunnyModeToggle";
+import { CallButton } from "./CallButton";
 
 /**
  * SchedulePanel — appears after both sides accept a deal. Surfaces multiple
@@ -1100,6 +1101,14 @@ export function ChatUI({
                   {/* Per-convo funny-mode toggle. When on, twin prompt
                       swaps to personality-forward wiring. */}
                   <FunnyModeToggle conversationId={conversationId} />
+                  {/* Audio + video call launchers — opens a Jitsi
+                      iframe + tldraw dream board side-by-side. On
+                      end, the pasted transcript appends to BOTH
+                      participants' twin context. */}
+                  <CallButton
+                    conversationId={conversationId}
+                    otherName={other.name}
+                  />
                 </div>
                 <div className="retro-dim text-xs flex items-center gap-1.5 mt-0.5">
                   <span>

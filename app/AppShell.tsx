@@ -331,6 +331,11 @@ export async function AppShell({
           The main content keeps its readable max-width via its own
           inner wrapper. */}
       <main
+        // overflow-x: hidden + max-w-full mirror the global guard but
+        // scope it to the AppShell column too — belt-and-suspenders
+        // against any page-level content that briefly inflates before
+        // its own min-w-0 catches up.
+        style={{ maxWidth: "100vw", overflowX: "hidden" }}
         className={`mx-auto px-4 lg:pl-4 lg:pr-5 pt-0 lg:pt-1 pb-6 grid lg:grid-cols-[200px_1fr] gap-4 lg:gap-6 items-start ${maxWidth} lg:max-w-none`}
       >
         {/* Desktop sidebar — hidden on mobile, replaced by MobileShell drawer.

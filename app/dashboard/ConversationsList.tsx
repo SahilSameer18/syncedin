@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "../Avatar";
 import { ClientDate } from "../ClientDate";
 import { ExcitementControl } from "./ExcitementControl";
@@ -97,6 +97,59 @@ const SORTS: Array<{ key: SortKey; label: string }> = [
 export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
   const [sort, setSort] = useState<SortKey>("excitement");
   const [openFilter, setOpenFilter] = useState(false);
+  // Sync-score prompt overlay: loaded lazily when the user opens the
+  // edit modal. Avoids a fetch on first paint of the dashboard.
+  const [promptModal, setPromptModal] = useState(false);
+  const [promptValue, setPromptValue] = useState<string>("");
+  const [promptDefault, setPromptDefault] = useState<string>("");
+  const [promptIsCustom, setPromptIsCustom] = useState(false);
+  const [promptLoading, setPromptLoading] = useState(false);
+  const [promptSaving, setPromptSaving] = useState(false);
+  const [promptErr, setPromptErr] = useState<string | null>(null);
+
+  async function openPromptModal() {
+    setPromptModal(true);
+    setPromptErr(null);
+    if (promptDefault) return; // already loaded
+    setPromptLoading(true);
+    try {
+      const r = await fetch("/api/sync-score-prompt");
+      const j = await r.json();
+      if (!r.ok) {
+        setPromptErr(j.detail || j.error || `HTTP ${r.status}`);
+      } else {
+        setPromptDefault(j.default_prompt ?? "");
+        setPromptValue(j.prompt ?? j.default_prompt ?? "");
+        setPromptIsCustom(!!j.is_custom);
+      }
+    } catch (e: any) {
+      setPromptErr(e?.message || "Couldn't load prompt.");
+    } finally {
+      setPromptLoading(false);
+    }
+  }
+  async function savePrompt(value: string) {
+    setPromptSaving(true);
+    setPromptErr(null);
+    try {
+      const r = await fetch("/api/sync-score-prompt", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ prompt: value })
+      });
+      const j = await r.json();
+      if (!r.ok) {
+        setPromptErr(j.detail || j.error || `HTTP ${r.status}`);
+        return;
+      }
+      setPromptIsCustom(value.trim().length > 0);
+      setPromptModal(false);
+    } catch (e: any) {
+      setPromptErr(e?.message || "Couldn't save.");
+    } finally {
+      setPromptSaving(false);
+    }
+  }
 
   const sorted = useMemo(() => {
     const list = [...rows];
@@ -148,9 +201,14 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
           style={{
             display: "inline-flex",
             alignItems: "center",
+            flexWrap: "wrap",
             gap: 8,
             letterSpacing: 0,
-            textTransform: "none"
+            textTransform: "none",
+            // Allow the right-side header chunk to shrink on narrow
+            // viewports instead of forcing horizontal scroll.
+            minWidth: 0,
+            maxWidth: "100%"
           }}
         >
           <span
@@ -164,66 +222,34 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
           >
             SYNC SCORE
           </span>
-          {/* Single (i) explainer — replaces the per-row icons. */}
-          <span
-            className="group"
-            style={{ position: "relative", display: "inline-flex" }}
+          {/* (i) explainer — opens a modal that surfaces the underlying
+              scoring prompt + lets the user edit it. Jack: "surface
+              the underlying prompt we're using to calculate the sync
+              score, and let a user edit that if they want." */}
+          <button
+            type="button"
+            onClick={openPromptModal}
+            aria-label="How is Sync score calculated?"
+            title="View / edit how your sync score is calculated"
+            style={{
+              width: 16,
+              height: 16,
+              borderRadius: "50%",
+              border: "1px solid var(--border-bright)",
+              color: "var(--text-dim)",
+              fontSize: 10,
+              fontWeight: 700,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+              background: "var(--panel)",
+              fontFamily: "system-ui, sans-serif",
+              padding: 0
+            }}
           >
-            <span
-              aria-label="What is Sync score?"
-              style={{
-                width: 16,
-                height: 16,
-                borderRadius: "50%",
-                border: "1px solid var(--border-bright)",
-                color: "var(--text-dim)",
-                fontSize: 10,
-                fontWeight: 700,
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "help",
-                background: "var(--panel)",
-                fontFamily: "system-ui, sans-serif"
-              }}
-            >
-              i
-            </span>
-            <span
-              className="opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
-              style={{
-                position: "absolute",
-                top: "calc(100% + 6px)",
-                right: 0,
-                width: 280,
-                padding: "12px 14px",
-                background: "var(--panel-solid)",
-                border: "1px solid var(--border)",
-                borderRadius: 10,
-                fontSize: 11,
-                lineHeight: 1.5,
-                color: "var(--text-dim)",
-                zIndex: 30,
-                boxShadow: "0 16px 36px -12px rgba(0,0,0,0.45)",
-                textAlign: "left"
-              }}
-            >
-              <strong
-                style={{
-                  display: "block",
-                  marginBottom: 6,
-                  fontSize: 12,
-                  color: "var(--text)"
-                }}
-              >
-                Sync score
-              </strong>
-              How closely you and the other side fit on goals + deal
-              prefs + complementary asks/offers. 0% = no overlap, 100%
-              = perfect complement. Higher score = your twin is more
-              likely to find a win-win.
-            </span>
-          </span>
+            i
+          </button>
           {/* Filter dropdown */}
           <button
             type="button"
@@ -398,6 +424,178 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
           </div>
         ))}
       </div>
+
+      {/* SYNC-SCORE PROMPT MODAL — opened by the (i) badge in the
+          header. Shows the default natural-language description of
+          the scoring algorithm; user can override with their own
+          prompt that future scoring will incorporate. */}
+      {promptModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPromptModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 60,
+            background: "rgba(8, 11, 24, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 640,
+              width: "100%",
+              maxHeight: "min(80vh, 720px)",
+              overflow: "auto",
+              background: "var(--panel-solid)",
+              border: "1px solid var(--border)",
+              borderRadius: 16,
+              padding: 22,
+              boxShadow: "0 24px 64px -16px rgba(0,0,0,0.6)"
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                gap: 12,
+                marginBottom: 8
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: 18,
+                  fontWeight: 800,
+                  letterSpacing: "-0.005em"
+                }}
+              >
+                How your sync score is calculated
+              </h3>
+              <button
+                type="button"
+                onClick={() => setPromptModal(false)}
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: 999,
+                  border: "1px solid var(--border)",
+                  background: "transparent",
+                  color: "var(--text-dim)",
+                  cursor: "pointer",
+                  fontSize: 14
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+            <p
+              style={{
+                margin: "0 0 14px",
+                fontSize: 13,
+                color: "var(--text-dim)",
+                lineHeight: 1.55
+              }}
+            >
+              This is the prompt the platform uses to compute your sync
+              score against everyone else. Edit it to reflect what YOU
+              think makes a high-leverage match — your override gets
+              applied when your scores are recomputed.
+            </p>
+            {promptLoading ? (
+              <div
+                style={{
+                  padding: 24,
+                  textAlign: "center",
+                  color: "var(--text-dim)",
+                  fontSize: 13
+                }}
+              >
+                loading…
+              </div>
+            ) : (
+              <>
+                <textarea
+                  value={promptValue}
+                  onChange={(e) =>
+                    setPromptValue(e.target.value.slice(0, 8000))
+                  }
+                  rows={14}
+                  className="retro-input"
+                  style={{
+                    width: "100%",
+                    fontSize: 13,
+                    lineHeight: 1.55,
+                    fontFamily:
+                      '"IBM Plex Mono", ui-monospace, monospace'
+                  }}
+                />
+                {promptErr && (
+                  <p
+                    style={{
+                      marginTop: 8,
+                      fontSize: 12,
+                      color: "#ef4444",
+                      whiteSpace: "pre-wrap"
+                    }}
+                  >
+                    {promptErr}
+                  </p>
+                )}
+                <div
+                  style={{
+                    marginTop: 12,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    alignItems: "center"
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => savePrompt(promptValue)}
+                    disabled={promptSaving}
+                    className="retro-btn retro-btn-primary"
+                    style={{ padding: "8px 16px", fontSize: 13 }}
+                  >
+                    {promptSaving ? "saving…" : "save my prompt"}
+                  </button>
+                  {promptIsCustom && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPromptValue(promptDefault);
+                        savePrompt("");
+                      }}
+                      disabled={promptSaving}
+                      className="retro-btn"
+                      style={{ padding: "8px 14px", fontSize: 12 }}
+                    >
+                      ↺ reset to default
+                    </button>
+                  )}
+                  <span
+                    style={{
+                      marginLeft: "auto",
+                      fontSize: 11,
+                      color: "var(--text-dim)"
+                    }}
+                  >
+                    {promptIsCustom ? "✓ using your override" : "using default"}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

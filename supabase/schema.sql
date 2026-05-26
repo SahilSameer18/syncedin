@@ -50,6 +50,71 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists website_url text;
 
+-- =========================================================================
+-- Calls — person-to-person audio + video sessions between conversation
+-- participants. The call itself runs via embedded Jitsi (free public
+-- instance for v1; can swap to self-hosted Jitsi or LiveKit later) and a
+-- tldraw "context dream board" renders alongside it. When the call ends,
+-- whichever party stops the recording pastes the transcript back into
+-- the UI; the /api/calls/end route appends a structured "# Call with
+-- {other} on {date}" block to BOTH participants' twin_profiles.ai_export_blob
+-- so their twins use the call context in future conversations.
+-- =========================================================================
+create table if not exists public.calls (
+  id uuid primary key default uuid_generate_v4(),
+  conversation_id uuid not null references public.conversations(id) on delete cascade,
+  -- Jitsi room slug — deterministic per call so both participants land
+  -- in the same room. Generated as `syncedin-{conversation_id_short}-{ts}`.
+  room_id text not null,
+  -- 'audio' | 'video' — same Jitsi room either way; we just stamp the
+  -- intent so the analytics page can tell the two apart.
+  kind text not null default 'video'
+    check (kind in ('audio', 'video')),
+  started_by uuid not null references public.profiles(id) on delete cascade,
+  started_at timestamptz not null default now(),
+  ended_at timestamptz,
+  transcript text,
+  -- Stringified tldraw state — saved when the user clicks "save context
+  -- and end call." Replay-renderable on the conversation page so both
+  -- sides can revisit the whiteboard later.
+  dream_board_state jsonb
+);
+
+create index if not exists calls_convo_idx
+  on public.calls (conversation_id, started_at desc);
+
+alter table public.calls enable row level security;
+
+drop policy if exists "calls_select_participant" on public.calls;
+create policy "calls_select_participant" on public.calls
+  for select using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = calls.conversation_id
+        and (c.participant_a = auth.uid() or c.participant_b = auth.uid())
+    )
+  );
+
+drop policy if exists "calls_insert_participant" on public.calls;
+create policy "calls_insert_participant" on public.calls
+  for insert with check (
+    exists (
+      select 1 from public.conversations c
+      where c.id = calls.conversation_id
+        and (c.participant_a = auth.uid() or c.participant_b = auth.uid())
+    )
+  );
+
+drop policy if exists "calls_update_participant" on public.calls;
+create policy "calls_update_participant" on public.calls
+  for update using (
+    exists (
+      select 1 from public.conversations c
+      where c.id = calls.conversation_id
+        and (c.participant_a = auth.uid() or c.participant_b = auth.uid())
+    )
+  );
+
 -- Last-active timestamp on profiles — stamped by middleware on every
 -- authed page load (debounced via cookie so the write only fires when
 -- the value is older than 5 minutes). Drives the "active 3h ago" pill
@@ -244,6 +309,18 @@ alter table public.twin_profiles
 -- deals, and rendered on the public portfolio + community summaries.
 alter table public.twin_profiles
   add column if not exists achievements text;
+
+-- User-editable sync-score prompt. The platform ships a default
+-- algorithmic sync score (lib/pair-score.ts) — token + bigram overlap
+-- + complementary-fit regex + substance floor. This column lets each
+-- user write a NATURAL-LANGUAGE override describing what THEY think
+-- counts as a high-sync match (e.g. "weight technical depth heavily,
+-- ignore industry, +20 if they've raised a Series A"). v1 stores the
+-- override + surfaces it in the (i) tooltip; v2 will wire a Claude-
+-- graded modifier into pair-score so the override actually shifts
+-- numbers per-pair.
+alter table public.twin_profiles
+  add column if not exists sync_score_prompt text;
 
 -- =========================================================================
 -- Conferences — a conference head signs up, gets a shareable join URL,

@@ -160,15 +160,34 @@ async function scrapingDogInstagram(handle: string): Promise<string> {
  * profile page (which is just a hashed title because the rest is
  * auth-walled).
  */
+/**
+ * Deep LinkedIn scrape. Per Jack: "the linkedin scrape isnt deep enough."
+ *
+ * Strategy changes (May 2026):
+ *  - DEFAULT premium=true. ScrapingDog's premium tier returns the FULL
+ *    profile JSON (vs. a thin meta payload on the free tier) — recent
+ *    activity, full experience descriptions, certifications, awards,
+ *    volunteer history, projects, publications. The credit cost is ~5x
+ *    but the data is ~10x. Without premium, the scrape would fall back
+ *    to a one-line headline and we'd lose every signal that makes the
+ *    twin's opener actually personal. If premium fails (rare 5xx), we
+ *    fall through to a non-premium retry as a safety net.
+ *  - Lifted EVERY artificial cap:
+ *      about         1,500 → 6,000 chars
+ *      experience    6 entries → 20, per-role desc 240 → 2,000 chars
+ *      education     4 → 10
+ *      skills        10 → 60
+ *  - Pull every field LinkedIn surfaces and ScrapingDog returns:
+ *      certifications, courses, languages, honors_and_awards, projects,
+ *      publications, organizations, volunteer_experience, recommendations,
+ *      activities (recent posts), articles, featured items.
+ *    These are the "what is this person actually doing right now /
+ *    what are they proud of" signals — exactly what the opener needs
+ *    to feel like the inviter actually read the profile.
+ */
 async function scrapingDogLinkedIn(handle: string): Promise<string> {
   if (!SCRAPINGDOG_API_KEY) throw new Error("SCRAPINGDOG_API_KEY missing");
 
-  // ScrapingDog returns 404 with "This profile is either premium or does
-  // not exist. Try using premium=true." for a meaningful fraction of real
-  // profiles. Retry once with premium=true before giving up — that flag
-  // costs more credits per call but is the documented fix and turns a
-  // hard failure into a successful scrape on ~30% of "404 premium" cases
-  // observed in production.
   async function callOnce(premium: boolean): Promise<Response> {
     const url = `https://api.scrapingdog.com/linkedin?api_key=${encodeURIComponent(
       SCRAPINGDOG_API_KEY!
@@ -178,27 +197,21 @@ async function scrapingDogLinkedIn(handle: string): Promise<string> {
     return fetch(url, { method: "GET" });
   }
 
-  let res = await callOnce(false);
+  // Premium-first. The free tier on ScrapingDog's LinkedIn endpoint
+  // returns sparse data; premium is what unlocks the full record. If
+  // premium fails (5xx), retry non-premium as a fallback so we still
+  // get SOMETHING back rather than throwing.
+  let res = await callOnce(true);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    const isPremiumGate =
-      res.status === 404 && /premium|does not exist/i.test(body);
-    if (isPremiumGate) {
-      console.warn(
-        `[scrape] LinkedIn ${handle} hit premium gate, retrying with premium=true`
-      );
-      res = await callOnce(true);
-      if (!res.ok) {
-        const body2 = await res.text().catch(() => "");
-        throw new Error(
-          // Internal error — the outer scrapePublicProfile wraps this into
-          // a user-friendly message. We log enough here to debug.
-          `ScrapingDog LinkedIn ${res.status} (premium retry): ${body2.slice(0, 160)}`
-        );
-      }
-    } else {
+    console.warn(
+      `[scrape] LinkedIn ${handle} premium call failed (${res.status}), retrying non-premium`
+    );
+    res = await callOnce(false);
+    if (!res.ok) {
+      const body2 = await res.text().catch(() => "");
       throw new Error(
-        `ScrapingDog LinkedIn ${res.status}: ${body.slice(0, 160)}`
+        `ScrapingDog LinkedIn ${res.status}: ${(body || body2).slice(0, 200)}`
       );
     }
   }
@@ -223,105 +236,341 @@ async function scrapingDogLinkedIn(handle: string): Promise<string> {
     throw new Error("ScrapingDog LinkedIn returned no usable record");
   }
 
-  const name =
-    (p.fullName as string) ||
-    (p.full_name as string) ||
-    `${(p.first_name as string) || ""} ${(p.last_name as string) || ""}`.trim() ||
-    handle;
-  const headline = (p.headline as string) || (p.title as string) || "";
-  const about =
-    (p.about as string) ||
-    (p.summary as string) ||
-    (p.description as string) ||
-    "";
-  const location =
-    (p.location as string) ||
-    (p.geo_location as string) ||
-    "";
-  // Profile photo — ScrapingDog LinkedIn typically returns `profile_photo`;
-  // some response shapes use `image`, `avatar`, or `picture`. Try all so
-  // we can embed the recipient's face in the OG card.
-  const profilePhoto =
-    (p.profile_photo as string) ||
-    (p.profilePhoto as string) ||
-    (p.image as string) ||
-    (p.avatar as string) ||
-    (p.picture as string) ||
-    "";
-  // Follower / connection counts intentionally NOT extracted — openers
-  // must never reference them.
+  // Helper: pluck the first non-empty string from a list of candidate
+  // field names. ScrapingDog drifts between snake_case / camelCase /
+  // PascalCase across response versions; this normalizes it.
+  function pick(...keys: string[]): string {
+    for (const k of keys) {
+      const v = (p as any)[k];
+      if (typeof v === "string" && v.trim()) return v.trim();
+    }
+    return "";
+  }
+  function pickArray(...keys: string[]): Array<Record<string, unknown>> {
+    for (const k of keys) {
+      const v = (p as any)[k];
+      if (Array.isArray(v) && v.length > 0)
+        return v as Array<Record<string, unknown>>;
+    }
+    return [];
+  }
 
-  // Positions can be in `experience`, `positions`, or `current_company` shapes.
-  const expRows = Array.isArray((p as any).experience)
-    ? ((p as any).experience as Array<Record<string, unknown>>)
-    : Array.isArray((p as any).positions)
-    ? ((p as any).positions as Array<Record<string, unknown>>)
-    : [];
+  const name =
+    pick("fullName", "full_name") ||
+    `${pick("first_name", "firstName")} ${pick("last_name", "lastName")}`.trim() ||
+    handle;
+  const headline = pick("headline", "title", "current_position");
+  const about = pick("about", "summary", "description");
+  const location = pick("location", "geo_location", "city", "country");
+  const profilePhoto = pick(
+    "profile_photo",
+    "profilePhoto",
+    "image",
+    "avatar",
+    "picture",
+    "profile_image_url",
+    "profile_pic"
+  );
+  // Public website/portfolio links surfaced on the profile (the "contact
+  // info" section). Useful for the twin to reference the recipient's
+  // real work, not just the LinkedIn snippet.
+  const websiteUrl = pick("website", "websiteUrl", "personal_website");
+
+  // === EXPERIENCE — lifted cap (6 → 20), full descriptions (240 → 2000) ===
+  const expRows = pickArray("experience", "positions", "experiences", "work_experience");
   const experiences = expRows
-    .slice(0, 6)
+    .slice(0, 20)
     .map((e) => {
       const role =
-        (e.title as string) || (e.position as string) || (e.role as string) || "";
+        (e.title as string) ||
+        (e.position as string) || (e.role as string) ||
+        (e.position_title as string) || "";
       const company =
         (e.company as string) ||
-        ((e.companyName as string) || "") ||
-        ((e.company_name as string) || "");
+        (e.companyName as string) ||
+        (e.company_name as string) ||
+        (e.organization as string) || "";
       const duration =
-        (e.duration as string) || (e.dateRange as string) || "";
+        (e.duration as string) ||
+        (e.dateRange as string) ||
+        (e.date_range as string) ||
+        `${(e.start_date as string) || ""}${
+          (e.end_date as string) ? ` – ${e.end_date}` : ""
+        }`;
+      const locRow =
+        (e.location as string) || (e.company_location as string) || "";
+      // Full description — was being chopped to 240 chars which lost the
+      // bullet-pointed accomplishments that make a profile interesting.
       const desc =
         typeof e.description === "string"
-          ? (e.description as string).slice(0, 240)
+          ? (e.description as string).slice(0, 2000)
           : "";
-      const parts = [role, company && `at ${company}`, duration && `(${duration})`]
+      const parts = [
+        role,
+        company && `at ${company}`,
+        duration && `(${duration})`,
+        locRow && `[${locRow}]`
+      ]
         .filter(Boolean)
         .join(" ");
+      return desc ? `${parts}.\n${desc}` : parts;
+    })
+    .filter(Boolean);
+
+  // === EDUCATION — 4 → 10 ===
+  const eduRows = pickArray("education", "educations");
+  const education = eduRows
+    .slice(0, 10)
+    .map((e) => {
+      const school =
+        (e.school as string) ||
+        (e.institution as string) ||
+        (e.college_name as string) ||
+        (e.name as string) || "";
+      const degree =
+        (e.degree as string) ||
+        (e.college_degree as string) || "";
+      const field =
+        (e.field as string) ||
+        (e.field_of_study as string) ||
+        (e.college_degree_field as string) || "";
+      const dates =
+        (e.duration as string) ||
+        (e.date_range as string) ||
+        `${(e.start_year as string) || ""}${
+          (e.end_year as string) ? ` – ${e.end_year}` : ""
+        }`;
+      const desc =
+        typeof e.description === "string"
+          ? (e.description as string).slice(0, 600)
+          : "";
+      const parts = [school, [degree, field].filter(Boolean).join(", "), dates]
+        .filter(Boolean)
+        .join(" — ");
       return desc ? `${parts}. ${desc}` : parts;
     })
     .filter(Boolean);
 
-  const eduRows = Array.isArray((p as any).education)
-    ? ((p as any).education as Array<Record<string, unknown>>)
+  // === SKILLS — 10 → 60 ===
+  const skills = Array.isArray((p as any).skills)
+    ? ((p as any).skills as Array<unknown>)
+        .map((s) =>
+          typeof s === "string"
+            ? s
+            : (s as any)?.name || (s as any)?.skill || (s as any)?.title
+        )
+        .filter(Boolean)
+        .slice(0, 60)
     : [];
-  const education = eduRows
-    .slice(0, 4)
-    .map((e) => {
-      const school =
-        (e.school as string) || (e.institution as string) || (e.name as string) || "";
-      const degree = (e.degree as string) || (e.field as string) || "";
-      return [school, degree].filter(Boolean).join(" — ");
+
+  // === CERTIFICATIONS ===
+  const certs = pickArray("certifications", "certification", "licenses")
+    .slice(0, 15)
+    .map((c) => {
+      const title = (c.name as string) || (c.title as string) || "";
+      const issuer =
+        (c.issuer as string) ||
+        (c.organization as string) ||
+        (c.company_name as string) || "";
+      const year =
+        (c.year as string) ||
+        (c.issue_date as string) ||
+        (c.date as string) || "";
+      return [title, issuer && `(${issuer})`, year].filter(Boolean).join(" ");
     })
     .filter(Boolean);
 
-  const skills = Array.isArray((p as any).skills)
-    ? ((p as any).skills as Array<unknown>)
-        .map((s) => (typeof s === "string" ? s : (s as any)?.name))
-        .filter(Boolean)
-        .slice(0, 10)
-    : [];
+  // === LANGUAGES ===
+  const languages = pickArray("languages")
+    .slice(0, 10)
+    .map((l) => {
+      const lang = (l.name as string) || (l.language as string) || "";
+      const prof = (l.proficiency as string) || (l.fluency as string) || "";
+      return prof ? `${lang} (${prof})` : lang;
+    })
+    .filter(Boolean);
 
-  // Hard substance check — if we got nothing substantive, throw so the
-  // outer chain can try Apify or surface a clear "no scrape available"
-  // signal instead of generating a fake-personal opener.
-  if (!headline && !about && experiences.length === 0 && eduRows.length === 0) {
+  // === HONORS / AWARDS ===
+  const awards = pickArray("honors", "awards", "honors_and_awards", "accomplishments")
+    .slice(0, 12)
+    .map((a) => {
+      const title = (a.title as string) || (a.name as string) || "";
+      const issuer = (a.issuer as string) || (a.organization as string) || "";
+      const desc =
+        typeof a.description === "string"
+          ? (a.description as string).slice(0, 400)
+          : "";
+      const head = [title, issuer && `— ${issuer}`].filter(Boolean).join(" ");
+      return desc ? `${head}. ${desc}` : head;
+    })
+    .filter(Boolean);
+
+  // === PROJECTS ===
+  const projects = pickArray("projects", "project")
+    .slice(0, 10)
+    .map((pr) => {
+      const title = (pr.title as string) || (pr.name as string) || "";
+      const desc =
+        typeof pr.description === "string"
+          ? (pr.description as string).slice(0, 800)
+          : "";
+      return desc ? `${title}: ${desc}` : title;
+    })
+    .filter(Boolean);
+
+  // === PUBLICATIONS ===
+  const publications = pickArray("publications", "publication")
+    .slice(0, 10)
+    .map((pub) => {
+      const title = (pub.title as string) || (pub.name as string) || "";
+      const publisher = (pub.publisher as string) || (pub.publication as string) || "";
+      const year = (pub.date as string) || (pub.year as string) || "";
+      const desc =
+        typeof pub.description === "string"
+          ? (pub.description as string).slice(0, 600)
+          : "";
+      const head = [title, publisher && `(${publisher})`, year].filter(Boolean).join(" ");
+      return desc ? `${head}. ${desc}` : head;
+    })
+    .filter(Boolean);
+
+  // === VOLUNTEER ===
+  const volunteer = pickArray("volunteer", "volunteer_experience", "volunteering")
+    .slice(0, 10)
+    .map((v) => {
+      const role = (v.role as string) || (v.title as string) || "";
+      const org = (v.organization as string) || (v.company as string) || "";
+      const dates = (v.duration as string) || (v.date_range as string) || "";
+      const desc =
+        typeof v.description === "string"
+          ? (v.description as string).slice(0, 600)
+          : "";
+      const head = [role, org && `at ${org}`, dates && `(${dates})`].filter(Boolean).join(" ");
+      return desc ? `${head}. ${desc}` : head;
+    })
+    .filter(Boolean);
+
+  // === ORGANIZATIONS ===
+  const organizations = pickArray("organizations")
+    .slice(0, 10)
+    .map((o) => {
+      const name = (o.name as string) || (o.title as string) || "";
+      const role = (o.position as string) || (o.role as string) || "";
+      return role ? `${name} — ${role}` : name;
+    })
+    .filter(Boolean);
+
+  // === COURSES ===
+  const courses = pickArray("courses")
+    .slice(0, 15)
+    .map((c) => {
+      const name = (c.name as string) || (c.title as string) || "";
+      const provider = (c.provider as string) || (c.institution as string) || "";
+      return provider ? `${name} (${provider})` : name;
+    })
+    .filter(Boolean);
+
+  // === RECENT ACTIVITY / POSTS — the strongest "what is this person
+  // actually thinking about right now" signal. Many openers improve
+  // dramatically with even ONE recent post quoted. ===
+  const activities = pickArray("activities", "recent_posts", "posts", "updates", "activity")
+    .slice(0, 12)
+    .map((a) => {
+      const text =
+        (a.text as string) ||
+        (a.content as string) ||
+        (a.title as string) ||
+        (a.activity as string) || "";
+      const link =
+        (a.url as string) ||
+        (a.link as string) ||
+        (a.permalink as string) || "";
+      return link ? `${text.slice(0, 800)} (${link})` : text.slice(0, 800);
+    })
+    .filter(Boolean);
+
+  // === ARTICLES (LinkedIn long-form) ===
+  const articles = pickArray("articles", "long_form")
+    .slice(0, 8)
+    .map((a) => {
+      const title = (a.title as string) || (a.name as string) || "";
+      const link = (a.url as string) || (a.link as string) || "";
+      const desc =
+        typeof a.description === "string"
+          ? (a.description as string).slice(0, 500)
+          : "";
+      const head = link ? `${title} (${link})` : title;
+      return desc ? `${head}. ${desc}` : head;
+    })
+    .filter(Boolean);
+
+  // === RECOMMENDATIONS — what others say about them. Pure gold for
+  // openers because it's third-party validation. ===
+  const recommendations = pickArray("recommendations", "recommendation")
+    .slice(0, 8)
+    .map((r) => {
+      const author = (r.name as string) || (r.author as string) || "";
+      const role =
+        (r.position as string) ||
+        (r.title as string) ||
+        (r.relationship as string) || "";
+      const text =
+        typeof r.text === "string"
+          ? (r.text as string).slice(0, 800)
+          : typeof r.description === "string"
+          ? (r.description as string).slice(0, 800)
+          : "";
+      const head = [author, role && `(${role})`].filter(Boolean).join(" ");
+      return text ? `${head}: ${text}` : head;
+    })
+    .filter(Boolean);
+
+  // Substance check — broader now that we extract more. Need at least
+  // ONE of headline / about / experience / education / activity, OR
+  // a real name (≥2 chars, distinct from the handle).
+  const hasRealName =
+    typeof name === "string" &&
+    name.trim().length > 2 &&
+    name.replace(/[\s-]/g, "").toLowerCase() !==
+      handle.replace(/[\s-]/g, "").toLowerCase();
+  if (
+    !headline &&
+    !about &&
+    experiences.length === 0 &&
+    eduRows.length === 0 &&
+    activities.length === 0 &&
+    !hasRealName
+  ) {
     throw new Error(
-      `ScrapingDog LinkedIn returned only metadata for ${handle} (no headline, about, experience, or education).`
+      `ScrapingDog LinkedIn returned only metadata for ${handle} (no headline, about, experience, education, or activity).`
     );
   }
 
+  // Build the rich payload. Empty arrays are dropped by the JSON
+  // flattener so the prompt stays focused on what's actually there.
   return flatten(
     {
       handle: `linkedin.com/in/${handle}`,
       name,
       headline,
       location,
-      about: about ? about.slice(0, 1500) : "",
-      // Use the canonical `profile_image` key the bulk-invite extractor
-      // already looks for, so LinkedIn photos flow into the OG card
-      // recipient avatar slot the same way IG photos do.
+      website: websiteUrl,
+      about: about ? about.slice(0, 6000) : "",
       profile_image: profilePhoto,
       experience: experiences,
       education,
-      skills
+      skills,
+      certifications: certs,
+      languages,
+      honors_and_awards: awards,
+      projects,
+      publications,
+      volunteer_experience: volunteer,
+      organizations,
+      courses,
+      recent_activity: activities,
+      articles,
+      recommendations
     },
     0
   );

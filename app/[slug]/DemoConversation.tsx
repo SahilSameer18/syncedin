@@ -145,15 +145,55 @@ export function DemoConversation({
 
   const aiPrompt = useMemo(() => {
     const trimmed = recipientFirst || "the user";
-    return `I'm helping a friend prep a digital twin agent of me so it can negotiate intros and opportunities on my behalf. Write 4-6 tight sentences answering ALL of:
+    // No length cap. The longer the answer, the better the digital twin.
+    // Questions adapted from:
+    //   - Edgar Schein, *Humble Inquiry* — "real questions" framework
+    //   - Chris Voss, *Never Split the Difference* — calibrated "what"
+    //     and "how" questions that surface underlying needs
+    //   - Neil Rackham, *SPIN Selling* — Situation, Problem, Implication,
+    //     Need-payoff sequence for uncovering buying intent
+    //   - Stanford d.school empathy mapping (Say / Do / Think / Feel)
+    //   - Cal Newport, *So Good They Can't Ignore You* — career capital
+    //     audit (what specific skill is rare AND valuable here)
+    //   - James Clear's "what's the smallest version of this that would
+    //     still feel like a win" question for proposal discovery
+    // The intent: the recipient pastes this into ChatGPT/Claude, gets a
+    // dense personal-intelligence dossier back, and pastes it into the
+    // page. Their twin then negotiates with depth instead of vibes.
+    return `I'm helping prep a digital twin agent of me so it can negotiate intros, deals, and opportunities on my behalf — talking to OTHER people's twins in the background. The more depth you give it, the better the negotiations. Answer as much as you can; longer is better. Write in first-person, concrete language, no marketing or fluff. My name is ${trimmed}.
 
-1) What I do day-to-day right now (role, company, who I work with).
-2) The 2-3 problems I'm trying to solve in the next 90 days.
-3) What kinds of intros, deals, or collaborations would actually help me.
-4) Communication style + dealbreakers (anything I'd rather NOT be pitched).
-5) A couple of recent wins or specifics that prove what I'm credible at.
+Cover all of the following sections. Skip ones that genuinely don't apply, but expand on the ones that do.
 
-Be concrete and first-person. No fluff, no marketing language. Aim for ~150 words total. My name is ${trimmed}.`;
+═══ CURRENT REALITY ═══
+1. What I actually do day-to-day right now — role, company, who I report to, who reports to me, what my calendar looks like in a typical week.
+2. The 2–3 hardest problems I'm trying to solve in the next 90 days. For each: what makes it hard, what I've already tried, where I'm stuck.
+3. What I'm working on that's NOT visible publicly (side projects, skunkworks, things I haven't shipped yet).
+
+═══ WHAT I'M LOOKING FOR ═══
+4. The specific kinds of intros, deals, hires, partnerships, customers, or collaborations that would actually move the needle for me right now. Be concrete — not "investors" but "a Series A lead writing $5–10M checks in dev tooling."
+5. If a stranger walked up with the EXACT right ask, what would they say first to get my attention?
+6. The smallest version of a great outcome — what's the lightest-weight first step that would still feel like a win? (A 20-min call? A specific intro? A reference check?)
+
+═══ WHAT I CAN OFFER ═══
+7. Concrete things I can introduce, fund, advise on, build, host, or open doors for. Lean into specificity — "warm intros to ~40 enterprise CTOs from my Snowflake years" beats "I have a network."
+8. The skill or perspective I bring that's rare AND valuable in my field. What do I see that most people in my role miss?
+9. Recent wins / specifics that prove what I'm credible at — companies built, rounds raised, hires placed, papers published, contests won, awards earned. List as many as come to mind.
+
+═══ COMMUNICATION STYLE ═══
+10. How I want my twin to SHOW UP for me — voice (direct/warm/dry?), pace, hedge style, how much to push back vs smooth over, first-name vs full-name, anything I'd never say.
+11. Things I'd rather NEVER be pitched. Categories of ask, behaviors, patterns that should trigger an instant polite no.
+12. Words/phrases I never use (so the twin doesn't sound like an LLM impersonating me).
+
+═══ UNDERLYING WHY ═══
+13. The deeper goal under the 90-day goals — what am I really trying to build, prove, or move toward in the next 3–5 years?
+14. What would have to be true in my life for me to feel like the last year was a real win? (Specific, measurable answers.)
+15. Who do I look up to and why? What's the version of their career I'd most want to inherit?
+
+═══ DEAL BREAKERS + EDGES ═══
+16. Hard no-gos — types of work, types of people, types of ethics-violating asks, geographies, industries, sectors I won't engage with.
+17. Things I'm self-conscious about or wish I were better at — the twin should know my edges so it doesn't oversell me into rooms I'd freeze in.
+
+Give as much detail as you can on each. The dossier you write here is the entire foundation my twin will use to negotiate on my behalf with strangers. Bias toward verbosity over brevity.`;
   }, [recipientFirst]);
 
   // Restore prior session state on mount.
