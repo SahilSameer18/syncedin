@@ -111,6 +111,25 @@ export async function POST(req: Request) {
     (otherProfile as Profile)?.email ||
     "the other person";
   const msgs = (messages as Message[]) ?? [];
+
+  // Vacuous-conversation guard. Jack: proposals page is polluted with
+  // "No conversation occurred" / "One-sided opener only" entries. Root
+  // cause: summarize ran on conversations that barely happened (just
+  // an opener, no twin reply). REFUSE to write a summary unless the
+  // conversation has at least 4 messages AND messages from BOTH sides.
+  // Keeps the proposals list clean + saves an Anthropic call.
+  const senderIds = new Set(msgs.map((m) => m.sender_user_id));
+  if (msgs.length < 4 || senderIds.size < 2) {
+    return NextResponse.json(
+      {
+        error: "conversation_too_thin",
+        detail:
+          "Need at least 4 messages from both sides before summarizing. The proposals page would otherwise show a vacuous 'no conversation occurred' entry."
+      },
+      { status: 400 }
+    );
+  }
+
   const transcript = msgs
     .map((m) => `${m.sender_user_id === user.id ? selfName : otherName}: ${m.final_text}`)
     .join("\n");

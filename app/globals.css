@@ -116,16 +116,17 @@ body {
   overscroll-behavior-x: none;
 }
 /* Long pasted content (URLs, JSON blobs, scrape output) should wrap
-   instead of forcing horizontal scroll. Scope tightly to pre/code +
-   word-wrap on every paragraph rather than a universal *{} reset which
-   would break intentionally sized flex/grid layouts. */
+   instead of forcing horizontal scroll. Scoped to pre/code/textarea +
+   `break-word` (NOT `anywhere`) on prose so short caption labels like
+   "SYNC" don't get split into "SY / NC" in narrow sidebar columns.
+   Jack: caption rendering "94 % SYN C" was the visible regression. */
 pre, code, textarea {
   word-break: break-word;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
-p, span, div, h1, h2, h3, h4 {
-  overflow-wrap: anywhere;
+p {
+  overflow-wrap: break-word;
 }
 
 html,

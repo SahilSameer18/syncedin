@@ -54,14 +54,21 @@ export default async function ProposalsPage() {
     .not("summary", "is", null)
     .order("created_at", { ascending: false });
 
-  const rows = (convs ?? []) as Array<{
+  // Strip out vacuous "no conversation occurred" / "one-sided opener
+  // only" summaries — those are pollution from conversations where
+  // summarize ran prematurely. New summarize-conversation route refuses
+  // to write these going forward; this filter cleans up the legacy ones
+  // so the proposals page stays useful.
+  const VACUOUS_RE =
+    /no\s+conversation\s+occurred|one[\s-]?sided\s+opener|no\s+response\s+from|no\s+outcome.*established|no\s+next\s+step\s+established/i;
+  const rows = ((convs ?? []) as Array<{
     id: string;
     participant_a: string;
     participant_b: string;
     summary: string | null;
     status: string | null;
     created_at: string;
-  }>;
+  }>).filter((c) => !c.summary || !VACUOUS_RE.test(c.summary));
 
   // Look up counterpart profiles in one batched query.
   const otherIds = Array.from(
