@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { BulkReachToolkit } from "../BulkReachToolkit";
 import { AnimatedStat } from "../AnimatedStat";
+import { countReferrals } from "@/lib/invite-stats";
 
 export const metadata = {
   title: "Invite · SyncedIn",

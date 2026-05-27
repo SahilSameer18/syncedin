@@ -133,6 +133,17 @@ alter table public.profiles
 create index if not exists profiles_last_active_idx
   on public.profiles (last_active_at desc);
 
+-- AI-generated portfolio page — Jack: "generate a whole custom website
+-- per person." Stored as structured JSON (hero, narrative, sections,
+-- theme) so /u/[handle] can render a unique long-form site per user
+-- instead of the cookie-cutter retro-panel stack. The default sections
+-- (about / goals / looking for) still render as a fallback if
+-- portfolio_page is null.
+alter table public.profiles
+  add column if not exists portfolio_page jsonb;
+alter table public.profiles
+  add column if not exists portfolio_page_generated_at timestamptz;
+
 -- Funny mode flag — when ON for a conversation, the twin prompt
 -- builder swaps to personality-first wiring (more emojis, lighter
 -- tone, still drives toward outcome but in a much more fun
