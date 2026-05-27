@@ -144,9 +144,29 @@ export default async function DashboardPage() {
       (p) => [p.id, (p as any).last_active_at ?? null] as const
     )
   );
+  const personaGoal = new Map(
+    (personaTwins ?? []).map((t) => [t.user_id, t.goals ?? ""] as const)
+  );
+  const twinByUser = new Map(
+    (realTwins ?? []).map((t) => [t.user_id, t] as const)
+  );
   // Per-counterpart social URLs map for inline icon rendering on each
-  // conversation card. Profiles without any URLs map to null so the
-  // <SocialIconRow/> component renders nothing.
+  // conversation card. Pulls from BOTH:
+  //   - profiles.{linkedin_url,x_url,instagram_url,facebook_url,website_url}
+  //   - URLs extracted from the counterpart's twin ai_export_blob
+  // The blob path catches users who connected Sources during onboarding
+  // (which adds linkedin.com/in/... and similar to the blob) but never
+  // explicitly filled the social columns. Jack: "make sure we have the
+  // little icons and if they've linked their social media profiles."
+  // Built AFTER twinByUser so the blob lookup works.
+  function pickFirstUrl(blob: string, patterns: RegExp[]): string | null {
+    if (!blob) return null;
+    for (const re of patterns) {
+      const m = blob.match(re);
+      if (m && m[0]) return m[0];
+    }
+    return null;
+  }
   const socialsById = new Map<
     string,
     {
@@ -158,11 +178,34 @@ export default async function DashboardPage() {
     } | null
   >();
   for (const p of (others ?? []) as any[]) {
+    const otherTwin = (twinByUser.get(p.id) as any) ?? null;
+    const blob =
+      `${otherTwin?.ai_export_blob ?? ""}\n${otherTwin?.goals ?? ""}\n${otherTwin?.deal_preferences ?? ""}`;
+    const linkedin =
+      p.linkedin_url ??
+      pickFirstUrl(blob, [
+        /https?:\/\/(?:www\.)?linkedin\.com\/in\/[a-z0-9-]+\/?/i
+      ]);
+    const x =
+      p.x_url ??
+      pickFirstUrl(blob, [
+        /https?:\/\/(?:www\.)?(?:twitter|x)\.com\/[a-z0-9_]+\/?/i
+      ]);
+    const instagram =
+      p.instagram_url ??
+      pickFirstUrl(blob, [
+        /https?:\/\/(?:www\.)?instagram\.com\/[a-z0-9_.]+\/?/i
+      ]);
+    const facebook =
+      p.facebook_url ??
+      pickFirstUrl(blob, [
+        /https?:\/\/(?:www\.)?facebook\.com\/[a-z0-9.]+\/?/i
+      ]);
     const u = {
-      linkedin_url: p.linkedin_url ?? null,
-      x_url: p.x_url ?? null,
-      instagram_url: p.instagram_url ?? null,
-      facebook_url: p.facebook_url ?? null,
+      linkedin_url: linkedin,
+      x_url: x,
+      instagram_url: instagram,
+      facebook_url: facebook,
       website_url: p.website_url ?? null
     };
     const hasAny =
@@ -173,12 +216,6 @@ export default async function DashboardPage() {
       u.website_url;
     socialsById.set(p.id, hasAny ? u : null);
   }
-  const personaGoal = new Map(
-    (personaTwins ?? []).map((t) => [t.user_id, t.goals ?? ""] as const)
-  );
-  const twinByUser = new Map(
-    (realTwins ?? []).map((t) => [t.user_id, t] as const)
-  );
   // Discovery directory: real users with a finished twin you're NOT already
   // in a conversation with. Once you've connected, they drop off discovery —
   // the space below pivots to inviting more people.
