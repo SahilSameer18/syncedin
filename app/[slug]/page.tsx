@@ -617,7 +617,28 @@ export default async function InviteLandingPage({
         <section className="invite-demo-wrap">
           <DemoConversation
             slug={slug}
-            initialMessages={[]}
+            // Server-cached demo (jsonb on pending_invites.demo_messages).
+            // If a previous visitor's generation completed and saved, every
+            // subsequent visit replays the SAME conversation instead of
+            // re-running the LLM. Jack: "make sure on these custom links
+            // we're not regenerating the conversation every time."
+            initialMessages={(() => {
+              const cached = Array.isArray((invite as any).demo_messages)
+                ? ((invite as any).demo_messages as Array<{
+                    sender: string;
+                    text: string;
+                  }>)
+                : [];
+              return cached
+                .map((m) => ({
+                  sender:
+                    (m.sender || "").toLowerCase() === "recipient"
+                      ? ("recipient" as const)
+                      : ("inviter" as const),
+                  text: (m.text || "").toString()
+                }))
+                .filter((m) => m.text.trim().length > 0);
+            })()}
             inviterName={inviterName}
             recipientName={personName}
             inviterAvatarUrl={inviter?.avatar_url ?? null}

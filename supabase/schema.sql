@@ -144,6 +144,18 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists portfolio_page_generated_at timestamptz;
 
+-- Cache of the generated demo twin-to-twin conversation per invite
+-- slug. Without this, every fresh /<slug> page load (incognito, new
+-- device, or after localStorage clear) re-ran the LLM and produced a
+-- different conversation — wasted tokens + inconsistent demo for the
+-- recipient. Saved once on first generation; re-used on every
+-- subsequent visit. Jack: "make sure on these custom links we're not
+-- regenerating the conversation every time."
+alter table public.pending_invites
+  add column if not exists demo_messages jsonb;
+alter table public.pending_invites
+  add column if not exists demo_generated_at timestamptz;
+
 -- Funny mode flag — when ON for a conversation, the twin prompt
 -- builder swaps to personality-first wiring (more emojis, lighter
 -- tone, still drives toward outcome but in a much more fun

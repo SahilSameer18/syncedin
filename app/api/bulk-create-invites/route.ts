@@ -464,6 +464,7 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     slug: string;
     url: string;
     starter: string;
+    avatar_url: string | null;
   }> = [];
 
   for (const c of contacts) {
@@ -611,7 +612,11 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
       // shows in the editable textarea and what every send-button uses.
       // The landing-page version lives only in the DB and renders inside
       // /<slug>.
-      starter: outboundMessage
+      starter: outboundMessage,
+      // Scraped LinkedIn / IG / X profile photo. Pulled from the
+      // scrape blob a few lines up. UI renders it as the per-contact
+      // avatar on the invite card instead of the initials chip.
+      avatar_url: avatar_url
     });
   }
 

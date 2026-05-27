@@ -1218,12 +1218,18 @@ export function BulkReachToolkit({
             ))}
             {personalized.map((p) => {
               // Initials avatar — gradient-tinted, derived from name.
+              // Falls back to this if the API didn't return a scraped
+              // profile photo for this contact.
               const initials = (p.contact.name || "?")
                 .split(/\s+/)
                 .filter(Boolean)
                 .slice(0, 2)
                 .map((part) => part[0]?.toUpperCase() || "")
                 .join("") || "?";
+              // Scraped LinkedIn / IG / X photo from bulk-create-invites.
+              // Jack: "These custom links were pulled from their LinkedIn,
+              // which should be able to include the image."
+              const avatarUrl = (p as any).avatar_url as string | undefined;
               return (
               <li
                 key={p.slug}
@@ -1251,8 +1257,10 @@ export function BulkReachToolkit({
                       height: 38,
                       borderRadius: 999,
                       flexShrink: 0,
-                      background:
-                        "linear-gradient(135deg, #1f8bff 0%, #6b2dc9 100%)",
+                      overflow: "hidden",
+                      background: avatarUrl
+                        ? "var(--panel-2)"
+                        : "linear-gradient(135deg, #1f8bff 0%, #6b2dc9 100%)",
                       color: "#fff",
                       fontWeight: 800,
                       fontSize: 14,
@@ -1264,7 +1272,21 @@ export function BulkReachToolkit({
                         "0 4px 12px -4px rgba(31, 139, 255, 0.45)"
                     }}
                   >
-                    {initials}
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={avatarUrl}
+                        alt={p.contact.name || "Recipient"}
+                        style={{
+                          width: "100%",
+                          height: "100%",
+                          objectFit: "cover",
+                          display: "block"
+                        }}
+                      />
+                    ) : (
+                      initials
+                    )}
                   </div>
                   <div style={{ minWidth: 0, flex: 1 }}>
                     <div

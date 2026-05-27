@@ -238,19 +238,24 @@ export default async function ConversationPage({
     accepted_agreements: 0,
     edit_count: 0
   };
+  // Clone-sync card — passed INTO Sidebar via its cloneCard prop so
+  // it renders inside the same panel as the nav. No own background /
+  // border / overflow:hidden (the Sidebar panel already provides the
+  // surface; clipping here was hiding the (i) tooltip).
   const cloneSyncCard = (
     <aside
-      className="flex flex-col items-center gap-3"
       style={{
-        padding: 10,
-        borderRadius: 14,
-        background: "var(--panel-solid)",
-        border: "1px solid var(--border)"
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: 6,
+        paddingTop: 8,
+        borderTop: "1px solid var(--border)"
       }}
     >
       <SyncMeter
         inputs={syncInputs}
-        size={120}
+        size={110}
         avatarUrl={(profileForSidebar as any)?.avatar_url ?? null}
         userId={userId}
       />
@@ -259,8 +264,8 @@ export default async function ConversationPage({
         className="retro-btn retro-btn-primary text-center"
         style={{
           width: "100%",
-          fontSize: 12,
-          padding: "8px 10px"
+          fontSize: 11,
+          padding: "7px 10px"
         }}
       >
         + add context
@@ -276,6 +281,13 @@ export default async function ConversationPage({
       signOutAction={signOut}
       conferences={conferences}
       unreadCounts={unreadCounts}
+      // Pass the clone-sync card INTO the Sidebar so it renders inside
+      // the same panel as the nav — matches what AppShell does on every
+      // other page. Previously the conversation page rendered the
+      // sidebar AND a separate cloneSyncCard aside, which produced a
+      // duplicate SyncMeter floating below the sidebar with its glow
+      // clipping off the left edge. Jack: "UI overlap error on desktop."
+      cloneCard={cloneSyncCard}
     />
   );
 
@@ -303,12 +315,12 @@ export default async function ConversationPage({
         />
       </div>
 
-      {/* Desktop left sidebar + Clone Sync card stacked underneath.
-          Fixed-position so ChatUI's h-screen layout doesn't need to
-          know about it. Hidden on mobile (the MobileShell drawer
-          handles nav there). The Clone Sync card lives in the same
-          column the dashboard renders it in via AppShell's
-          sidebarExtra slot. */}
+      {/* Desktop left sidebar — fixed-position so ChatUI's h-screen
+          layout doesn't need to know about it. Hidden on mobile (the
+          MobileShell drawer handles nav there). The Clone Sync card
+          is now embedded INSIDE the Sidebar via the cloneCard prop,
+          so the whole thing is one panel — no duplicate floating
+          meter, no left-edge clipping. */}
       <aside
         className="hidden lg:flex lg:flex-col"
         style={{
@@ -318,15 +330,15 @@ export default async function ConversationPage({
           left: 16,
           width: 220,
           zIndex: 4,
-          gap: 10,
-          maxHeight: "calc(100vh - 80px)",
-          overflowY: "auto"
+          // Allow the SyncMeter (i) tooltip + nav menus to escape the
+          // aside boundary on hover. Was overflowY:auto + clipping
+          // the tooltip behind the chat content (Jack's hover-behind
+          // complaint).
+          overflowY: "visible",
+          overflowX: "visible"
         }}
       >
         {sidebarEl}
-        <div style={{ overflow: "hidden", borderRadius: 14 }}>
-          {cloneSyncCard}
-        </div>
       </aside>
 
       {/* Conversation rail — narrow strip TO THE RIGHT of the main

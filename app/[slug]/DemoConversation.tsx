@@ -273,6 +273,10 @@ Give as much detail as you can on each. The dossier you write here is the entire
     // Clear out old messages immediately so the user sees bubbles
     // arriving fresh, not stacked on top of the previous draft.
     setMessages([]);
+    // Hoisted so the finally block can see what was accumulated even
+    // if the stream errored partway through. The post-regen cache
+    // write reads from this.
+    const collected: Msg[] = [];
     try {
       const edits = messages.map((m, i) => ({ index: i, text: m.text }));
       const res = await fetch("/api/demo-conversation?stream=1", {
@@ -293,7 +297,6 @@ Give as much detail as you can on each. The dossier you write here is the entire
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buf = "";
-      const collected: Msg[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -327,6 +330,25 @@ Give as much detail as you can on each. The dossier you write here is the entire
     } finally {
       setRegenerating(false);
       setStreaming(false);
+      // Cache the generated transcript server-side so the next visitor
+      // (incognito, different device, scraper) sees the SAME demo and
+      // we don't burn another LLM run. Save-demo-messages is idempotent
+      // — it only writes if pending_invites.demo_messages is null.
+      try {
+        const toSave = (collected as Msg[]).filter(
+          (m) => m && typeof m.text === "string" && m.text.trim().length > 0
+        );
+        if (toSave.length > 0) {
+          void fetch("/api/save-demo-messages", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            keepalive: true,
+            body: JSON.stringify({ slug, messages: toSave })
+          });
+        }
+      } catch {
+        /* fire-and-forget — never block UI on cache write */
+      }
     }
   }
 
