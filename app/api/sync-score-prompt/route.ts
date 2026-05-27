@@ -1,36 +1,23 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { DEFAULT_SYNC_PROMPT } from "@/lib/sync-score-prompt";
 
 /**
  * GET / POST the user's custom sync-score prompt.
  *
  * The platform ships a deterministic algorithmic sync score
  * (lib/pair-score.ts) — token + bigram overlap + complementary-fit
- * regex + substance floor. The DEFAULT_PROMPT below is a natural-
- * language description of that algorithm for transparency.
+ * regex + substance floor. DEFAULT_SYNC_PROMPT (imported from /lib —
+ * route files in Next.js App Router can ONLY export route handlers,
+ * not arbitrary constants, which blocked the build at commit e18c0ee).
  *
  * If the user writes their own override, we store it; the (i) tooltip
- * on the dashboard renders their override instead of the default. v2
- * will wire a Claude-graded modifier into pair-score so the override
- * actually shifts numbers per-pair.
+ * on the dashboard renders their override instead of the default.
  *
  * GET → { prompt: string, is_custom: boolean }
  * POST { prompt: string } → { ok: true }
  * DELETE → resets to default (clears the override)
  */
-export const DEFAULT_SYNC_PROMPT = `Sync score blends FOUR signals into a single number 0–96. Higher = your twin is more likely to find a real win-win with this person.
-
-  • Complementary fit (55%) — does one side ASK for what the other OFFERS? "Raising a seed" ↔ "I invest at pre-seed" trips this. "Need a CTO" ↔ "Senior engineer looking for next role" trips this. The strongest signal.
-
-  • Goals overlap (15%) — do your one-line goals share keywords?
-
-  • Domain language (15%) — do you both use the same bigrams ("AI agents", "creator economy", "growth marketing")?
-
-  • Keyword affinity (15%) — loose token overlap across your full profiles.
-
-A floor of ~30–45% applies once both sides have substantive twin profiles (≥80 chars of context), so two real users never look like a dead match.
-
-The score is deterministic — same inputs always produce the same number. The post-conversation EXCITEMENT score (which can hit 99) is separate and reflects what actually happened in the chat.`;
 
 export async function GET() {
   const supabase = createClient();
