@@ -256,10 +256,13 @@ export async function AppShell({
         alignItems: "center",
         gap: 6,
         paddingTop: 8,
-        borderTop: "1px solid var(--border)",
-        // Clip the SyncMeter's drop-shadow glow so it can't bleed up
-        // into the sign-out row above.
-        overflow: "hidden"
+        borderTop: "1px solid var(--border)"
+        // NOTE: NO overflow:hidden here. The SyncMeter's (i) hover
+        // tooltip opens to the right; clipping the wrapper hid the
+        // tooltip behind the conversation cards next to the sidebar
+        // (Jack: "HOVER ON SYNC GOES BEHIND ELEMENTS"). The meter's
+        // drop-shadow is already capped at 24px in SyncMeter.tsx so
+        // it can't bleed into the nav.
       }}
     >
       <SyncMeter inputs={syncInputs} size={110} />
@@ -354,7 +357,12 @@ export async function AppShell({
           style={{
             position: "sticky",
             top: 12,
-            alignSelf: "start"
+            alignSelf: "start",
+            // Establish a stacking context above the main content
+            // column so the SyncMeter (i) hover tooltip — which lives
+            // inside this aside and pops out to the right — renders
+            // ON TOP of the conversation cards next to it.
+            zIndex: 5
           }}
         >
           {sidebar}

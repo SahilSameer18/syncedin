@@ -4,6 +4,7 @@ import { AppShell } from "../AppShell";
 import { RecGeneratorCard } from "./RecGeneratorCard";
 import { PiGeneratorCard } from "./PiGeneratorCard";
 import { PortfolioBuildButton } from "./PortfolioBuildButton";
+import { countReferrals } from "@/lib/invite-stats";
 
 /**
  * PERSONAL INTELLIGENCE — Jack's vision: every user gets a generated,
@@ -48,61 +49,9 @@ export default async function PersonalIntelligencePage() {
       .maybeSingle()
   ]);
 
-  // Successful invite count = invites this user created whose
-  // recipient ended up signing up. Two ways to count:
-  //   1. pending_invites.claimed_by_user_id non-null (direct claim
-  //      via /claim/<slug>)
-  //   2. profiles where email matches a pending_invites.recipient_email
-  //      this user created (signup without going through /claim/)
-  // Take the union so neither path under-counts.
-  // Jack: "I have 0 successful invites but I have 2" — the .not()
-  // chain was returning 0 because of PostgREST + RLS quirks on the
-  // is-null filter. Fetch the rows + count in memory instead.
-  let referrals = 0;
-  try {
-    const { data: claimed } = await service
-      .from("pending_invites")
-      .select("id, claimed_by_user_id, recipient_email")
-      .eq("inviter_user_id", user.id);
-    const rows = (claimed ?? []) as Array<{
-      id: string;
-      claimed_by_user_id: string | null;
-      recipient_email: string | null;
-    }>;
-    const claimedIds = new Set(
-      rows
-        .filter((r) => r.claimed_by_user_id)
-        .map((r) => r.id)
-    );
-    // Email-match fallback — recipient signed up with the same email
-    // but never clicked the claim slug. Scan once.
-    const inviteEmails = Array.from(
-      new Set(
-        rows
-          .map((r) => (r.recipient_email || "").toLowerCase())
-          .filter(Boolean)
-      )
-    );
-    if (inviteEmails.length > 0) {
-      const { data: matched } = await service
-        .from("profiles")
-        .select("email")
-        .in("email", inviteEmails);
-      const signedUpEmails = new Set(
-        ((matched ?? []) as Array<{ email: string | null }>)
-          .map((m) => (m.email || "").toLowerCase())
-          .filter(Boolean)
-      );
-      for (const r of rows) {
-        const e = (r.recipient_email || "").toLowerCase();
-        if (e && signedUpEmails.has(e)) claimedIds.add(r.id);
-      }
-    }
-    referrals = claimedIds.size;
-  } catch (e) {
-    console.warn("[pi] referral count failed", e);
-    referrals = 0;
-  }
+  // Unified count — same lib helper backs /invite + dashboard so all
+  // three surfaces read the same number. Strict claim ∪ email match.
+  const { count: referrals } = await countReferrals(user.id);
 
   const firstName =
     ((profile as any)?.display_name || "").split(/\s+/)[0] ||

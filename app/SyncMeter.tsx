@@ -61,7 +61,11 @@ function SyncInfoBadge({
           fontSize: 11,
           lineHeight: 1.45,
           color: "var(--text)",
-          zIndex: 30,
+          // Bumped 30 → 9999. The tooltip is inside the sticky sidebar
+          // aside, which the dashboard's conversation cards establish
+          // their own stacking contexts above on hover. Jack: "HOVER
+          // ON SYNC GOES BEHIND ELEMENTS." 9999 wins all of them.
+          zIndex: 9999,
           boxShadow: "0 16px 36px -12px rgba(0,0,0,0.45)",
           textAlign: "left"
         }}

@@ -18,6 +18,7 @@ import { computePairScore } from "@/lib/pair-score";
 import { QuickFeedbackWidget } from "./QuickFeedbackWidget";
 import { PremiumProgressCard } from "./PremiumProgressCard";
 import { ConversationsList, type ConversationRow } from "./ConversationsList";
+import { countCompletedReferrals } from "@/lib/invite-stats";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -85,35 +86,10 @@ export default async function DashboardPage() {
 
   const twinComplete = Boolean(twin?.goals);
 
-  // Premium-unlock counter: count distinct users who claimed an invite
-  // from THIS user AND completed their twin (twin_profiles.goals set).
-  // Computed here (not inline in JSX) so the build doesn't trip on an
-  // async-IIFE-inside-JSX pattern Next 14's compiler gets weird about.
-  let completedReferrals = 0;
-  try {
-    const { data: claimedRows } = await service
-      .from("pending_invites")
-      .select("claimed_by_user_id")
-      .eq("inviter_user_id", user.id)
-      .not("claimed_by_user_id", "is", null);
-    const claimedIds = Array.from(
-      new Set(
-        ((claimedRows ?? []) as any[])
-          .map((r) => r.claimed_by_user_id)
-          .filter(Boolean)
-      )
-    );
-    if (claimedIds.length > 0) {
-      const { data: completedTwins } = await service
-        .from("twin_profiles")
-        .select("user_id")
-        .in("user_id", claimedIds)
-        .not("goals", "is", null);
-      completedReferrals = (completedTwins ?? []).length;
-    }
-  } catch {
-    /* silent — card shows 0/3 */
-  }
+  // Unified completed-referral count — shared helper backs /invite,
+  // /personal-intelligence, and this dashboard card so all three
+  // surfaces read the same number.
+  const completedReferrals = await countCompletedReferrals(user.id);
 
   const otherIds = (conversations ?? []).map((c) =>
     c.participant_a === user.id ? c.participant_b : c.participant_a
