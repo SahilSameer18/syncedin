@@ -46,6 +46,14 @@ export function CallModal({
   const [transcript, setTranscript] = useState("");
   const [saving, setSaving] = useState(false);
   const [showBoard, setShowBoard] = useState(true);
+  // External meeting URL + read.ai bot dispatch state. Users who prefer
+  // Zoom / Google Meet / MS Teams over the embedded Jitsi can paste their
+  // meeting link and send a read.ai recording bot. Bot transcribes
+  // automatically; transcript flows back into both twins on call end.
+  const [externalUrl, setExternalUrl] = useState("");
+  const [dispatching, setDispatching] = useState(false);
+  const [readAiStatus, setReadAiStatus] = useState<string | null>(null);
+  const [readAiErr, setReadAiErr] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,6 +91,37 @@ export function CallModal({
       cancelled = true;
     };
   }, [conversationId, kind]);
+
+  async function dispatchReadAi() {
+    if (!callId || !externalUrl.trim()) return;
+    setDispatching(true);
+    setReadAiErr(null);
+    setReadAiStatus(null);
+    try {
+      const r = await fetch("/api/calls/dispatch-read-ai-bot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          call_id: callId,
+          meeting_url: externalUrl.trim()
+        })
+      });
+      const j = await r.json();
+      if (j.ok) {
+        setReadAiStatus(
+          j.read_ai_meeting_id
+            ? `✓ Read AI bot dispatched to ${j.platform.toUpperCase()}. Recording + transcribing in the background.`
+            : "✓ Meeting URL saved. Read AI bot dispatch in progress."
+        );
+      } else {
+        setReadAiErr(j.detail || j.error || `HTTP ${r.status}`);
+      }
+    } catch (e: any) {
+      setReadAiErr(e?.message || "Couldn't reach the dispatch endpoint.");
+    } finally {
+      setDispatching(false);
+    }
+  }
 
   async function endCall() {
     if (!callId) {
@@ -276,6 +315,98 @@ export function CallModal({
                   />
                 ) : null}
               </div>
+              {/* PREFER A REAL MEETING — paste a Zoom / Meet / Teams
+                  link to send a read.ai recording bot. Bot joins,
+                  transcribes, and the transcript flows back into both
+                  twins automatically. Falls back gracefully if the
+                  READ_AI_API_KEY env var isn't set. */}
+              <div
+                style={{
+                  padding: 10,
+                  borderRadius: 10,
+                  background: "rgba(255,255,255,0.04)",
+                  border: "1px solid rgba(255,255,255,0.12)"
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 800,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "rgba(255,255,255,0.65)",
+                    display: "block",
+                    marginBottom: 4
+                  }}
+                >
+                  📝 auto-record a zoom / meet / teams call
+                </label>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <input
+                    type="url"
+                    value={externalUrl}
+                    onChange={(e) => setExternalUrl(e.target.value)}
+                    placeholder="https://meet.google.com/abc-defg-hij"
+                    style={{
+                      flex: "1 1 200px",
+                      minWidth: 0,
+                      borderRadius: 8,
+                      padding: "8px 10px",
+                      fontSize: 12,
+                      background: "rgba(255,255,255,0.06)",
+                      color: "#fff",
+                      border: "1px solid rgba(255,255,255,0.18)"
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={dispatchReadAi}
+                    disabled={dispatching || !externalUrl.trim()}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      background:
+                        dispatching || !externalUrl.trim()
+                          ? "rgba(255,255,255,0.08)"
+                          : "linear-gradient(135deg, #1f8bff 0%, #6b2dc9 100%)",
+                      color: "#fff",
+                      border: 0,
+                      cursor:
+                        dispatching || !externalUrl.trim() ? "not-allowed" : "pointer"
+                    }}
+                  >
+                    {dispatching ? "sending bot…" : "send read.ai bot"}
+                  </button>
+                </div>
+                {readAiStatus && (
+                  <p
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      color: "#5ee5b2",
+                      lineHeight: 1.4
+                    }}
+                  >
+                    {readAiStatus}
+                  </p>
+                )}
+                {readAiErr && (
+                  <p
+                    style={{
+                      marginTop: 6,
+                      fontSize: 11,
+                      color: "#fca5a5",
+                      lineHeight: 1.4,
+                      whiteSpace: "pre-wrap"
+                    }}
+                  >
+                    {readAiErr}
+                  </p>
+                )}
+              </div>
+
               {/* Transcript paste — saved to both twins on end */}
               <div>
                 <label

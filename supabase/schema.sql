@@ -77,7 +77,15 @@ create table if not exists public.calls (
   -- Stringified tldraw state — saved when the user clicks "save context
   -- and end call." Replay-renderable on the conversation page so both
   -- sides can revisit the whiteboard later.
-  dream_board_state jsonb
+  dream_board_state jsonb,
+  -- External meeting URL (Zoom / Google Meet / MS Teams) when the
+  -- participants prefer their real conferencing platform over the
+  -- embedded Jitsi room. When set, the user can dispatch a read.ai bot
+  -- to auto-record + transcribe the call; the bot's read.ai meeting id
+  -- gets stamped here so we can later fetch the transcript.
+  external_meeting_url text,
+  external_platform text,
+  read_ai_meeting_id text
 );
 
 create index if not exists calls_convo_idx
