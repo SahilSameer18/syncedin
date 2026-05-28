@@ -637,11 +637,13 @@ export function ChatUI({
     initialOtherResponse
   );
   const [rejecting, setRejecting] = useState(false);
-  // Mobile-critical: the deal-sealed panel + SchedulePanel together can
-  // cover the entire viewport on a phone, hiding the chat the user is
-  // trying to read. Default collapsed on first render — the user sees a
-  // small "Deal sealed · open" pill and taps to expand.
-  const [agreementCollapsed, setAgreementCollapsed] = useState(true);
+  // Default EXPANDED — since the agreement panel now lives in the
+  // right-side rail on desktop (≥1100px), the old mobile-coverage
+  // concern doesn't apply there. On narrow viewports the rail is
+  // inline; users can still tap the pill to collapse if needed. Jack:
+  // "Now that we have proposed destination on the right side we can
+  // put it under outcome and not collapsed."
+  const [agreementCollapsed, setAgreementCollapsed] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   // Counter-proposal: pre-fills the textarea with the current agreement
   // text so the user edits the deal rather than retyping it. Submitting
@@ -1596,6 +1598,69 @@ export function ChatUI({
             }
           }
         `}</style>
+      {/* Outcome / "the deal" card — placed ABOVE the proposed-destination
+          panel in the rail. Jack: "Now that we have proposed destination
+          on the right side we can put it under outcome and not collapsed."
+          The outcome reads as the headline (deal summary + excitement %)
+          and the proposed-destination panel underneath is the actionable
+          panel where the user accepts / counters / rejects. */}
+      {summaryResult && (
+        <div
+          className="mb-2 p-3 retro-panel"
+          style={{
+            borderColor: "var(--amber)",
+            background: "var(--panel-2)"
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 6
+            }}
+          >
+            <div
+              className="retro-label"
+              style={{ color: "var(--amber-bright)" }}
+            >
+              outcome
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--amber-bright)",
+                fontFamily: "monospace"
+              }}
+              title="Excitement score — your twin's read on how high-potential this connection is (0-99)."
+            >
+              {Math.round(summaryResult.excitement_score)}%
+            </div>
+          </div>
+          {summaryResult.summary && (
+            <div
+              className="text-sm"
+              style={{ marginBottom: 6, lineHeight: 1.45 }}
+            >
+              {summaryResult.summary}
+            </div>
+          )}
+          {summaryResult.counterpart_summary && (
+            <div
+              className="retro-dim text-xs"
+              style={{ lineHeight: 1.5 }}
+            >
+              <strong style={{ color: "var(--text)" }}>
+                About {other.name}:
+              </strong>{" "}
+              {summaryResult.counterpart_summary}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Agreement card — accept (green ✓) / reject (red ✗) */}
       {/* Collapsed pill — taps to expand. Pulses subtly to read as
           actionable; the static version was getting missed because users
@@ -1946,65 +2011,6 @@ export function ChatUI({
         </div>
       )}
 
-      {/* Outcome / "the deal" card. Auto-summary lives here so it sits
-          in the same right-side rail as the proposed destination on
-          desktop. Mobile keeps it inline at the bottom of the chat. */}
-      {summaryResult && (
-        <div
-          className="mb-2 p-3 retro-panel"
-          style={{
-            borderColor: "var(--amber)",
-            background: "var(--panel-2)"
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8,
-              marginBottom: 6
-            }}
-          >
-            <div
-              className="retro-label"
-              style={{ color: "var(--amber-bright)" }}
-            >
-              outcome
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: "var(--amber-bright)",
-                fontFamily: "monospace"
-              }}
-              title="Excitement score — your twin's read on how high-potential this connection is (0-99)."
-            >
-              {Math.round(summaryResult.excitement_score)}%
-            </div>
-          </div>
-          {summaryResult.summary && (
-            <div
-              className="text-sm"
-              style={{ marginBottom: 6, lineHeight: 1.45 }}
-            >
-              {summaryResult.summary}
-            </div>
-          )}
-          {summaryResult.counterpart_summary && (
-            <div
-              className="retro-dim text-xs"
-              style={{ lineHeight: 1.5 }}
-            >
-              <strong style={{ color: "var(--text)" }}>
-                About {other.name}:
-              </strong>{" "}
-              {summaryResult.counterpart_summary}
-            </div>
-          )}
-        </div>
-      )}
       </div>{/* /conv-action-rail */}
 
       <div className="border-t border-[var(--border)] pt-3">
