@@ -2,7 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     {
-      "_comment_": "Weekly proposals digest. Vercel cron auth is via the Authorization: Bearer <CRON_SECRET> header it sends automatically; route checks it. 14:00 UTC Monday = ~9am ET / 6am PT — first thing Monday morning.",
       "path": "/api/cron/weekly-digest",
       "schedule": "0 14 * * 1"
     }
