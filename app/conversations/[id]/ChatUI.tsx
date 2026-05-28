@@ -643,6 +643,14 @@ export function ChatUI({
   // small "Deal sealed · open" pill and taps to expand.
   const [agreementCollapsed, setAgreementCollapsed] = useState(true);
   const [rejectReason, setRejectReason] = useState("");
+  // Counter-proposal: pre-fills the textarea with the current agreement
+  // text so the user edits the deal rather than retyping it. Submitting
+  // hits /api/conversations/[id]/change-proposal which clears both
+  // sides' accept/reject so the counterpart sees the new version fresh.
+  // Jack: "on the proposed final destination in this message, there's
+  // no counterproposal, so that would be good."
+  const [countering, setCountering] = useState(false);
+  const [counterText, setCounterText] = useState("");
 
   // Read-receipt: stamp /api/conversations/[id]/read on mount and after
   // every new message arrives, so the counterpart sees our ✓✓ next time
@@ -1009,6 +1017,65 @@ export function ChatUI({
     }
     setRunning(false);
     runLoop();
+  }
+
+  /**
+   * Submit a counter-proposal — user edits the deal terms and saves.
+   * Hits /api/conversations/[id]/change-proposal which:
+   *   - rewrites the last >>>AGREEMENT message with the new text
+   *   - clears both sides' accept/reject so the counterpart sees the
+   *     updated version fresh
+   * On success: reflect the new agreement in local messages so the
+   * panel re-renders with the counter text, close the editor, clear
+   * accept/reject state.
+   */
+  async function submitCounter() {
+    const text = counterText.trim();
+    if (!text || text === (lastAgreement ?? "").trim()) return;
+    setRunning(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/conversations/${conversationId}/change-proposal`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ text })
+        }
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      // Patch the last agreement-bearing message locally so the panel
+      // reflects the counter immediately. The next page nav (or a
+      // /api/conversations/[id]/messages refetch) hydrates canonically.
+      setMessages((prev) => {
+        for (let i = prev.length - 1; i >= 0; i--) {
+          const { agreement, body } = splitAgreement(prev[i].final_text);
+          if (agreement) {
+            const next = [...prev];
+            const body0 = (body ?? "").trim();
+            const rebuilt = body0
+              ? `${body0}\n\n>>> AGREEMENT: ${text}`
+              : `>>> AGREEMENT: ${text}`;
+            next[i] = {
+              ...prev[i],
+              original_draft: rebuilt,
+              final_text: rebuilt,
+              edited: true
+            };
+            return next;
+          }
+        }
+        return prev;
+      });
+      setMyResponse(null);
+      setOtherResponse(null);
+      setCountering(false);
+      setCounterText("");
+    } catch (e: any) {
+      setError(e.message || String(e));
+    } finally {
+      setRunning(false);
+    }
   }
 
   // Pull the agreement (if any) from the last message for the summary card.
@@ -1499,6 +1566,36 @@ export function ChatUI({
         </>
       )}
 
+      {/* Wrapper: proposed-destination pill + expanded agreement panel
+          + outcome card. On lg+ desktop screens this stack pins to the
+          right of the chat as a fixed rail — Jack: "we can fix it by
+          putting the proposed destination and the outcome on the right
+          side where there's free space." On mobile/tablet it stays
+          inline at the bottom of the chat. */}
+      <div className="conv-action-rail">
+        <style>{`
+          /* Mobile / tablet: inline (default block flow). */
+          .conv-action-rail { display: block; }
+          @media (min-width: 1100px) {
+            .conv-action-rail {
+              position: fixed;
+              top: 96px;
+              right: 28px;
+              width: 330px;
+              max-height: calc(100vh - 120px);
+              overflow-y: auto;
+              z-index: 6;
+              /* Faint divider so it doesn't feel detached. */
+              padding-left: 4px;
+            }
+            /* Scrollbar subdued so it doesn't fight the visual. */
+            .conv-action-rail::-webkit-scrollbar { width: 6px; }
+            .conv-action-rail::-webkit-scrollbar-thumb {
+              background: rgba(120, 130, 160, 0.25);
+              border-radius: 3px;
+            }
+          }
+        `}</style>
       {/* Agreement card — accept (green ✓) / reject (red ✗) */}
       {/* Collapsed pill — taps to expand. Pulses subtly to read as
           actionable; the static version was getting missed because users
@@ -1748,10 +1845,167 @@ export function ChatUI({
               >
                 ✗ Reject
               </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  // Pre-fill with the current agreement so the user is
+                  // editing the deal, not rewriting from blank.
+                  setCounterText(lastAgreement ?? "");
+                  setCountering(true);
+                }}
+                disabled={running}
+                className="retro-btn text-sm"
+                style={{
+                  borderColor: "var(--amber)",
+                  color: "var(--amber-bright)",
+                  flex: "0 0 auto",
+                  padding: "10px 14px"
+                }}
+                title="Edit the deal terms — both sides' accept/reject clears so the counterpart sees your counter fresh."
+              >
+                ↺ Counter
+              </button>
+            </div>
+          )}
+          {countering && (
+            <div
+              className="mt-3"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                className="retro-label"
+                style={{
+                  color: "var(--amber-bright)",
+                  marginBottom: 6
+                }}
+              >
+                Counter-proposal
+              </div>
+              <p
+                className="retro-dim"
+                style={{
+                  fontSize: 11,
+                  lineHeight: 1.5,
+                  marginBottom: 6
+                }}
+              >
+                Edit the deal below. Saving clears both sides&apos;
+                accept/reject so {other.name} sees the new version fresh.
+              </p>
+              <textarea
+                value={counterText}
+                onChange={(e) =>
+                  setCounterText(e.target.value.slice(0, 4000))
+                }
+                rows={6}
+                autoFocus
+                className="retro-input text-sm"
+                style={{
+                  width: "100%",
+                  fontFamily: MSG_FONT,
+                  padding: 10,
+                  resize: "vertical"
+                }}
+              />
+              <div
+                className="flex items-center justify-between mt-2"
+                style={{ gap: 8 }}
+              >
+                <span
+                  style={{ fontSize: 11, color: "var(--text-dim)" }}
+                >
+                  {counterText.length}/4000
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setCountering(false);
+                      setCounterText("");
+                    }}
+                    className="retro-btn text-xs"
+                    style={{ padding: "6px 12px" }}
+                  >
+                    cancel
+                  </button>
+                  <button
+                    onClick={submitCounter}
+                    disabled={
+                      running ||
+                      !counterText.trim() ||
+                      counterText.trim() === (lastAgreement ?? "").trim()
+                    }
+                    className="retro-btn retro-btn-primary text-xs"
+                    style={{ padding: "6px 12px" }}
+                  >
+                    {running ? "saving…" : "save counter"}
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </div>
       )}
+
+      {/* Outcome / "the deal" card. Auto-summary lives here so it sits
+          in the same right-side rail as the proposed destination on
+          desktop. Mobile keeps it inline at the bottom of the chat. */}
+      {summaryResult && (
+        <div
+          className="mb-2 p-3 retro-panel"
+          style={{
+            borderColor: "var(--amber)",
+            background: "var(--panel-2)"
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: 6
+            }}
+          >
+            <div
+              className="retro-label"
+              style={{ color: "var(--amber-bright)" }}
+            >
+              outcome
+            </div>
+            <div
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                color: "var(--amber-bright)",
+                fontFamily: "monospace"
+              }}
+              title="Excitement score — your twin's read on how high-potential this connection is (0-99)."
+            >
+              {Math.round(summaryResult.excitement_score)}%
+            </div>
+          </div>
+          {summaryResult.summary && (
+            <div
+              className="text-sm"
+              style={{ marginBottom: 6, lineHeight: 1.45 }}
+            >
+              {summaryResult.summary}
+            </div>
+          )}
+          {summaryResult.counterpart_summary && (
+            <div
+              className="retro-dim text-xs"
+              style={{ lineHeight: 1.5 }}
+            >
+              <strong style={{ color: "var(--text)" }}>
+                About {other.name}:
+              </strong>{" "}
+              {summaryResult.counterpart_summary}
+            </div>
+          )}
+        </div>
+      )}
+      </div>{/* /conv-action-rail */}
 
       <div className="border-t border-[var(--border)] pt-3">
         {error && (
@@ -1788,62 +2042,9 @@ export function ChatUI({
           </div>
         )}
 
-        {summaryResult && (
-          <div
-            className="mb-2 p-3 retro-panel"
-            style={{
-              borderColor: "var(--amber)",
-              background: "var(--panel-2)"
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 8,
-                marginBottom: 6
-              }}
-            >
-              <div
-                className="retro-label"
-                style={{ color: "var(--amber-bright)" }}
-              >
-                outcome
-              </div>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  color: "var(--amber-bright)",
-                  fontFamily: "monospace"
-                }}
-                title="Excitement score — your twin's read on how high-potential this connection is (0-99)."
-              >
-                {Math.round(summaryResult.excitement_score)}%
-              </div>
-            </div>
-            {summaryResult.summary && (
-              <div
-                className="text-sm"
-                style={{ marginBottom: 6, lineHeight: 1.45 }}
-              >
-                {summaryResult.summary}
-              </div>
-            )}
-            {summaryResult.counterpart_summary && (
-              <div
-                className="retro-dim text-xs"
-                style={{ lineHeight: 1.5 }}
-              >
-                <strong style={{ color: "var(--text)" }}>
-                  About {other.name}:
-                </strong>{" "}
-                {summaryResult.counterpart_summary}
-              </div>
-            )}
-          </div>
-        )}
+        {/* outcome card moved into conv-action-rail above so it docks
+            on the right side on desktop instead of cluttering the
+            bottom of the chat flow. */}
 
         <div className="retro-dim text-[11px] text-center">
           right-click any message to copy · double-click your own to edit —
