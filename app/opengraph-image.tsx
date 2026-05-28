@@ -1,109 +1,49 @@
-import { ImageResponse } from "next/og";
+/**
+ * OG image route — serves the static JPG extracted from Jack's
+ * uploaded hero video (see /public/social/syncedin-preview.jpg).
+ *
+ * History: this file used to ImageResponse-render a card. The auto-
+ * routed file convention overrides metadata.openGraph.images in
+ * layout.tsx, so the ONLY way to put the new image at the canonical
+ * `/opengraph-image` URL is to make THIS file return its bytes.
+ *
+ * For the GIF/animated version see app/twitter-image.tsx (Twitter
+ * animates GIFs inside preview cards; LinkedIn / WhatsApp don't).
+ */
 
 export const runtime = "edge";
 export const alt =
-  "SyncedIn — an agent-to-agent protocol between people. Build a digital twin that finds the highest win-wins.";
+  "SyncedIn — two twins finding the highest-leverage win-win between you.";
 export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
+export const contentType = "image/jpeg";
 
-/**
- * Site-wide OG preview. Logo-forward so iMessage / LinkedIn / Twitter always
- * render a big, recognizable card.
- */
-// Force static so the response is built once and served with long-lived
-// cache headers — Apple's LP service rejects images served with
-// no-store / private cache headers (which Vercel applies to dynamic
-// routes by default).
-export const dynamic = "force-static";
-
-export default function OpengraphImage() {
-  return new ImageResponse(
-    (
-      <div
-        style={{
-          width: "100%",
-          height: "100%",
-          background:
-            "linear-gradient(135deg, #f3f5fc 0%, #ffffff 45%, #ece2ff 100%)",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          fontFamily: "Inter, system-ui, sans-serif",
-          padding: 64
-        }}
-      >
-        {/* Big hex mark + wordmark, centered */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 32
-          }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 100 100"
-            width="220"
-            height="220"
-          >
-            <defs>
-              <linearGradient id="og_g" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#1f8bff" />
-                <stop offset="55%" stopColor="#3a4dff" />
-                <stop offset="100%" stopColor="#8b3dff" />
-              </linearGradient>
-            </defs>
-            <path
-              d="M 32 10 L 68 10 Q 92 14 92 50 Q 92 86 68 90 L 32 90 Q 8 86 8 50 Q 8 14 32 10 Z"
-              fill="none"
-              stroke="url(#og_g)"
-              strokeWidth="11"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            <circle cx="38" cy="50" r="6.5" fill="#1f3bce" />
-            <circle cx="62" cy="50" r="6.5" fill="#6b2dc9" />
-          </svg>
-          <div
-            style={{
-              fontSize: 156,
-              fontWeight: 800,
-              letterSpacing: "-0.03em",
-              color: "#0a0c14",
-              lineHeight: 1,
-              display: "flex"
-            }}
-          >
-            Synced<span style={{ color: "#3a4dff" }}>In</span>
-          </div>
-        </div>
-
-        {/* Single-line tagline below */}
-        <div
-          style={{
-            marginTop: 40,
-            fontSize: 36,
-            color: "#434a5e",
-            textAlign: "center",
-            letterSpacing: "-0.01em",
-            display: "flex"
-          }}
-        >
-          An agent-to-agent protocol between people.
-        </div>
-      </div>
-    ),
-    {
-      ...size,
-      headers: {
-        // Apple's LP service + Twitter card validator + LinkedIn scraper
-        // all require a publicly cacheable image. Without this, Vercel
-        // serves dynamic routes with `private, no-store` and the scrapers
-        // reject the image, falling back to the favicon.
-        "cache-control":
-          "public, immutable, no-transform, max-age=31536000"
-      }
+export default async function OG(): Promise<Response> {
+  const SITE_URL =
+    process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+    "https://syncedin.org";
+  const res = await fetch(`${SITE_URL}/social/syncedin-preview.jpg`, {
+    next: { revalidate: 60 * 60 * 24 * 7 }
+  });
+  if (!res.ok) {
+    // 1×1 transparent PNG fallback so og:image is never broken.
+    return new Response(
+      new Uint8Array([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+        0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+        0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
+        0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x62, 0x00, 0x01, 0x00, 0x00,
+        0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
+      ]),
+      { headers: { "content-type": "image/png" } }
+    );
+  }
+  const buf = await res.arrayBuffer();
+  return new Response(buf, {
+    headers: {
+      "content-type": "image/jpeg",
+      "cache-control":
+        "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
     }
-  );
+  });
 }

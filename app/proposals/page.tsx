@@ -6,6 +6,7 @@ import { Avatar } from "../Avatar";
 import { ExpandProposalInline } from "./ExpandProposalInline";
 import { InlineActions } from "./InlineActions";
 import { SocialIconRow } from "../SocialIconRow";
+import { socialsFromBlob } from "@/lib/social-from-blob";
 
 /**
  * /proposals — dedicated view of every conversation's END proposal.
@@ -112,6 +113,34 @@ export default async function ProposalsPage() {
       profs = data ?? [];
     }
     profilesById = new Map((profs as any[]).map((p) => [p.id, p]));
+  }
+
+  // Pull each counterpart's twin (goals + deal_preferences + blob) so
+  // socialsFromBlob can extract LinkedIn/X/IG/FB URLs the user added
+  // via Sources (which lands in ai_export_blob, NOT in the explicit
+  // linkedin_url etc. columns). Jack: "icon links of social media
+  // things went away" — empty profile columns + no blob inference
+  // meant SocialIconRow returned null.
+  const twinByOtherId = new Map<
+    string,
+    { ai_export_blob: string | null; goals: string | null; deal_preferences: string | null }
+  >();
+  if (otherIds.length > 0) {
+    try {
+      const { data: twins } = await service
+        .from("twin_profiles")
+        .select("user_id, ai_export_blob, goals, deal_preferences")
+        .in("user_id", otherIds);
+      for (const t of (twins ?? []) as any[]) {
+        twinByOtherId.set(t.user_id, {
+          ai_export_blob: t.ai_export_blob ?? null,
+          goals: t.goals ?? null,
+          deal_preferences: t.deal_preferences ?? null
+        });
+      }
+    } catch {
+      /* silent — icons will just rely on explicit columns */
+    }
   }
 
   // Also pull agreement_responses so we can show which proposals
@@ -280,13 +309,7 @@ export default async function ProposalsPage() {
                     <SocialIconRow
                       urls={
                         other
-                          ? {
-                              linkedin_url: other.linkedin_url ?? null,
-                              x_url: other.x_url ?? null,
-                              instagram_url: other.instagram_url ?? null,
-                              facebook_url: other.facebook_url ?? null,
-                              website_url: other.website_url ?? null
-                            }
+                          ? socialsFromBlob(other, twinByOtherId.get(otherId))
                           : null
                       }
                       size={14}

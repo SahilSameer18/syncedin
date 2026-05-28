@@ -9,6 +9,7 @@ import { SocialIconRow } from "../SocialIconRow";
 import { ConversationPrefetch } from "./ConversationPrefetch";
 import { startConversationWithUser } from "../dashboard/actions";
 import { computePairScore } from "@/lib/pair-score";
+import { socialsFromBlob } from "@/lib/social-from-blob";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -45,6 +46,34 @@ export default async function MessagesPage() {
   const profileById = new Map(
     (others ?? []).map((p) => [p.id, p] as const)
   );
+
+  // Twin lookup for each conversation counterpart — feeds the blob
+  // regex fallback in socialsFromBlob so the LinkedIn/X/IG/FB icons
+  // appear next to every name where the counterpart added Sources
+  // during onboarding. Without this the icons were silently empty
+  // (only the explicit profile.linkedin_url columns rendered, and
+  // those are mostly null in prod).
+  const twinByOtherForSocial = new Map<
+    string,
+    { ai_export_blob: string | null; goals: string | null; deal_preferences: string | null }
+  >();
+  if (otherIds.length > 0) {
+    try {
+      const { data: convTwins } = await service
+        .from("twin_profiles")
+        .select("user_id, ai_export_blob, goals, deal_preferences")
+        .in("user_id", otherIds);
+      for (const t of (convTwins ?? []) as any[]) {
+        twinByOtherForSocial.set(t.user_id, {
+          ai_export_blob: t.ai_export_blob ?? null,
+          goals: t.goals ?? null,
+          deal_preferences: t.deal_preferences ?? null
+        });
+      }
+    } catch {
+      /* silent — icons will fall back to explicit profile columns */
+    }
+  }
   const nameById = new Map(
     (others ?? []).map((p) => [p.id, p.display_name || p.email] as const)
   );
@@ -417,13 +446,10 @@ export default async function MessagesPage() {
                         if (!op) return null;
                         return (
                           <SocialIconRow
-                            urls={{
-                              linkedin_url: op.linkedin_url,
-                              x_url: op.x_url,
-                              instagram_url: op.instagram_url,
-                              facebook_url: op.facebook_url,
-                              website_url: op.website_url
-                            }}
+                            urls={socialsFromBlob(
+                              op,
+                              twinByOtherForSocial.get(otherId)
+                            )}
                             size={12}
                             gap={3}
                           />
