@@ -637,13 +637,24 @@ export function ChatUI({
     initialOtherResponse
   );
   const [rejecting, setRejecting] = useState(false);
-  // Default EXPANDED — since the agreement panel now lives in the
-  // right-side rail on desktop (≥1100px), the old mobile-coverage
-  // concern doesn't apply there. On narrow viewports the rail is
-  // inline; users can still tap the pill to collapse if needed. Jack:
-  // "Now that we have proposed destination on the right side we can
-  // put it under outcome and not collapsed."
-  const [agreementCollapsed, setAgreementCollapsed] = useState(false);
+  // Default-collapsed on mount so SSR + first paint matches the
+  // mobile/narrow-desktop layout (inline rail under the chat — the
+  // expanded panel would cover the input area). A post-mount effect
+  // below expands automatically once we detect a ≥1440px viewport
+  // where the rail docks to the right and "always-expanded" is what
+  // Jack asked for: "Now that we have proposed destination on the
+  // right side we can put it under outcome and not collapsed."
+  const [agreementCollapsed, setAgreementCollapsed] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 1440px)");
+    const apply = () => setAgreementCollapsed(!mq.matches);
+    apply();
+    // Re-evaluate on resize so dragging the browser between widths
+    // does the right thing without a reload.
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
   const [rejectReason, setRejectReason] = useState("");
   // Counter-proposal: pre-fills the textarea with the current agreement
   // text so the user edits the deal rather than retyping it. Submitting
@@ -1589,21 +1600,29 @@ export function ChatUI({
           inline at the bottom of the chat. */}
       <div className="conv-action-rail">
         <style>{`
-          /* Mobile / tablet: inline (default block flow). */
+          /* Mobile / tablet / narrow desktop (<1440): inline (default
+             block flow). Panels appear after the message stream but
+             before the input. Saves us from cramming a 330px rail
+             into a viewport that doesn't have room for it. */
           .conv-action-rail { display: block; }
-          @media (min-width: 1100px) {
+
+          /* True desktop (≥1440px) — fixed right rail. Bumped up from
+             1100px after Jack flagged the chat looking cramped: at
+             1100-1380px the centered max-w-2xl chat (672px) + left
+             sidebar (220px) + conv rail (~64px) + right rail (330px)
+             leaves no breathing room. 1440 gives ~150px of margin on
+             each side of the chat. */
+          @media (min-width: 1440px) {
             .conv-action-rail {
               position: fixed;
               top: 96px;
               right: 28px;
               width: 330px;
-              max-height: calc(100vh - 120px);
+              max-height: calc(100dvh - 120px);
               overflow-y: auto;
               z-index: 6;
-              /* Faint divider so it doesn't feel detached. */
               padding-left: 4px;
             }
-            /* Scrollbar subdued so it doesn't fight the visual. */
             .conv-action-rail::-webkit-scrollbar { width: 6px; }
             .conv-action-rail::-webkit-scrollbar-thumb {
               background: rgba(120, 130, 160, 0.25);
