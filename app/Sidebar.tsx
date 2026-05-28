@@ -59,6 +59,10 @@ export function Sidebar({
     // "ghost" twin (modeled from public data), then send it to them.
     // See /ghosts route + GhostsConsole.
     { href: "/ghosts", label: "Talk with ghosts", icon: "👻" },
+    // #166 — Upload an existing chat export, model the other person,
+    // generate "where it goes next." Sits next to Ghosts since both are
+    // pre-conversation modeling surfaces.
+    { href: "/continuation", label: "Continue a chat", icon: "📜" },
     { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
     { href: "/feedback", label: "Feedback", icon: "💡" }

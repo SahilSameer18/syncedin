@@ -7,6 +7,7 @@ import { Avatar } from "../../Avatar";
 import { PortfolioEditor } from "./PortfolioEditor";
 import { CustomSite, type PortfolioPage } from "./CustomSite";
 import { RegenerateButton } from "./RegenerateButton";
+import { RealtimeStrip } from "./RealtimeStrip";
 
 // Per-request render — the page renders fresh data + needs the viewer's
 // auth cookie to decide whether to show owner-only edit affordances.
@@ -185,6 +186,18 @@ export default async function PortfolioPage({
           avatarUrl={profile.avatar_url}
           isOwner={isOwner}
         />
+        {/* #257 — MySpace-in-real-time strip. Lives ON the public
+            portfolio so each visit feels alive: pulse status, what
+            they're currently working on, Top 8 connections, recent
+            "right now" feed. The viral hook is the page never feeling
+            static. */}
+        <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 20px" }}>
+          <RealtimeStrip
+            userId={profile.id}
+            selfName={name}
+            goalsHighlight={(twin as any)?.goals ?? null}
+          />
+        </div>
         {isOwner && <RegenerateButton hasExisting={true} />}
       </>
     );
