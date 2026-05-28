@@ -44,22 +44,27 @@ export async function countReferrals(userId: string): Promise<ReferralCount> {
       claimed_at: string | null;
       recipient_email: string | null;
     }> = [];
-    try {
-      const { data: rows } = await service
-        .from("pending_invites")
-        .select("id, slug, claimed_by_user_id, claimed_at, recipient_email")
-        .eq("inviter_user_id", userId);
-      list = (rows ?? []) as any;
-    } catch {
-      // claimed_at column may not exist on this DB — retry without it.
-      const { data: rows2 } = await service
+    // CHECK error in the response — Supabase JS returns errors in the
+    // response object, not as throws. The previous try/catch only fired
+    // on network errors. When `claimed_at` column doesn't exist in prod
+    // (which it doesn't, confirmed via SQL Editor), the bundled select
+    // returned data:null + error:"column does not exist" silently, so
+    // `list` stayed empty and the count was always 0.
+    const first = await service
+      .from("pending_invites")
+      .select("id, slug, claimed_by_user_id, claimed_at, recipient_email")
+      .eq("inviter_user_id", userId);
+    if (first.error) {
+      const fallback = await service
         .from("pending_invites")
         .select("id, slug, claimed_by_user_id, recipient_email")
         .eq("inviter_user_id", userId);
-      list = ((rows2 ?? []) as any[]).map((r) => ({
+      list = ((fallback.data ?? []) as any[]).map((r) => ({
         ...r,
         claimed_at: null
       }));
+    } else {
+      list = (first.data ?? []) as any;
     }
     const contributing = new Set<string>();
     // 1) Strict claim — either claimed_by_user_id OR claimed_at proves

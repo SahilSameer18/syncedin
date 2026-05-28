@@ -118,23 +118,53 @@ export default async function PortfolioPage({
   let portfolio_theme: Theme | null = null;
   let portfolio_page: PortfolioPage | null = null;
   let is_test_persona = false;
-  try {
-    const { data: opt } = await service
+  // Split into INDIVIDUAL selects per column. The previous bundled select
+  // failed silently when ANY one column was missing on a given DB, leaving
+  // portfolio_page = null even when the column was fully populated (Jack's
+  // /u/jackson-jesionowski rendered the legacy template even though his
+  // portfolio_page had 7 sections in DB — the bundled query failed because
+  // one of the other columns errored, and the try/catch around it didn't
+  // catch because Supabase JS returns errors in the response object, not
+  // as throws). Per-column selects make each failure isolated.
+  {
+    const { data: row, error } = await service
       .from("profiles")
-      .select(
-        "portfolio_about, portfolio_theme, portfolio_page, is_test_persona"
-      )
+      .select("portfolio_page")
       .eq("id", coreProfile.id)
       .maybeSingle();
-    if (opt) {
-      portfolio_about = ((opt as any).portfolio_about as string) ?? null;
-      portfolio_theme = ((opt as any).portfolio_theme as Theme) ?? null;
-      portfolio_page =
-        ((opt as any).portfolio_page as PortfolioPage) ?? null;
-      is_test_persona = !!(opt as any).is_test_persona;
+    if (!error && row) {
+      portfolio_page = ((row as any).portfolio_page as PortfolioPage) ?? null;
     }
-  } catch {
-    /* columns may not exist on this DB; defaults are fine */
+  }
+  {
+    const { data: row, error } = await service
+      .from("profiles")
+      .select("portfolio_about")
+      .eq("id", coreProfile.id)
+      .maybeSingle();
+    if (!error && row) {
+      portfolio_about = ((row as any).portfolio_about as string) ?? null;
+    }
+  }
+  {
+    const { data: row, error } = await service
+      .from("profiles")
+      .select("portfolio_theme")
+      .eq("id", coreProfile.id)
+      .maybeSingle();
+    if (!error && row) {
+      portfolio_theme = ((row as any).portfolio_theme as Theme) ?? null;
+    }
+  }
+  {
+    const { data: row, error } = await service
+      .from("profiles")
+      .select("is_test_persona")
+      .eq("id", coreProfile.id)
+      .maybeSingle();
+    if (!error && row) {
+      is_test_persona = !!(row as any).is_test_persona;
+    }
   }
 
   const profile = {
