@@ -15,6 +15,7 @@ import {
 } from "@/lib/twin-prompt";
 import type { Profile, TwinProfile, Message, EditDelta } from "@/lib/types";
 import { maybeGifTrigger, pickGif } from "@/lib/giphy";
+import { loadBlendedAiExports } from "@/lib/ai-exports";
 
 /**
  * Generate the NEXT turn in a conversation and insert it.
@@ -143,9 +144,22 @@ export async function POST(req: Request) {
     );
   }
 
+  // #169 — blend all per-source AI exports (Claude + ChatGPT + ...)
+  // into the prompt's ai_export_blob slot. Each source contributes a
+  // labeled section so the twin sees the FULL dossier, not just the
+  // legacy single field.
+  const blendedExport = await loadBlendedAiExports(
+    turnUserId,
+    (selfTwin as any)?.ai_export_blob ?? null
+  );
+  const selfTwinForPrompt = {
+    ...(selfTwin as TwinProfile),
+    ai_export_blob: blendedExport ?? (selfTwin as any)?.ai_export_blob ?? null
+  } as TwinProfile;
+
   const systemPrompt = buildTwinSystemPrompt({
     self: selfProfile as Profile,
-    selfTwin: selfTwin as TwinProfile,
+    selfTwin: selfTwinForPrompt,
     counterpart: otherProfile as Profile,
     counterpartTwin:
       (otherTwin as Pick<TwinProfile, "goals" | "deal_preferences">) ?? null,

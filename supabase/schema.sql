@@ -668,6 +668,23 @@ create index if not exists profiles_last_active_desc_idx
   on public.profiles (last_active_at desc nulls last)
   where is_test_persona = false;
 
+-- #159 — Talk to your own twin. The user has 1:1 chats with their twin
+-- to think out loud, get triage on pending proposals, or refine voice.
+-- Single thread per user (no need for multi-thread now).
+create table if not exists public.twin_chat_messages (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role text not null check (role in ('user', 'assistant')),
+  body text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists twin_chat_user_idx
+  on public.twin_chat_messages (user_id, created_at);
+alter table public.twin_chat_messages enable row level security;
+drop policy if exists "twin_chat_owner_all" on public.twin_chat_messages;
+create policy "twin_chat_owner_all" on public.twin_chat_messages
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
 -- =========================================================================
 -- User feedback — drag-drop photo + message captured from the dashboard
 -- bottom feedback widget. Read by humans + agents (per the in-product

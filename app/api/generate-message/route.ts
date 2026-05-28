@@ -12,6 +12,7 @@ import {
   scrubAiTells
 } from "@/lib/twin-prompt";
 import type { Profile, TwinProfile, Message, EditDelta } from "@/lib/types";
+import { loadBlendedAiExports } from "@/lib/ai-exports";
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -94,9 +95,21 @@ export async function POST(req: Request) {
     );
   }
 
+  // #169 — blend the legacy `ai_export_blob` with all multi-source rows
+  // from `ai_exports` (Claude + ChatGPT + Gemini + Perplexity + Grok)
+  // so the twin reads from every source the user pasted.
+  const blendedExport = await loadBlendedAiExports(
+    user.id,
+    (selfTwin as any)?.ai_export_blob ?? null
+  );
+  const selfTwinForPrompt = {
+    ...(selfTwin as TwinProfile),
+    ai_export_blob: blendedExport ?? (selfTwin as any)?.ai_export_blob ?? null
+  } as TwinProfile;
+
   const systemPrompt = buildTwinSystemPrompt({
     self: selfProfile as Profile,
-    selfTwin: selfTwin as TwinProfile,
+    selfTwin: selfTwinForPrompt,
     counterpart: otherProfile as Profile,
     counterpartTwin:
       (otherTwin as Pick<TwinProfile, "goals" | "deal_preferences">) ?? null,

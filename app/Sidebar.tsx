@@ -49,6 +49,9 @@ export function Sidebar({
   const items: Array<{ href: string; label: string; icon: string }> = [
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "💬" },
+    // #159 — Talk to your own twin. Sits next to Messages since it's a
+    // chat surface, distinct in that the counterpart is YOU (the twin).
+    { href: "/twin", label: "Talk to your twin", icon: "🪞" },
     { href: "/proposals", label: "Proposals", icon: "🤝" },
     { href: "/invite", label: "Invite", icon: "💌" },
     // Talk with Ghosts — Jack's reframing of the invite ask: paste
