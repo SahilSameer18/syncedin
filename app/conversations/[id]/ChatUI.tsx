@@ -1103,7 +1103,20 @@ export function ChatUI({
     : "";
 
   return (
-    <main className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-screen">
+    <main
+      className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-[calc(100dvh-56px)] lg:h-[calc(100dvh-64px)] overflow-hidden"
+      // Was h-screen (100vh). That ignored the sticky mobile top bar
+      // (~56px) AND the desktop TopBar (~64px) sitting above main in
+      // normal flow, so the page extended past the viewport and the
+      // body itself scrolled. Jack: "We can make this part fit rather
+      // than there being any scroll on the EXTERNAL part of this
+      // chat." Now we subtract the top-bar height so main exactly
+      // fills the remaining viewport — the messages-scroll container
+      // inside handles all scrolling internally, no body scroll.
+      //
+      // 100dvh (dynamic viewport height) instead of 100vh so the
+      // calc shrinks correctly when mobile address bars retract.
+    >
       {(() => {
         // Short label helpers — emails crammed into a single row with two
         // spans and a "×" between them produced the mess Jack flagged
