@@ -6,6 +6,8 @@ import {
 } from "./actions";
 import { Wordmark } from "../Wordmark";
 import { OAuthButtons } from "./OAuthButtons";
+import { createServiceClient } from "@/lib/supabase/server";
+import { RealFacesStrip, type FaceRow } from "../[slug]/RealFacesStrip";
 
 // Google "G" logo — official multi-color inline SVG.
 function GoogleLogo() {
@@ -57,7 +59,7 @@ function AppleLogo() {
   );
 }
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams
 }: {
   searchParams: {
@@ -73,8 +75,46 @@ export default function LoginPage({
     ? decodeURIComponent(searchParams.detail)
     : null;
 
+  // Pull up to 8 existing SyncedIn members with real photos so prospects
+  // see who's actually inside before signing up. Jack: "we can add value
+  // on that signup page where we show all the other faces they're able
+  // to connect with as well." Best-effort — silently degrade to no
+  // strip if the query fails.
+  let faces: FaceRow[] = [];
+  try {
+    const service = createServiceClient();
+    const { data: rows } = await service
+      .from("profiles")
+      .select(
+        "id, display_name, avatar_url, handle, portfolio_about, email"
+      )
+      .not("avatar_url", "is", null)
+      .not("display_name", "is", null)
+      .neq("is_test_persona", true)
+      .limit(40);
+    const candidates = ((rows ?? []) as any[]).filter(
+      (r) => (r.avatar_url || "").length > 8
+    );
+    // Shuffle deterministically so the strip varies but isn't jittery
+    // per-request (no Date.now() — that would break SSR cache layers).
+    const seeded = [...candidates].sort((a, b) =>
+      (a.id as string).localeCompare(b.id as string)
+    );
+    faces = seeded.slice(0, 8).map((r) => ({
+      id: r.id,
+      display_name: r.display_name,
+      avatar_url: r.avatar_url,
+      handle: r.handle,
+      headline:
+        (r.portfolio_about as string | null)?.split("\n")[0]?.slice(0, 110) ??
+        null
+    }));
+  } catch {
+    /* no faces strip — degrade gracefully */
+  }
+
   return (
-    <main className="max-w-md mx-auto px-5 py-10">
+    <main className="max-w-3xl mx-auto px-5 py-10">
       <Link href="/" className="retro-dim text-xs">
         &lt; back
       </Link>
@@ -225,6 +265,16 @@ export default function LoginPage({
         Magic links work in any browser. Google &amp; Apple sign-in require
         their providers enabled in Supabase.
       </p>
+
+      {/* Real-faces strip — who's already inside. Drops below the auth
+          panel on every viewport (the auth panel is what they came for;
+          the social proof reinforces after they see the form). Hidden
+          entirely if we couldn't fetch any qualifying members. */}
+      {faces.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <RealFacesStrip faces={faces} />
+        </div>
+      )}
     </main>
   );
 }
