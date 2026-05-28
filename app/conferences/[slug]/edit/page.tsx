@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../../../Wordmark";
 import { updateConference, deleteConference } from "./actions";
+import { BrandScrapeFields } from "../../BrandScrapeFields";
 
 export default async function EditConferencePage({
   params
@@ -49,6 +50,16 @@ export default async function EditConferencePage({
 
       <form action={updateConference} className="mt-8 space-y-4">
         <input type="hidden" name="slug" value={slug} />
+        {/* #156 — brand-scrape: paste website URL to refresh logo / color /
+            description. Pre-populated from current saved values. */}
+        <BrandScrapeFields
+          defaultUrl={conf.website_url ?? ""}
+          defaultLogoUrl={conf.logo_url ?? ""}
+          defaultBrandColor={conf.brand_color ?? ""}
+          defaultOgImageUrl={
+            (conf.brand_meta as any)?.og_image_url ?? ""
+          }
+        />
         <label className="block">
           <div className="text-sm font-semibold">Conference name</div>
           <input

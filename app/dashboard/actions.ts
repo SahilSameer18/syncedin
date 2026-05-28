@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { notifyNewConnection } from "@/lib/notify";
+import { assignConversationSlug } from "@/lib/conversationSlugServer";
 
 /**
  * Manually set the excitement score on a conversation. Locking it means the
@@ -88,6 +89,8 @@ export async function startTestConversation(formData: FormData) {
     console.error("test conversation insert failed", error);
     redirect("/dashboard?error=create_failed");
   }
+  // #69 — fire-and-forget short-slug assignment so /c/<slug> works.
+  assignConversationSlug(conv.id as string).catch(() => {});
   redirect(`/conversations/${conv.id}`);
 }
 
@@ -133,6 +136,8 @@ export async function startConversationWithUser(formData: FormData) {
     console.error("conversation insert failed", error);
     redirect("/dashboard?error=create_failed");
   }
+  // #69 — short-slug for /c/<slug>.
+  assignConversationSlug(conv.id as string).catch(() => {});
   // Fire-and-forget notification to both participants.
   notifyNewConnection({
     conversationId: conv.id,

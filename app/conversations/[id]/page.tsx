@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { hasAgreement, MAX_AUTO_TURNS } from "@/lib/twin-prompt";
+import { assignConversationSlug } from "@/lib/conversationSlugServer";
 import { ChatUI } from "./ChatUI";
 import { ConversationRail } from "./ConversationRail";
 import { Sidebar } from "../../Sidebar";
@@ -31,6 +32,13 @@ export default async function ConversationPage({
   if (!conv) notFound();
   if (conv.participant_a !== user.id && conv.participant_b !== user.id) {
     notFound();
+  }
+
+  // #69 — lazy backfill of short_slug for older conversations that
+  // were created before the column existed. Fire-and-forget so the
+  // page render isn't blocked.
+  if (!(conv as any).short_slug) {
+    assignConversationSlug(params.id).catch(() => {});
   }
 
   const otherId =
@@ -218,13 +226,44 @@ export default async function ConversationPage({
   // tolerates missing fields. We don't pass conversation/edit counts
   // since this is the chat page and the meter is meant as a quick
   // glance, not a precise score.
-  const { data: twinForMeter } = await supabase
-    .from("twin_profiles")
-    .select(
-      "goals, deal_preferences, communication_style, deal_breakers, ai_export_blob"
+  // Fetch the EXACT same inputs AppShell uses so the SyncMeter shows
+  // identical numbers across the dashboard, messages, and conversation
+  // pages. Jack: "Why are there 2 different sync connection scores
+  // now?" The previous version of this code hardcoded
+  // completed_conversations / accepted_agreements / edit_count to 0,
+  // dropping ~30 points off the score on the conversation page only.
+  const [
+    { data: twinForMeter },
+    { data: myMsgsForMeter },
+    { count: agreedForMeter },
+    { count: editsForMeter }
+  ] = await Promise.all([
+    service
+      .from("twin_profiles")
+      .select(
+        "goals, deal_preferences, communication_style, deal_breakers, ai_export_blob, hometown, current_city"
+      )
+      .eq("user_id", userId)
+      .maybeSingle(),
+    service
+      .from("messages")
+      .select("conversation_id")
+      .eq("sender_user_id", userId),
+    service
+      .from("agreement_responses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("response", "accepted"),
+    service
+      .from("edit_deltas")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+  ]);
+  const completedConvsCount = new Set(
+    ((myMsgsForMeter ?? []) as Array<{ conversation_id: string }>).map(
+      (m) => m.conversation_id
     )
-    .eq("user_id", userId)
-    .maybeSingle();
+  ).size;
   const syncInputs = {
     name: profileForSidebar?.display_name ?? null,
     goals: (twinForMeter as any)?.goals ?? null,
@@ -232,11 +271,11 @@ export default async function ConversationPage({
     deal_preferences: (twinForMeter as any)?.deal_preferences ?? null,
     comm_style: (twinForMeter as any)?.communication_style ?? null,
     deal_breakers: (twinForMeter as any)?.deal_breakers ?? null,
-    hometown: null,
-    current_city: null,
-    completed_conversations: 0,
-    accepted_agreements: 0,
-    edit_count: 0
+    hometown: (twinForMeter as any)?.hometown ?? null,
+    current_city: (twinForMeter as any)?.current_city ?? null,
+    completed_conversations: completedConvsCount,
+    accepted_agreements: agreedForMeter ?? 0,
+    edit_count: editsForMeter ?? 0
   };
   // Clone-sync card — passed INTO Sidebar via its cloneCard prop so
   // it renders inside the same panel as the nav. No own background /

@@ -39,6 +39,17 @@ export async function createConference(formData: FormData) {
   }
   slug = candidate;
 
+  // Brand-scrape (optional) — these fields come from the BrandScrapeFields
+  // client component which auto-fetches /api/scrape-room-brand. Empty
+  // string → null so we never insert empty rows.
+  const website_url =
+    String(formData.get("website_url") ?? "").trim() || null;
+  const logo_url = String(formData.get("logo_url") ?? "").trim() || null;
+  const brand_color =
+    String(formData.get("brand_color") ?? "").trim() || null;
+  const og_image_url =
+    String(formData.get("og_image_url") ?? "").trim() || null;
+
   const row = {
     slug,
     name,
@@ -46,7 +57,11 @@ export async function createConference(formData: FormData) {
     owner_user_id: user.id,
     starts_at: String(formData.get("starts_at") ?? "").trim() || null,
     ends_at: String(formData.get("ends_at") ?? "").trim() || null,
-    city: String(formData.get("city") ?? "").trim() || null
+    city: String(formData.get("city") ?? "").trim() || null,
+    website_url,
+    logo_url,
+    brand_color,
+    brand_meta: og_image_url ? { og_image_url } : null
   };
 
   const { error: insErr } = await service.from("conferences").insert(row);

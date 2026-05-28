@@ -244,9 +244,43 @@ export default async function ConferencePage({
       <section className="mt-8 grid lg:grid-cols-[1fr_240px] gap-8 items-start">
         <div className="min-w-0">
           <div className="retro-label">{kindLabel}</div>
-          <h1 className="retro-h1 text-4xl mt-3 leading-tight">
-            {conf.name}
-          </h1>
+          {/* #156 — custom branding: when the host pasted a website URL,
+              show the scraped logo + brand-color accent bar so the room
+              feels like theirs, not generic SyncedIn chrome. */}
+          <div className="flex items-center gap-3 mt-3">
+            {conf.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={conf.logo_url}
+                alt={`${conf.name} logo`}
+                width={56}
+                height={56}
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 10,
+                  objectFit: "cover",
+                  border: "1px solid var(--border)",
+                  flex: "0 0 auto"
+                }}
+              />
+            )}
+            <h1 className="retro-h1 text-4xl leading-tight min-w-0">
+              {conf.name}
+            </h1>
+          </div>
+          {conf.brand_color && (
+            <div
+              aria-hidden
+              style={{
+                height: 3,
+                width: 80,
+                borderRadius: 999,
+                background: conf.brand_color,
+                marginTop: 10
+              }}
+            />
+          )}
           <div
             className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm"
             style={{ color: "var(--text-dim)" }}

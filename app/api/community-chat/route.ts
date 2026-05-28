@@ -18,30 +18,30 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  // Accept either ?conference_id=<slug> (canonical) or ?community_id=<slug>
+  // (alias for back-compat — communities live in the same conferences
+  // table with kind='community').
   const url = new URL(req.url);
-  const community_id = url.searchParams.get("community_id");
-  const conference_id = url.searchParams.get("conference_id");
-  if (!community_id && !conference_id) {
+  const room =
+    url.searchParams.get("conference_id") ||
+    url.searchParams.get("community_id");
+  if (!room) {
     return NextResponse.json({ messages: [] });
   }
   const service = createServiceClient();
   try {
-    let q = service
+    const { data, error } = await service
       .from("community_chat_messages")
       .select(
-        "id, community_id, conference_id, author_id, author_name, author_avatar_url, body, created_at, removed_at"
+        "id, conference_id, author_id, author_name, author_avatar_url, body, created_at, removed_at"
       )
       .is("removed_at", null)
+      .eq("conference_id", room)
       .order("created_at", { ascending: true })
       .limit(200);
-    if (community_id) q = q.eq("community_id", community_id);
-    if (conference_id) q = q.eq("conference_id", conference_id);
-    const { data, error } = await q;
     if (error) throw error;
     return NextResponse.json({ messages: data ?? [] });
   } catch (e: any) {
-    // Schema missing → return empty list so the chat tab still renders
-    // its empty state instead of 500ing the parent page.
     return NextResponse.json({ messages: [], _err: e?.message ?? null });
   }
 }
@@ -61,20 +61,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid_json" }, { status: 400 });
   }
   const text = (body.body ?? "").trim();
-  const community_id = body.community_id ?? null;
-  const conference_id = body.conference_id ?? null;
+  // Either field works — communities + conferences share the same table
+  // so we normalize to a single conference_id (which is the room slug).
+  const room = body.conference_id ?? body.community_id ?? null;
   if (!text) {
     return NextResponse.json({ error: "missing_body" }, { status: 400 });
   }
-  if (!community_id && !conference_id) {
+  if (!room) {
     return NextResponse.json(
       { error: "missing_room_id" },
-      { status: 400 }
-    );
-  }
-  if (community_id && conference_id) {
-    return NextResponse.json(
-      { error: "only_one_room_id" },
       { status: 400 }
     );
   }
@@ -105,8 +100,7 @@ export async function POST(req: Request) {
   const { data, error } = await service
     .from("community_chat_messages")
     .insert({
-      community_id,
-      conference_id,
+      conference_id: room,
       author_id: user.id,
       author_name,
       author_avatar_url,

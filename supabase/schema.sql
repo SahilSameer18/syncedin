@@ -645,6 +645,15 @@ alter table public.conversations
 alter table public.conversations
   add column if not exists last_read_b timestamptz;
 
+-- Short, meaningful conversation slugs (#69). e.g. "jack-alex-7k4q9p".
+-- Same for both participants — derived from sorted first-names plus a
+-- 6-char fnv-hash of the conversation UUID. Resolved at /c/[slug].
+alter table public.conversations
+  add column if not exists short_slug text;
+create unique index if not exists conversations_short_slug_uq
+  on public.conversations (short_slug)
+  where short_slug is not null;
+
 -- =========================================================================
 -- User feedback — drag-drop photo + message captured from the dashboard
 -- bottom feedback widget. Read by humans + agents (per the in-product
@@ -750,40 +759,33 @@ create index if not exists feedback_posts_status_idx
 -- (a) visibility — Public (listed in /communities + /conferences index,
 --     anyone can Join), RequestToJoin (listed, admin approves each
 --     request), Private (link-only, current default behavior).
--- (b) humans_chat — separate from twin-to-twin convos: real
---     human-typed messages between members. Stored in
---     community_chat_messages keyed by community_id OR conference_id.
-alter table if exists public.communities
-  add column if not exists visibility text not null default 'private'
-    check (visibility in ('public', 'request', 'private'));
-alter table if exists public.conferences
+-- (b) humans_chat — real human-typed messages between members, stored
+--     per-room in community_chat_messages.
+--
+-- NOTE: Communities and conferences live in the SAME table
+-- (public.conferences with kind ∈ {'conference','community'}), so the
+-- new tables key off conference_id only — even for community rooms.
+alter table public.conferences
   add column if not exists visibility text not null default 'private'
     check (visibility in ('public', 'request', 'private'));
 
-create index if not exists communities_visibility_idx
-  on public.communities (visibility);
 create index if not exists conferences_visibility_idx
   on public.conferences (visibility);
 
--- Humans-only chat per community/conference. Either community_id or
--- conference_id is set (XOR), so this is the room-wide chat for
--- whichever container the user opened. Soft-delete via removed_at to
--- preserve thread continuity when admins moderate.
+-- Humans-only chat per room. conference_id references public.conferences
+-- which holds both kinds. removed_at = soft-delete so admins can moderate
+-- while preserving thread continuity.
 create table if not exists public.community_chat_messages (
   id uuid primary key default gen_random_uuid(),
-  community_id uuid references public.communities(id) on delete cascade,
-  conference_id uuid references public.conferences(id) on delete cascade,
+  conference_id text not null references public.conferences(slug) on delete cascade,
   author_id uuid not null references auth.users(id) on delete cascade,
   author_name text,
   author_avatar_url text,
   body text not null,
   created_at timestamptz not null default now(),
-  removed_at timestamptz,
-  check ((community_id is null) <> (conference_id is null))
+  removed_at timestamptz
 );
 
-create index if not exists community_chat_community_idx
-  on public.community_chat_messages (community_id, created_at);
 create index if not exists community_chat_conference_idx
   on public.community_chat_messages (conference_id, created_at);
 
@@ -795,21 +797,19 @@ drop policy if exists "ccmsg_insert_authed" on public.community_chat_messages;
 create policy "ccmsg_insert_authed" on public.community_chat_messages
   for insert with check (auth.uid() = author_id);
 
--- Join requests for visibility='request' rooms. Admin approves/rejects.
+-- Join requests for visibility='request' rooms. Owner approves/rejects.
 create table if not exists public.community_join_requests (
   id uuid primary key default gen_random_uuid(),
-  community_id uuid references public.communities(id) on delete cascade,
-  conference_id uuid references public.conferences(id) on delete cascade,
+  conference_id text not null references public.conferences(slug) on delete cascade,
   user_id uuid not null references auth.users(id) on delete cascade,
   status text not null default 'pending'
     check (status in ('pending', 'approved', 'rejected')),
   note text,
   created_at timestamptz not null default now(),
-  decided_at timestamptz,
-  check ((community_id is null) <> (conference_id is null))
+  decided_at timestamptz
 );
 create index if not exists community_join_requests_idx
-  on public.community_join_requests (community_id, conference_id, status);
+  on public.community_join_requests (conference_id, status);
 
 alter table public.community_join_requests enable row level security;
 drop policy if exists "cjr_read_own_or_admin" on public.community_join_requests;

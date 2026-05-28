@@ -91,9 +91,25 @@ more features:
 | `SCRAPINGDOG_API_KEY` | LinkedIn scraping + 2nd-vendor fallback | [scrapingdog.com](https://scrapingdog.com) |
 | `EXA_API_KEY` | "Find people" semantic search + SelfDiscovery auto-bio | [exa.ai](https://exa.ai) |
 | `RESEND_API_KEY` | Branded transactional email (otherwise Supabase default) | [resend.com](https://resend.com) |
+| `GIPHY_API_KEY` | Twin chats can drop the occasional contextual GIF | [developers.giphy.com](https://developers.giphy.com) |
+| `NOTIFY_HMAC_SECRET` | Required if you ship email — signs unsubscribe-link tokens (Gmail Feb-2024 List-Unsubscribe-Post) | `openssl rand -hex 32` |
+| `CRON_SECRET` | Vercel weekly-digest cron auth — same value set in `vercel.json` + Vercel env vars | `openssl rand -hex 32` |
+| `NOTIFICATION_FROM_EMAIL` | The "from" header on every email — defaults to `SyncedIn <hello@syncedin.org>` | your verified sending domain |
 
 All of these gracefully degrade if missing — the app still works,
 just with less rich data.
+
+### Supabase Storage buckets
+
+Some features write to Supabase Storage. Create these buckets manually
+in Supabase → Storage → New bucket:
+
+| Bucket | Public? | What goes in it |
+|--------|---------|-----------------|
+| `chat-attachments` | yes (public) | Files + videos members upload in conversation chat |
+
+Without `chat-attachments`, the chat file/video upload feature returns
+a `bucket_missing` error — everything else continues to work.
 
 ---
 
@@ -119,7 +135,20 @@ To extend:
 
 ---
 
-## 7. Stay in sync (optional)
+## 7. Weekly digest cron (optional)
+
+If you set `RESEND_API_KEY` + `CRON_SECRET`, the app will send a weekly
+"proposals waiting on you" digest every Monday at 14:00 UTC. The cron is
+declared in `vercel.json` — Vercel handles auth by sending
+`Authorization: Bearer <CRON_SECRET>` to `/api/cron/weekly-digest`.
+
+To disable: delete the `crons` block in `vercel.json`.
+
+To change the schedule: edit the `schedule` field (5-field cron syntax).
+
+---
+
+## 8. Stay in sync (optional)
 
 If you want to pull in upstream improvements from the canonical repo:
 

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { notifyNewConnection } from "@/lib/notify";
+import { assignConversationSlug } from "@/lib/conversationSlugServer";
 
 /**
  * Dead-weight guard. Counts proposals the user has NOT acted on
@@ -72,6 +73,8 @@ async function openConversationBetween(userId: string, otherId: string) {
     console.error("conversation insert failed", error);
     return null;
   }
+  // #69 — assign a short_slug for /c/<slug> resolution.
+  assignConversationSlug(conv.id as string).catch(() => {});
   // Fire-and-forget notify both sides of the new connection.
   notifyNewConnection({
     conversationId: conv.id as string,

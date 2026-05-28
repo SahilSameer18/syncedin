@@ -33,33 +33,31 @@ export async function POST(req: Request) {
   const service = createServiceClient();
 
   if (kind === "set_visibility") {
-    const community_id = body?.community_id ?? null;
-    const conference_id = body?.conference_id ?? null;
+    // Communities + conferences share the same table — accept either
+    // input field as the room slug.
+    const room = body?.conference_id ?? body?.community_id ?? null;
     const visibility = String(body?.visibility ?? "");
     if (!ALLOWED_VIS.includes(visibility as any)) {
       return NextResponse.json({ error: "bad_visibility" }, { status: 400 });
     }
-    if (!community_id && !conference_id) {
+    if (!room) {
       return NextResponse.json(
         { error: "missing_room_id" },
         { status: 400 }
       );
     }
-    // Verify owner
-    const table = community_id ? "communities" : "conferences";
-    const id = community_id || conference_id;
     const { data: row } = await service
-      .from(table)
-      .select("id, owner_id")
-      .eq("id", id)
+      .from("conferences")
+      .select("slug, owner_user_id")
+      .eq("slug", room)
       .maybeSingle();
-    if (!row || (row as any).owner_id !== user.id) {
+    if (!row || (row as any).owner_user_id !== user.id) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
     const { error } = await service
-      .from(table)
+      .from("conferences")
       .update({ visibility })
-      .eq("id", id);
+      .eq("slug", room);
     if (error) {
       return NextResponse.json(
         { error: "save_failed", detail: error.message },
@@ -70,18 +68,16 @@ export async function POST(req: Request) {
   }
 
   if (kind === "join_request") {
-    const community_id = body?.community_id ?? null;
-    const conference_id = body?.conference_id ?? null;
+    const room = body?.conference_id ?? body?.community_id ?? null;
     const note = (body?.note ?? "").toString().slice(0, 600).trim() || null;
-    if (!community_id && !conference_id) {
+    if (!room) {
       return NextResponse.json(
         { error: "missing_room_id" },
         { status: 400 }
       );
     }
     const { error } = await service.from("community_join_requests").insert({
-      community_id,
-      conference_id,
+      conference_id: room,
       user_id: user.id,
       note
     });
@@ -112,23 +108,20 @@ export async function POST(req: Request) {
     if (!request_id || !["approved", "rejected"].includes(status)) {
       return NextResponse.json({ error: "bad_decision" }, { status: 400 });
     }
-    // Look up the request + verify viewer is the room's owner
     const { data: jr } = await service
       .from("community_join_requests")
-      .select("id, community_id, conference_id, user_id")
+      .select("id, conference_id, user_id")
       .eq("id", request_id)
       .maybeSingle();
     if (!jr) {
       return NextResponse.json({ error: "not_found" }, { status: 404 });
     }
-    const table = (jr as any).community_id ? "communities" : "conferences";
-    const id = (jr as any).community_id || (jr as any).conference_id;
     const { data: row } = await service
-      .from(table)
-      .select("id, owner_id")
-      .eq("id", id)
+      .from("conferences")
+      .select("slug, owner_user_id")
+      .eq("slug", (jr as any).conference_id)
       .maybeSingle();
-    if (!row || (row as any).owner_id !== user.id) {
+    if (!row || (row as any).owner_user_id !== user.id) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 });
     }
     const { error } = await service

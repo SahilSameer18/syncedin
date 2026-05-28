@@ -44,6 +44,15 @@ export async function createCommunity(formData: FormData) {
   }
   slug = candidate;
 
+  // Brand-scrape fields (#156) — populated client-side by BrandScrapeFields.
+  const website_url =
+    String(formData.get("website_url") ?? "").trim() || null;
+  const logo_url = String(formData.get("logo_url") ?? "").trim() || null;
+  const brand_color =
+    String(formData.get("brand_color") ?? "").trim() || null;
+  const og_image_url =
+    String(formData.get("og_image_url") ?? "").trim() || null;
+
   const row = {
     slug,
     name,
@@ -52,7 +61,11 @@ export async function createCommunity(formData: FormData) {
     starts_at: null as string | null,
     ends_at: null as string | null,
     city: String(formData.get("city") ?? "").trim() || null,
-    kind: "community" as const
+    kind: "community" as const,
+    website_url,
+    logo_url,
+    brand_color,
+    brand_meta: og_image_url ? { og_image_url } : null
   };
 
   const { error: insErr } = await service.from("conferences").insert(row);

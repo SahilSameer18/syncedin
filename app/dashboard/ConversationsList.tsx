@@ -220,7 +220,7 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
               color: "var(--text-dim)"
             }}
           >
-            SYNC SCORE
+            SYNC <span style={{ opacity: 0.55 }}>·</span> DEAL
           </span>
           {/* (i) explainer — opens a modal that surfaces the underlying
               scoring prompt + lets the user edit it. Jack: "surface

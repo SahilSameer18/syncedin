@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createCommunity } from "./actions";
 import { NetworkDensity } from "../NetworkDensity";
 import { AppShell } from "../../AppShell";
+import { BrandScrapeFields } from "../../conferences/BrandScrapeFields";
 
 export default async function NewCommunityPage() {
   const supabase = createClient();
@@ -82,6 +83,9 @@ export default async function NewCommunityPage() {
         </p>
 
         <form action={createCommunity} className="mt-6 space-y-4">
+          {/* Brand-scrape: paste a URL → auto-fill name + description +
+              logo + brand color. #156. */}
+          <BrandScrapeFields />
           <label className="block">
             <div className="text-sm font-semibold">Community name</div>
             <input

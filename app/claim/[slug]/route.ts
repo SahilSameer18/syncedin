@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { assignConversationSlug } from "@/lib/conversationSlugServer";
 
 /**
  * Atomic invite claim.
@@ -101,6 +102,9 @@ export async function GET(
       );
     }
     conversationId = conv.id as string;
+
+    // #69 — assign a short_slug so /c/<slug> resolves.
+    assignConversationSlug(conversationId).catch(() => {});
 
     // Seed it with the conversation_starter as message 1 — sent FROM the
     // inviter's twin so the new user lands in a real, populated thread.

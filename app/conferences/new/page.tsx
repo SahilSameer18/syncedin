@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createConference } from "./actions";
 import { AppShell } from "../../AppShell";
 import { NetworkDensity } from "../../communities/NetworkDensity";
+import { BrandScrapeFields } from "../BrandScrapeFields";
 
 export default async function NewConferencePage() {
   const supabase = createClient();
@@ -85,6 +86,9 @@ export default async function NewConferencePage() {
         </p>
 
         <form action={createConference} className="mt-6 space-y-4">
+          {/* Brand-scrape: paste a URL → auto-fill name + description +
+              logo + brand color. #156. */}
+          <BrandScrapeFields />
           <label className="block">
             <div className="text-sm font-semibold">Conference name</div>
             <input

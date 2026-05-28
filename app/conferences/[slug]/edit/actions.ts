@@ -24,13 +24,26 @@ export async function updateConference(formData: FormData) {
     redirect(`/conferences/${slug}?error=not_owner`);
   }
 
+  // Brand-scrape (#156) — keep null-safe so blank URL clears the column.
+  const website_url =
+    String(formData.get("website_url") ?? "").trim() || null;
+  const logo_url = String(formData.get("logo_url") ?? "").trim() || null;
+  const brand_color =
+    String(formData.get("brand_color") ?? "").trim() || null;
+  const og_image_url =
+    String(formData.get("og_image_url") ?? "").trim() || null;
+
   const patch = {
     name: String(formData.get("name") ?? "").trim() || "Unnamed conference",
     description:
       String(formData.get("description") ?? "").trim() || null,
     starts_at: String(formData.get("starts_at") ?? "").trim() || null,
     ends_at: String(formData.get("ends_at") ?? "").trim() || null,
-    city: String(formData.get("city") ?? "").trim() || null
+    city: String(formData.get("city") ?? "").trim() || null,
+    website_url,
+    logo_url,
+    brand_color,
+    brand_meta: og_image_url ? { og_image_url } : null
   };
 
   await service.from("conferences").update(patch).eq("slug", slug);

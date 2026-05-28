@@ -343,11 +343,17 @@ function EditInfoBadge() {
 function TwinLink({
   self,
   other,
-  active
+  active,
+  // #162 — Read-receipt moved from message body to sender's avatar.
+  // "read" = counterpart has opened the convo since my latest message
+  // "delivered" = my latest message is in DB but not yet opened by them
+  // "none" = no outgoing messages yet (or convo finished, nothing to ack)
+  selfReceiptStatus = "none"
 }: {
   self: { id: string; name: string; avatarUrl: string | null };
   other: { id: string; name: string; avatarUrl: string | null };
   active: boolean;
+  selfReceiptStatus?: "read" | "delivered" | "none";
 }) {
   return (
     <div
@@ -355,13 +361,49 @@ function TwinLink({
       style={{ gap: 0, position: "relative", height: 44 }}
       aria-label={`${self.name} ↔ ${other.name}`}
     >
-      <Avatar
-        id={self.id}
-        name={self.name}
-        avatarUrl={self.avatarUrl}
-        size={40}
-        ringColor="var(--amber-bright)"
-      />
+      {/* #162 — wrap the self Avatar in a position:relative shell so we
+          can drop a tiny ✓ / ✓✓ badge on its bottom-right corner. The
+          badge color matches WhatsApp convention: dim grey for delivered,
+          brand amber for read. */}
+      <div style={{ position: "relative", flex: "0 0 auto" }}>
+        <Avatar
+          id={self.id}
+          name={self.name}
+          avatarUrl={self.avatarUrl}
+          size={40}
+          ringColor="var(--amber-bright)"
+        />
+        {selfReceiptStatus !== "none" && (
+          <span
+            aria-label={selfReceiptStatus === "read" ? "read" : "delivered"}
+            title={selfReceiptStatus === "read" ? "read" : "delivered"}
+            style={{
+              position: "absolute",
+              right: -4,
+              bottom: -2,
+              minWidth: 18,
+              height: 14,
+              padding: "0 4px",
+              borderRadius: 8,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 10,
+              lineHeight: 1,
+              fontWeight: 700,
+              letterSpacing: "-0.04em",
+              background: "var(--bg)",
+              border: "1px solid var(--border)",
+              color:
+                selfReceiptStatus === "read"
+                  ? "var(--amber-bright)"
+                  : "var(--text-dim)"
+            }}
+          >
+            {selfReceiptStatus === "read" ? "✓✓" : "✓"}
+          </span>
+        )}
+      </div>
       <div
         style={{
           width: 36,
@@ -1289,19 +1331,40 @@ export function ChatUI({
         return (
           <header className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <TwinLink
-                self={{
-                  id: selfUserId,
-                  name: selfName,
-                  avatarUrl: selfAvatarUrl ?? null
-                }}
-                other={{
-                  id: other.id,
-                  name: other.name,
-                  avatarUrl: other.avatarUrl ?? null
-                }}
-                active={running}
-              />
+              {(() => {
+                // #162 — compute receipt status for the SELF avatar.
+                // Find my latest outgoing message; compare against the
+                // counterpart's last_read timestamp. "read" iff they've
+                // opened the convo after my latest send.
+                let receipt: "read" | "delivered" | "none" = "none";
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  if (messages[i].sender_user_id === selfUserId) {
+                    const sentAt = messages[i].sent_at
+                      ? new Date(messages[i].sent_at as any)
+                      : null;
+                    const read =
+                      otherReadAt && sentAt && otherReadAt >= sentAt;
+                    receipt = read ? "read" : "delivered";
+                    break;
+                  }
+                }
+                return (
+                  <TwinLink
+                    self={{
+                      id: selfUserId,
+                      name: selfName,
+                      avatarUrl: selfAvatarUrl ?? null
+                    }}
+                    other={{
+                      id: other.id,
+                      name: other.name,
+                      avatarUrl: other.avatarUrl ?? null
+                    }}
+                    active={running}
+                    selfReceiptStatus={receipt}
+                  />
+                );
+              })()}
               <div className="min-w-0 flex-1">
                 <Link
                   href="/messages"
@@ -1526,33 +1589,10 @@ export function ChatUI({
                       className="text-[10px] mt-0.5 flex items-center justify-end gap-2"
                       style={{ color: "var(--text-dim)" }}
                     >
-                      {/* WhatsApp-style read receipt. Single ✓ = delivered
-                          (message exists in our DB). Double ✓✓ in brand
-                          blue = the counterpart has loaded a fresh page
-                          AFTER this message was sent. Server-rendered
-                          snapshot only — for realtime ✓✓ updates we'd
-                          subscribe to last_read_* via Supabase realtime
-                          in a follow-up. */}
-                      {(() => {
-                        const sentAt = m.sent_at ? new Date(m.sent_at) : null;
-                        const read =
-                          otherReadAt && sentAt && otherReadAt >= sentAt;
-                        return (
-                          <span
-                            aria-label={read ? "read" : "delivered"}
-                            title={read ? "read" : "delivered"}
-                            style={{
-                              color: read
-                                ? "var(--amber-bright)"
-                                : "var(--text-dim)",
-                              fontSize: 11,
-                              lineHeight: 1
-                            }}
-                          >
-                            {read ? "✓✓" : "✓"}
-                          </span>
-                        );
-                      })()}
+                      {/* #162 — per-message ✓/✓✓ moved to the sender's
+                          avatar badge in the conversation header. Keeps
+                          message bubbles clean; the avatar badge reflects
+                          read-state of the LATEST outgoing message. */}
                       {m.edited && <span>✎ edited</span>}
                       <button
                         type="button"
