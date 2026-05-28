@@ -654,6 +654,20 @@ create unique index if not exists conversations_short_slug_uq
   on public.conversations (short_slug)
   where short_slug is not null;
 
+-- Perf indexes (#271). These cover the hottest queries that were doing
+-- full sequential scans:
+--   - messages by sender (dashboard "completed convs" count, conv page
+--     Promise.all for sync calc)
+--   - agreement_responses by user_id (proposals page, dead-weight gate)
+--   - profiles last_active_at desc (dashboard discovery ordering)
+create index if not exists messages_sender_idx
+  on public.messages (sender_user_id);
+create index if not exists agreement_responses_user_idx
+  on public.agreement_responses (user_id);
+create index if not exists profiles_last_active_desc_idx
+  on public.profiles (last_active_at desc nulls last)
+  where is_test_persona = false;
+
 -- =========================================================================
 -- User feedback — drag-drop photo + message captured from the dashboard
 -- bottom feedback widget. Read by humans + agents (per the in-product

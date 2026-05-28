@@ -71,17 +71,29 @@ export default async function DashboardPage() {
         "id, participant_a, participant_b, status, created_at, summary, counterpart_summary, excitement_score, excitement_locked"
       )
       .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false })
+      // Perf cap (#271): keep dashboard responsive even for power users
+      // with hundreds of historical convos. Most recent 60 is plenty for
+      // the rendered list; archive view (TBD) can paginate.
+      .limit(60),
     service
       .from("profiles")
       .select("id, display_name, email")
       .eq("is_test_persona", true)
-      .order("display_name", { ascending: true }),
+      .order("display_name", { ascending: true })
+      .limit(20),
     service
       .from("profiles")
       .select("id, display_name, email, avatar_url")
       .eq("is_test_persona", false)
       .neq("id", user.id)
+      // Perf cap (#271): was unbounded — scales with total signups and
+      // becomes the slowest query on dashboard once user base grows.
+      // 200 most-recently-active is more than the Find People UI shows
+      // anyway. Ordering by last_active_at puts the most relevant users
+      // first AND aligns with the discovery scoring downstream.
+      .order("last_active_at", { ascending: false, nullsFirst: false })
+      .limit(200)
   ]);
 
   const twinComplete = Boolean(twin?.goals);
