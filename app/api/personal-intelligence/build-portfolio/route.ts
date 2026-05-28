@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
 /**
@@ -39,12 +40,44 @@ export async function POST() {
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";
 
-  // Already has a handle → idempotent return.
+  // Already has a handle → still ensure portfolio_page exists before
+  // returning. Otherwise users like Jack who got a handle MONTHS ago
+  // but never had portfolio_page populated keep landing on the legacy
+  // "trash" template every time they click view-your-portfolio.
   if ((profile as any)?.handle) {
+    const { data: existingPage } = await service
+      .from("profiles")
+      .select("portfolio_page")
+      .eq("id", user.id)
+      .maybeSingle();
+    const hasPortfolio =
+      !!(existingPage as any)?.portfolio_page &&
+      Array.isArray((existingPage as any)?.portfolio_page?.sections) &&
+      (existingPage as any).portfolio_page.sections.length > 0;
+    if (!hasPortfolio) {
+      try {
+        const cookieHeader = cookies()
+          .getAll()
+          .map((c) => `${c.name}=${c.value}`)
+          .join("; ");
+        void fetch(`${appUrl}/api/portfolio/generate`, {
+          method: "POST",
+          headers: {
+            cookie: cookieHeader,
+            "content-type": "application/json"
+          }
+        }).catch((e) =>
+          console.warn("[build-portfolio existing] gen kick failed", e)
+        );
+      } catch (e) {
+        console.warn("[build-portfolio existing] could not kick gen", e);
+      }
+    }
     return NextResponse.json({
       handle: (profile as any).handle,
       url: `${appUrl}/u/${(profile as any).handle}`,
-      created: false
+      created: false,
+      portfolio_generation_kicked: !hasPortfolio
     });
   }
 
@@ -74,6 +107,22 @@ export async function POST() {
     }
   }
 
+  // Check if there's an existing portfolio_page — only generate when
+  // the user doesn't yet have one (idempotent: re-clicks don't waste
+  // tokens). Jack: "Portfolios still the same trash" — root cause was
+  // that build-portfolio only assigned a HANDLE and never populated
+  // portfolio_page, so the rich CustomSite renderer fell back to the
+  // legacy template (which IS visually the same trash).
+  const { data: existingPage } = await service
+    .from("profiles")
+    .select("portfolio_page")
+    .eq("id", user.id)
+    .maybeSingle();
+  const hasPortfolio =
+    !!(existingPage as any)?.portfolio_page &&
+    Array.isArray((existingPage as any)?.portfolio_page?.sections) &&
+    (existingPage as any).portfolio_page.sections.length > 0;
+
   const { error } = await service
     .from("profiles")
     .update({ handle })
@@ -99,9 +148,36 @@ export async function POST() {
     );
   }
 
+  // Trigger Claude-generated portfolio_page when missing. Without this,
+  // /u/<handle> falls back to the legacy template (Jack's "trash"). We
+  // hit our OWN endpoint server-side so the client sees one quick
+  // response and the portfolio is ready by the time the new tab opens.
+  // Fire-and-forget if generation already exists — re-runs would waste
+  // tokens AND override any manual edits the user made via the editor.
+  if (!hasPortfolio) {
+    try {
+      const cookieHeader = cookies()
+        .getAll()
+        .map((c) => `${c.name}=${c.value}`)
+        .join("; ");
+      const genUrl = `${appUrl}/api/portfolio/generate`;
+      // Don't await — let it run in the background while the client
+      // navigates to the new tab. Generate writes portfolio_page so the
+      // next time the user reloads /u/<handle>, the rich CustomSite
+      // renders instead of the legacy template.
+      void fetch(genUrl, {
+        method: "POST",
+        headers: { cookie: cookieHeader, "content-type": "application/json" }
+      }).catch((e) => console.warn("[build-portfolio] gen kick failed", e));
+    } catch (e) {
+      console.warn("[build-portfolio] could not kick gen", e);
+    }
+  }
+
   return NextResponse.json({
     handle,
     url: `${appUrl}/u/${handle}`,
-    created: true
+    created: true,
+    portfolio_generation_kicked: !hasPortfolio
   });
 }

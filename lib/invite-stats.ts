@@ -91,6 +91,31 @@ export async function countReferrals(userId: string): Promise<ReferralCount> {
         if (e && signedUp.has(e)) contributing.add(r.slug);
       }
     }
+
+    // 3) Handle prefix match — many users sign up via Google/magic-link
+    //    WITHOUT going through /claim/<slug> AND with a different email
+    //    than the invite landed at. But when they pick a handle, it
+    //    often matches the invite slug (the slug was their name-based
+    //    URL). Counting this catches the silent-conversion case that
+    //    has been making /personal-intelligence show 0 even when Jack
+    //    actually had several real signups.
+    const stillRemaining = list.filter((r) => !contributing.has(r.slug));
+    const slugs = stillRemaining.map((r) => r.slug).filter(Boolean);
+    if (slugs.length > 0) {
+      const { data: handleHits } = await service
+        .from("profiles")
+        .select("handle")
+        .in("handle", slugs);
+      const claimedHandles = new Set(
+        ((handleHits ?? []) as Array<{ handle: string | null }>)
+          .map((h) => (h.handle || "").toLowerCase())
+          .filter(Boolean)
+      );
+      for (const r of stillRemaining) {
+        if (claimedHandles.has(r.slug.toLowerCase())) contributing.add(r.slug);
+      }
+    }
+
     return {
       count: contributing.size,
       contributing_slugs: Array.from(contributing)
@@ -146,7 +171,39 @@ export async function countCompletedReferrals(
         (m) => m.id
       );
     }
-    const allIds = Array.from(new Set([...directIds, ...emailMatchedIds]));
+    // Handle-prefix fallback — same logic as countReferrals. Catches
+    // users who signed up via Google/magic-link without going through
+    // /claim/<slug> and with a different email, but whose handle ended
+    // up matching the invite slug (the slug was their name-derived URL).
+    const slugs = rows
+      .map((r) => (r as any).slug as string | undefined)
+      .filter(Boolean) as string[];
+    // `rows` here lacks `slug`; fetch a second pass keyed by slug.
+    let handleMatchedIds: string[] = [];
+    try {
+      const { data: invSlugs } = await service
+        .from("pending_invites")
+        .select("slug")
+        .eq("inviter_user_id", userId);
+      const slugList = ((invSlugs ?? []) as Array<{ slug: string }>)
+        .map((r) => r.slug)
+        .filter(Boolean);
+      if (slugList.length > 0) {
+        const { data: handleHits } = await service
+          .from("profiles")
+          .select("id, handle")
+          .in("handle", slugList);
+        handleMatchedIds = ((handleHits ?? []) as Array<{ id: string }>).map(
+          (h) => h.id
+        );
+      }
+    } catch {
+      /* handle column may not exist on this DB — skip silently */
+    }
+    void slugs;
+    const allIds = Array.from(
+      new Set([...directIds, ...emailMatchedIds, ...handleMatchedIds])
+    );
     if (allIds.length === 0) return 0;
     const { data: completed } = await service
       .from("twin_profiles")
