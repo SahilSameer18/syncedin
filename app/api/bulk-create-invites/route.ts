@@ -231,7 +231,13 @@ export async function POST(req: Request) {
         // opener needs the scrape most. Anything non-trivial is worth
         // feeding to Claude.
         if (text && text.trim().length > 15) {
-          scrapes[c.name] = text.slice(0, 2000);
+          // Lifted 2000 → 12000. Deep LinkedIn scrape (premium=true)
+          // returns the full profile dossier — experience descriptions,
+          // recent posts, certifications, awards — which can run
+          // ~6–10k chars. Cutting at 2000 was throwing away the
+          // signal the opener needs most. Jack: "scrape isn't deep
+          // enough" + "hard cutoff of 600 characters."
+          scrapes[c.name] = text.slice(0, 12000);
           // Promote the scraped real name to the canonical name so the slug,
           // OG title, and opener all use it. Move the scrape entry under the
           // new key too.
@@ -513,7 +519,13 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     const highlights: string[] = [];
     if (c.note) highlights.push(c.note);
     if (scrapes[c.name]) {
-      highlights.push(scrapes[c.name].slice(0, 600));
+      // Was 600. Lifted to 12000 to match the upstream scrape cap so
+      // the full LinkedIn dossier (experience descriptions, recent
+      // activity, certifications, awards) actually reaches the landing
+      // page + the personalization prompt. Jack: "I want to make sure
+      // we're scraping the full context and allow it to be over 3,000
+      // characters."
+      highlights.push(scrapes[c.name].slice(0, 12000));
     }
     // Pull the recipient's profile photo URL out of the scraped payload so
     // the OG card can embed it. The flattened scrape format is plain text

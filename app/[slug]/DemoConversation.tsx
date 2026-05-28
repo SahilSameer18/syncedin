@@ -1045,8 +1045,11 @@ Give as much detail as you can on each. The dossier you write here is the entire
             <textarea
               value={linkedinAbout}
               onChange={(e) => {
-                setLinkedinAbout(e.target.value.slice(0, 3000));
-                // Autosize: grow to fit content up to a generous cap.
+                // 3000 → 12000 to match the upstream scrape cap.
+                // Premium LinkedIn dossiers run ~6–10k chars; cutting
+                // at 3k threw away the experience descriptions +
+                // recent activity that the demo conversation needs.
+                setLinkedinAbout(e.target.value.slice(0, 12000));
                 const t = e.currentTarget;
                 t.style.height = "auto";
                 t.style.height = Math.min(540, t.scrollHeight + 4) + "px";
@@ -1060,7 +1063,7 @@ Give as much detail as you can on each. The dossier you write here is the entire
               className="ctx-textarea"
               style={{ minHeight: 260, maxHeight: 540, overflow: "auto" }}
             />
-            <div className="ctx-count">{linkedinAbout.length}/3000</div>
+            <div className="ctx-count">{linkedinAbout.length}/12000</div>
 
             <h4 style={{ marginTop: 18 }}>One more paragraph</h4>
             <p className="hint">

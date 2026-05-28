@@ -156,6 +156,29 @@ alter table public.pending_invites
 alter table public.pending_invites
   add column if not exists demo_generated_at timestamptz;
 
+-- Context-to-context "dive" — Jack's architecture shift: instead of the
+-- visible message stack being the coordination layer, run a one-shot
+-- background analysis that takes both twins' FULL contexts and produces
+-- the underlying alignment (shared themes, complementary asks/offers,
+-- friction points, recommended destination). The surface conversation
+-- then becomes a shorter, pragmatic presentation of what the dive
+-- already discovered.
+--
+-- Stored shape:
+-- {
+--   "shared_themes": [string],
+--   "complementary_asks": [{ "side_a": string, "side_b": string, "why": string }],
+--   "frictions": [string],
+--   "hidden_synergies": [string],
+--   "recommended_destination": string,
+--   "headline": string,
+--   "generated_at": ISO timestamp
+-- }
+alter table public.conversations
+  add column if not exists context_dive jsonb;
+alter table public.conversations
+  add column if not exists context_dive_at timestamptz;
+
 -- Funny mode flag — when ON for a conversation, the twin prompt
 -- builder swaps to personality-first wiring (more emojis, lighter
 -- tone, still drives toward outcome but in a much more fun
