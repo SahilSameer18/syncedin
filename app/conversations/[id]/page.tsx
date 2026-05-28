@@ -329,11 +329,15 @@ export default async function ConversationPage({
           bottom: 16,
           left: 16,
           width: 220,
-          zIndex: 4,
-          // Allow the SyncMeter (i) tooltip + nav menus to escape the
-          // aside boundary on hover. Was overflowY:auto + clipping
-          // the tooltip behind the chat content (Jack's hover-behind
-          // complaint).
+          // Bumped 4 → 10 so the SyncMeter (i) tooltip floats ABOVE
+          // the conversation rail (z:6) and the new conv-action-rail
+          // (z:6). The sidebar + those rails don't visually overlap
+          // (they sit at different x positions), so the higher
+          // z-index is purely about the tooltip popping OUT of the
+          // sidebar's bounds. Jack: "on the conversation page, when
+          // I hover over my sync score, it is behind the vertical
+          // conversation list."
+          zIndex: 10,
           overflowY: "visible",
           overflowX: "visible"
         }}

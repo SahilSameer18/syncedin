@@ -6,6 +6,7 @@ import { ClientDate } from "../../ClientDate";
 import { OverrideRow } from "./OverrideRow";
 import { ReSynthesizeButton } from "./ReSynthesizeButton";
 import { PollMissingTwinsButton } from "./PollMissingTwinsButton";
+import { startConversationByUserId } from "../../conversations/new/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,7 @@ export default async function PollDetailPage({
   const { data: profilesData } = userIds.length
     ? await service
         .from("profiles")
-        .select("id, display_name, email, avatar_url")
+        .select("id, display_name, email, avatar_url, handle")
         .in("id", userIds)
     : { data: [] as ProfileRow[] };
   const profiles = ((profilesData ?? []) as ProfileRow[]).reduce<
@@ -244,40 +245,96 @@ export default async function PollDetailPage({
                     : "var(--border)"
                 }}
               >
-                <div className="flex items-center gap-3">
-                  <div
+                {/* Name + avatar are now a Link to the responder's
+                    portfolio (if they have a handle — most users do).
+                    Connect button on the right spawns a conversation
+                    via the same server action /conversations/new
+                    uses. Jack: "lets make the profiles clickable to
+                    connect or drop into messages." */}
+                <div className="flex items-center justify-between gap-3">
+                  <Link
+                    href={
+                      (pr as any)?.handle
+                        ? `/u/${(pr as any).handle}`
+                        : `/u/${name
+                            .toLowerCase()
+                            .replace(/[^a-z0-9]+/g, "-")
+                            .replace(/^-+|-+$/g, "")}`
+                    }
+                    className="flex items-center gap-3 group"
                     style={{
-                      width: 32,
-                      height: 32,
-                      borderRadius: "50%",
-                      background: "var(--panel-2)",
-                      border: "1px solid var(--border-bright)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 12,
-                      fontWeight: 700,
-                      color: "var(--text)",
-                      backgroundImage: pr?.avatar_url
-                        ? `url(${pr.avatar_url})`
-                        : undefined,
-                      backgroundSize: "cover",
-                      backgroundPosition: "center"
+                      flex: 1,
+                      minWidth: 0,
+                      textDecoration: "none",
+                      color: "inherit"
                     }}
+                    aria-label={`View ${name}'s portfolio`}
                   >
-                    {pr?.avatar_url ? "" : name.slice(0, 1).toUpperCase()}
-                  </div>
-                  <div className="font-semibold text-sm">
-                    {name}
-                    {r.was_overridden && (
-                      <span
-                        className="ml-2 text-xs"
-                        style={{ color: "var(--amber-bright)" }}
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: "50%",
+                        background: "var(--panel-2)",
+                        border: "1px solid var(--border-bright)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "var(--text)",
+                        backgroundImage: pr?.avatar_url
+                          ? `url(${pr.avatar_url})`
+                          : undefined,
+                        backgroundSize: "cover",
+                        backgroundPosition: "center",
+                        flexShrink: 0,
+                        transition: "transform 0.15s ease"
+                      }}
+                      className="group-hover:scale-105"
+                    >
+                      {pr?.avatar_url ? "" : name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <div
+                      className="font-semibold text-sm"
+                      style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+                    >
+                      <span className="group-hover:underline">{name}</span>
+                      {r.was_overridden && (
+                        <span
+                          className="ml-2 text-xs"
+                          style={{ color: "var(--amber-bright)" }}
+                        >
+                          ✓ human-corrected
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                  {/* Connect — server action drops you into the
+                      conversation with this person (creates one if
+                      none exists). Hidden when it'd be a self-link. */}
+                  {r.twin_user_id && r.twin_user_id !== user.id && (
+                    <form action={startConversationByUserId}>
+                      <input
+                        type="hidden"
+                        name="user_id"
+                        value={r.twin_user_id}
+                      />
+                      <button
+                        type="submit"
+                        className="retro-btn retro-btn-primary text-xs"
+                        style={{
+                          padding: "6px 12px",
+                          fontWeight: 700,
+                          whiteSpace: "nowrap",
+                          flexShrink: 0
+                        }}
+                        title={`Start a conversation with ${name}`}
                       >
-                        ✓ human-corrected
-                      </span>
-                    )}
-                  </div>
+                        💬 connect
+                      </button>
+                    </form>
+                  )}
                 </div>
                 <div
                   className="mt-2 text-sm"

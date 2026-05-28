@@ -30,20 +30,42 @@ export type ReferralCount = {
 export async function countReferrals(userId: string): Promise<ReferralCount> {
   const service = createServiceClient();
   try {
-    const { data: rows } = await service
-      .from("pending_invites")
-      .select("id, slug, claimed_by_user_id, recipient_email")
-      .eq("inviter_user_id", userId);
-    const list = (rows ?? []) as Array<{
+    // Pull claimed_at AND claimed_by_user_id. Some rows have one but not
+    // the other due to historical schema changes — count either as a
+    // successful claim. Jack hit this mismatch: PI page showed 0
+    // successful invites while the /invite page showed several. Both
+    // call this helper, so the discrepancy was rows where
+    // `claimed_by_user_id` was null but `claimed_at` was set (the
+    // recipient signed up before we wired the user-id link).
+    let list: Array<{
       id: string;
       slug: string;
       claimed_by_user_id: string | null;
+      claimed_at: string | null;
       recipient_email: string | null;
-    }>;
+    }> = [];
+    try {
+      const { data: rows } = await service
+        .from("pending_invites")
+        .select("id, slug, claimed_by_user_id, claimed_at, recipient_email")
+        .eq("inviter_user_id", userId);
+      list = (rows ?? []) as any;
+    } catch {
+      // claimed_at column may not exist on this DB — retry without it.
+      const { data: rows2 } = await service
+        .from("pending_invites")
+        .select("id, slug, claimed_by_user_id, recipient_email")
+        .eq("inviter_user_id", userId);
+      list = ((rows2 ?? []) as any[]).map((r) => ({
+        ...r,
+        claimed_at: null
+      }));
+    }
     const contributing = new Set<string>();
-    // 1) Strict claim
+    // 1) Strict claim — either claimed_by_user_id OR claimed_at proves
+    //    someone actually went through /claim/<slug>.
     for (const r of list) {
-      if (r.claimed_by_user_id) contributing.add(r.slug);
+      if (r.claimed_by_user_id || r.claimed_at) contributing.add(r.slug);
     }
     // 2) Email match — only check the ones not already in the set.
     const remaining = list.filter((r) => !contributing.has(r.slug));
