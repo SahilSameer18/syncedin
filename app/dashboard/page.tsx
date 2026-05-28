@@ -84,7 +84,12 @@ export default async function DashboardPage() {
       .limit(20),
     service
       .from("profiles")
-      .select("id, display_name, email, avatar_url")
+      // Include created_at so we can surface NEW signups at the top of
+      // the directory (Jack: "move those new people up top of the
+      // already on syncedin part, and the discover part"). Fresh joiners
+      // are the most valuable to engage with — they're actively building
+      // their twin RIGHT NOW.
+      .select("id, display_name, email, avatar_url, created_at")
       .eq("is_test_persona", false)
       .neq("id", user.id)
       // Perf cap (#271): was unbounded — scales with total signups and
@@ -330,7 +335,12 @@ export default async function DashboardPage() {
         goals: t?.goals ?? null,
         deal_preferences: t?.deal_preferences ?? null,
         headline_fallback: headlineFromBlob,
-        connection_score
+        connection_score,
+        // Surface signup recency so the sort below can put fresh joiners
+        // at the top of the directory.
+        created_at_ms: (p as any).created_at
+          ? new Date((p as any).created_at).getTime()
+          : 0
       };
     })
     // Only show twins who have ACTUALLY put data into onboarding.
@@ -348,8 +358,20 @@ export default async function DashboardPage() {
         ((t as any)?.ai_export_blob ?? "").trim().length > 80;
       return hasGoals || hasDealPrefs || hasBlob;
     })
-    // Highest connection score first so the most promising matches lead.
-    .sort((a, b) => b.connection_score - a.connection_score);
+    // Sort: NEW signups (last 14 days) at top, ordered by created_at desc.
+    // Then everyone else by connection_score desc. Jack: "move those new
+    // people up top of the already on syncedin part, and the discover
+    // part." Fresh joiners are the most engagement-likely AND the most
+    // appreciative when reached out to — they're actively building.
+    .sort((a, b) => {
+      const cutoff = Date.now() - 14 * 86_400_000;
+      const aFresh = a.created_at_ms >= cutoff;
+      const bFresh = b.created_at_ms >= cutoff;
+      if (aFresh && !bFresh) return -1;
+      if (!aFresh && bFresh) return 1;
+      if (aFresh && bFresh) return b.created_at_ms - a.created_at_ms;
+      return b.connection_score - a.connection_score;
+    });
 
   const realConversations = (conversations ?? [])
     .filter(

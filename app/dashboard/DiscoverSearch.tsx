@@ -128,6 +128,9 @@ type DirectoryUser = {
   /** 0-100 token-overlap score with the current user's twin. */
   connection_score?: number;
   avatar_url?: string | null;
+  /** Signup timestamp in ms. Used to render a "NEW" pill on rows
+   *  created within the last 14 days. */
+  created_at_ms?: number;
 };
 type ExaPerson = { title: string; url: string; highlights: string[] };
 type FindResponse = {
@@ -538,8 +541,30 @@ export function DiscoverSearch({
                       size={44}
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="font-semibold text-sm">
-                        {p.display_name || p.email}
+                      <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
+                        <span>{p.display_name || p.email}</span>
+                        {/* NEW pill — surfaces signups from the last 14
+                            days so the user knows who's actively building
+                            their twin RIGHT NOW. Jack: "move those new
+                            people up top." */}
+                        {p.created_at_ms &&
+                          Date.now() - p.created_at_ms <
+                            14 * 86_400_000 && (
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                letterSpacing: "0.1em",
+                                padding: "2px 6px",
+                                borderRadius: 999,
+                                background: "var(--amber-bright)",
+                                color: "#000",
+                                textTransform: "uppercase"
+                              }}
+                            >
+                              new
+                            </span>
+                          )}
                       </div>
                       {blurb && (
                         <div className="retro-dim text-xs mt-1 line-clamp-2">

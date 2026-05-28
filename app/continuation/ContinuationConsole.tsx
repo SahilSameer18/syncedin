@@ -16,6 +16,59 @@ type ApiResult = {
 };
 
 /**
+ * Per-platform export instructions. Most users have NEVER exported a
+ * chat thread before — without explicit instructions this whole feature
+ * is invisible. Jack: "we need to explain how to export easiest all the
+ * chats from each place."
+ */
+const EXPORT_GUIDES: Array<{
+  key: string;
+  label: string;
+  steps: string[];
+  hint?: string;
+}> = [
+  {
+    key: "imessage",
+    label: "iMessage / Messages (Mac)",
+    steps: [
+      "Open Messages on your Mac (signed into the same iCloud as your iPhone).",
+      "Click into the conversation you want to export.",
+      "Select all messages with Cmd+A, then Cmd+C to copy.",
+      "Paste into the box above. (Time-stamps + sender names come through.)"
+    ],
+    hint:
+      "Power-user: the free iMazing app exports entire threads as .txt in two clicks — drop the file in below."
+  },
+  {
+    key: "whatsapp",
+    label: "WhatsApp",
+    steps: [
+      "Open the chat on your phone.",
+      "Tap the contact name at the top → Export Chat → Without Media.",
+      "Choose Mail → send the .txt to yourself, then drop it in the upload field above."
+    ]
+  },
+  {
+    key: "telegram",
+    label: "Telegram",
+    steps: [
+      "Telegram Desktop → click the chat → 3-dot menu → Export Chat History.",
+      "Choose 'Machine-readable JSON' or 'HTML', uncheck media types you don't need.",
+      "Hit Export, then upload the produced file above."
+    ]
+  },
+  {
+    key: "sms",
+    label: "SMS / Android",
+    steps: [
+      "Install 'SMS Backup & Restore' on Android (free).",
+      "Back up just the conversation you want, choose XML/TXT, save to a file.",
+      "Upload the file above. (iOS users: see the iMessage path.)"
+    ]
+  }
+];
+
+/**
  * Client UI for /continuation (#166). Three states: idle (file or paste),
  * generating (spinner), done (render the modeled next-N messages with
  * a Copy + Share affordance).
@@ -26,6 +79,14 @@ export function ContinuationConsole() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [result, setResult] = useState<ApiResult | null>(null);
+  // Post-result actions — "save as twin context" + "make shareable link"
+  // surface AFTER the continuation lands. State here so the parent
+  // controls both the saved-flag and the generated invite URL.
+  const [savingContext, setSavingContext] = useState(false);
+  const [savedContext, setSavedContext] = useState(false);
+  const [makingLink, setMakingLink] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [openedGuide, setOpenedGuide] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   async function run(blob: { file?: File; text?: string }) {
@@ -59,7 +120,65 @@ export function ContinuationConsole() {
     setResult(null);
     setErr(null);
     setPasted("");
+    setSavedContext(false);
+    setShareUrl(null);
     if (fileRef.current) fileRef.current.value = "";
+  }
+
+  // Save the full transcript + projection into the user's twin context
+  // (ai_export_blob). This is Jack's "context import mechanism" lever —
+  // every existing chat the user has had becomes deeper twin training.
+  async function saveAsTwinContext() {
+    if (!result?.continuation?.length || savingContext) return;
+    setSavingContext(true);
+    const transcript =
+      (pasted ? pasted + "\n\n---\n\n" : "") +
+      result.continuation
+        .map((l) => `${l.speaker}: ${l.body}`)
+        .join("\n");
+    try {
+      const res = await fetch("/api/continuation-save-context", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          transcript_text: transcript,
+          other_name: result.other_name ?? null
+        })
+      });
+      if (res.ok) setSavedContext(true);
+    } catch {
+      /* swallow — keep button enabled for retry */
+    } finally {
+      setSavingContext(false);
+    }
+  }
+
+  // Mint a public shareable invite URL pre-loaded with the continuation
+  // as the landing-page opener. The other person hits the URL → sees
+  // exactly the thread we projected → signs up to make it real.
+  async function makeShareableLink() {
+    if (!result?.continuation?.length || makingLink) return;
+    setMakingLink(true);
+    try {
+      const res = await fetch("/api/continuation-invite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          you_name: result.you_name ?? yourName ?? null,
+          other_name: result.other_name ?? null,
+          original_text: pasted || null,
+          continuation_lines: result.continuation
+        })
+      });
+      const j = await res.json();
+      if (res.ok && j?.public_url) {
+        setShareUrl(j.public_url as string);
+      }
+    } catch {
+      /* swallow */
+    } finally {
+      setMakingLink(false);
+    }
   }
 
   // Copy the rendered continuation as plain text — useful for sharing
@@ -169,6 +288,66 @@ export function ContinuationConsole() {
             );
           })}
         </div>
+        {/* POST-RESULT ACTIONS — context import + viral shareable link.
+            Jack: "this is also a context import mechanism and just one that
+            provides a lot of shareable links." */}
+        <div
+          className="mt-4 pt-3 flex flex-wrap items-center gap-2"
+          style={{ borderTop: "1px dashed var(--border)" }}
+        >
+          <button
+            type="button"
+            onClick={saveAsTwinContext}
+            disabled={savingContext || savedContext}
+            className="retro-btn text-xs"
+            title="Append this thread + continuation to your twin context so it informs future conversations"
+          >
+            {savedContext
+              ? "✓ saved to twin"
+              : savingContext
+              ? "Saving…"
+              : "🧠 Save as twin context"}
+          </button>
+          <button
+            type="button"
+            onClick={makeShareableLink}
+            disabled={makingLink || !!shareUrl}
+            className="retro-btn text-xs"
+            title="Generate a public link to share with the other person — they sign up and make this real"
+          >
+            {shareUrl ? "✓ link ready" : makingLink ? "Generating…" : "🔗 Make shareable link"}
+          </button>
+          {shareUrl && (
+            <div
+              className="flex items-center gap-2 flex-1 min-w-[260px]"
+              style={{
+                background: "var(--panel-solid)",
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: "1px solid var(--border)"
+              }}
+            >
+              <code
+                style={{
+                  fontSize: 12,
+                  flex: 1,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap"
+                }}
+              >
+                {shareUrl}
+              </code>
+              <button
+                type="button"
+                onClick={() => navigator.clipboard?.writeText(shareUrl).catch(() => {})}
+                className="retro-btn text-xs"
+              >
+                Copy
+              </button>
+            </div>
+          )}
+        </div>
         <div className="retro-dim text-[11px] mt-3">
           Note: this is a model&apos;s best guess at trajectory based on the
           tone + topics of your real thread. Treat it as a probe — not a
@@ -180,6 +359,68 @@ export function ContinuationConsole() {
 
   return (
     <div className="retro-panel" style={{ padding: 16 }}>
+      {/* HOW TO EXPORT — collapsible per-platform guide. Most users have
+          NEVER exported a chat thread before; without this they bounce. */}
+      <details className="mb-4" style={{ background: "var(--panel-solid)", borderRadius: 8, padding: "8px 12px", border: "1px solid var(--border)" }}>
+        <summary className="text-sm font-semibold" style={{ cursor: "pointer" }}>
+          How to export from iMessage / WhatsApp / Telegram / SMS
+        </summary>
+        <div className="mt-3 grid sm:grid-cols-2 gap-3">
+          {EXPORT_GUIDES.map((g) => (
+            <button
+              key={g.key}
+              type="button"
+              onClick={() =>
+                setOpenedGuide(openedGuide === g.key ? null : g.key)
+              }
+              className="text-left"
+              style={{
+                background:
+                  openedGuide === g.key
+                    ? "var(--blue, #2358ff)"
+                    : "var(--bg)",
+                color: openedGuide === g.key ? "#fff" : "var(--text)",
+                border: "1px solid var(--border)",
+                borderRadius: 8,
+                padding: "8px 10px",
+                fontSize: 13
+              }}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+        {openedGuide && (
+          <div
+            className="mt-3"
+            style={{
+              background: "var(--bg)",
+              padding: "10px 12px",
+              borderRadius: 8,
+              border: "1px solid var(--border)"
+            }}
+          >
+            <ol style={{ paddingLeft: 20, fontSize: 13, lineHeight: 1.55 }}>
+              {EXPORT_GUIDES.find((g) => g.key === openedGuide)?.steps.map(
+                (s, i) => (
+                  <li key={i} style={{ marginBottom: 4 }}>
+                    {s}
+                  </li>
+                )
+              )}
+            </ol>
+            {EXPORT_GUIDES.find((g) => g.key === openedGuide)?.hint && (
+              <div
+                className="retro-dim text-[11px] mt-2"
+                style={{ fontStyle: "italic" }}
+              >
+                {EXPORT_GUIDES.find((g) => g.key === openedGuide)?.hint}
+              </div>
+            )}
+          </div>
+        )}
+      </details>
+
       <label className="block">
         <div className="text-sm font-semibold">
           Your name in the conversation (optional but helps)
