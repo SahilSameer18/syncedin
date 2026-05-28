@@ -440,11 +440,135 @@ function clean(text: string): string {
 const LINK_RE =
   /(https?:\/\/[^\s)]+|(?:www\.|[a-z0-9-]+\.)[a-z0-9-]+(?:\.[a-z]{2,})+(?:\/[^\s)]*)?|[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/gi;
 
+/**
+ * Inline markdown-image regex — matches `![alt](url)` syntax that the
+ * run-conversation API appends when a GIF reaction fires (lib/giphy).
+ * Captured groups: 1 = alt text, 2 = image URL.
+ *
+ * Plus video attachment regex matching the <video src="..." controls></video>
+ * literal that PersistentCompose inserts on a video upload, and a
+ * generic markdown link regex for non-image attachments ("📎 [name](url)").
+ */
+const MD_IMG_RE = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+const HTML_VIDEO_RE =
+  /<video\s+src="(https?:\/\/[^"]+)"\s+controls><\/video>/g;
+const MD_LINK_RE = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+
 export function linkify(text: string): React.ReactNode[] {
+  // Walk the text once, collecting matches from ALL three patterns
+  // (image markdown, video HTML, generic markdown link) into a single
+  // sorted-by-index list. Then emit chunks: plain-text → linkifyTextOnly,
+  // image → <img>, video → <video>, markdown link → <a>.
+  type Hit = { kind: "img" | "vid" | "link"; start: number; end: number; m: RegExpExecArray };
+  const hits: Hit[] = [];
+  const collect = (re: RegExp, kind: Hit["kind"]) => {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      hits.push({ kind, start: m.index, end: m.index + m[0].length, m });
+    }
+  };
+  collect(MD_IMG_RE, "img");
+  collect(HTML_VIDEO_RE, "vid");
+  // Markdown link last + dedupe — MD_LINK_RE would also match the
+  // text part of ![alt](url) (without the leading !) because it's a
+  // valid [alt](url). Filter those out by overlap with img hits.
+  const imgRanges = hits
+    .filter((h) => h.kind === "img")
+    .map((h) => [h.start - 1, h.end] as const); // include the leading "!"
+  MD_LINK_RE.lastIndex = 0;
+  let lm: RegExpExecArray | null;
+  while ((lm = MD_LINK_RE.exec(text)) !== null) {
+    const ms = lm.index;
+    const me = lm.index + lm[0].length;
+    // Skip if inside an image match.
+    if (imgRanges.some(([s, e]) => ms >= s && me <= e)) continue;
+    hits.push({ kind: "link", start: ms, end: me, m: lm });
+  }
+  hits.sort((a, b) => a.start - b.start);
+
+  const out: React.ReactNode[] = [];
+  let cursor = 0;
+  for (const h of hits) {
+    if (h.start < cursor) continue; // overlap with a previous hit
+    if (h.start > cursor) {
+      out.push(...linkifyTextOnly(text.slice(cursor, h.start), `b-${cursor}`));
+    }
+    if (h.kind === "img") {
+      const alt = h.m[1] || "reaction";
+      const url = h.m[2];
+      out.push(
+        <img
+          key={`gif-${h.start}`}
+          src={url}
+          alt={alt}
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          style={{
+            display: "block",
+            marginTop: 6,
+            maxWidth: 240,
+            width: "100%",
+            height: "auto",
+            borderRadius: 10,
+            border: "1px solid var(--border)"
+          }}
+        />
+      );
+    } else if (h.kind === "vid") {
+      const url = h.m[1];
+      out.push(
+        <video
+          key={`vid-${h.start}`}
+          src={url}
+          controls
+          playsInline
+          preload="metadata"
+          style={{
+            display: "block",
+            marginTop: 6,
+            maxWidth: 320,
+            width: "100%",
+            height: "auto",
+            borderRadius: 10,
+            border: "1px solid var(--border)",
+            background: "#000"
+          }}
+        />
+      );
+    } else {
+      const label = h.m[1];
+      const url = h.m[2];
+      out.push(
+        <a
+          key={`mdlink-${h.start}`}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            color: "inherit",
+            textDecoration: "underline",
+            textUnderlineOffset: 2
+          }}
+        >
+          {label}
+        </a>
+      );
+    }
+    cursor = h.end;
+  }
+  if (cursor < text.length) {
+    out.push(...linkifyTextOnly(text.slice(cursor), `t-${cursor}`));
+  }
+  return out;
+}
+
+/** Linkify a chunk of plain text (no markdown). Used by linkify(). */
+function linkifyTextOnly(text: string, keyPrefix: string): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let lastIndex = 0;
   let match: RegExpExecArray | null;
-  // Reset stateful regex
   LINK_RE.lastIndex = 0;
   while ((match = LINK_RE.exec(text)) !== null) {
     const raw = match[0];
@@ -458,7 +582,7 @@ export function linkify(text: string): React.ReactNode[] {
     }
     out.push(
       <a
-        key={`l-${start}`}
+        key={`${keyPrefix}-l-${start}`}
         href={href}
         target="_blank"
         rel="noopener noreferrer"

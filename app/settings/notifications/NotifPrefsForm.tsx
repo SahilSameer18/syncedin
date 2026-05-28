@@ -9,6 +9,7 @@ type Initial = {
   on_agreement_accepted: boolean;
   on_call_scheduled: boolean;
   on_new_match: boolean;
+  on_weekly_digest: boolean;
   match_threshold: number;
 };
 
@@ -20,6 +21,7 @@ type Toggle = {
     | "on_agreement_accepted"
     | "on_call_scheduled"
     | "on_new_match"
+    | "on_weekly_digest"
   >;
   label: string;
   blurb: string;
@@ -55,6 +57,12 @@ const TOGGLES: Toggle[] = [
     label: "High-match new signup",
     blurb:
       "A new user just joined whose twin lines up with yours above your threshold (set below). The most-asked-for notification — never miss the right intro."
+  },
+  {
+    name: "on_weekly_digest",
+    label: "Weekly proposals digest",
+    blurb:
+      "Monday-morning roll-up of every proposal still waiting on your reply, with one-tap accept buttons. Keeps the network healthy + your inbox calm."
   }
 ];
 

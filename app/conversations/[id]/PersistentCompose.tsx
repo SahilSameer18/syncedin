@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Message } from "@/lib/types";
 
 /**
@@ -33,7 +33,50 @@ export function PersistentCompose({
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const [drafting, setDrafting] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  /**
+   * File/video upload — Jack: "add the ability in the chat for someone
+   * to send a video or a file when they have the custom bar there to
+   * do so." Uploads via /api/chat-attach, appends inline markdown to
+   * the textarea so user can still add a caption before sending.
+   * Images/gifs render inline via linkify's MD_IMG_RE; non-images
+   * render as a clickable link.
+   */
+  async function uploadFile(file: File) {
+    if (!file || uploading) return;
+    setUploading(true);
+    setErr("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("conversation_id", conversationId);
+      const res = await fetch("/api/chat-attach", {
+        method: "POST",
+        body: form
+      });
+      const j = await res.json();
+      if (!res.ok) {
+        throw new Error(j?.detail || j?.error || `HTTP ${res.status}`);
+      }
+      const url = j.url as string;
+      const name = (j.name as string) || file.name || "file";
+      const mime = (j.mime_type as string) || file.type || "";
+      const inline = mime.startsWith("image/")
+        ? `![${name}](${url})`
+        : mime.startsWith("video/")
+          ? `<video src="${url}" controls></video>`
+          : `📎 [${name}](${url})`;
+      setText((t) => (t.trim() ? `${t}\n\n${inline}` : inline));
+    } catch (e: any) {
+      setErr(e?.message || "Upload failed. Try again.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
 
   async function send() {
     const trimmed = text.trim();
@@ -131,6 +174,33 @@ export function PersistentCompose({
             resize: "none"
           }}
         />
+        {/* Attach a file/video. Hidden native input + paperclip button. */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,video/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void uploadFile(f);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading || sending}
+          title="Attach a file or video"
+          aria-label="Attach file"
+          className="retro-btn"
+          style={{
+            padding: "8px 10px",
+            fontSize: 15,
+            color: uploading ? "var(--text-dim)" : "var(--text)",
+            flexShrink: 0
+          }}
+        >
+          {uploading ? "↑" : "📎"}
+        </button>
         <button
           type="button"
           onClick={preDraft}

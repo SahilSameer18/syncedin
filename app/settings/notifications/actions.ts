@@ -27,6 +27,7 @@ export async function saveNotificationPrefs(formData: FormData) {
     on_agreement_accepted: formData.get("on_agreement_accepted") === "on",
     on_call_scheduled: formData.get("on_call_scheduled") === "on",
     on_new_match: formData.get("on_new_match") === "on",
+    on_weekly_digest: formData.get("on_weekly_digest") === "on",
     match_threshold,
     updated_at: new Date().toISOString()
   };

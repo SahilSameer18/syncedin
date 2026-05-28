@@ -38,6 +38,7 @@ export default async function NotificationSettingsPage({
     on_agreement_accepted: prefs?.on_agreement_accepted ?? true,
     on_call_scheduled: prefs?.on_call_scheduled ?? true,
     on_new_match: (prefs as any)?.on_new_match ?? true,
+    on_weekly_digest: (prefs as any)?.on_weekly_digest ?? true,
     match_threshold:
       typeof (prefs as any)?.match_threshold === "number"
         ? (prefs as any).match_threshold

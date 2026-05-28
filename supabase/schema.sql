@@ -746,6 +746,79 @@ alter table public.feedback_posts
 create index if not exists feedback_posts_status_idx
   on public.feedback_posts (status, created_at desc);
 
+-- Communities/Conferences shared additions:
+-- (a) visibility — Public (listed in /communities + /conferences index,
+--     anyone can Join), RequestToJoin (listed, admin approves each
+--     request), Private (link-only, current default behavior).
+-- (b) humans_chat — separate from twin-to-twin convos: real
+--     human-typed messages between members. Stored in
+--     community_chat_messages keyed by community_id OR conference_id.
+alter table if exists public.communities
+  add column if not exists visibility text not null default 'private'
+    check (visibility in ('public', 'request', 'private'));
+alter table if exists public.conferences
+  add column if not exists visibility text not null default 'private'
+    check (visibility in ('public', 'request', 'private'));
+
+create index if not exists communities_visibility_idx
+  on public.communities (visibility);
+create index if not exists conferences_visibility_idx
+  on public.conferences (visibility);
+
+-- Humans-only chat per community/conference. Either community_id or
+-- conference_id is set (XOR), so this is the room-wide chat for
+-- whichever container the user opened. Soft-delete via removed_at to
+-- preserve thread continuity when admins moderate.
+create table if not exists public.community_chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  community_id uuid references public.communities(id) on delete cascade,
+  conference_id uuid references public.conferences(id) on delete cascade,
+  author_id uuid not null references auth.users(id) on delete cascade,
+  author_name text,
+  author_avatar_url text,
+  body text not null,
+  created_at timestamptz not null default now(),
+  removed_at timestamptz,
+  check ((community_id is null) <> (conference_id is null))
+);
+
+create index if not exists community_chat_community_idx
+  on public.community_chat_messages (community_id, created_at);
+create index if not exists community_chat_conference_idx
+  on public.community_chat_messages (conference_id, created_at);
+
+alter table public.community_chat_messages enable row level security;
+drop policy if exists "ccmsg_read_all" on public.community_chat_messages;
+create policy "ccmsg_read_all" on public.community_chat_messages
+  for select using (true);
+drop policy if exists "ccmsg_insert_authed" on public.community_chat_messages;
+create policy "ccmsg_insert_authed" on public.community_chat_messages
+  for insert with check (auth.uid() = author_id);
+
+-- Join requests for visibility='request' rooms. Admin approves/rejects.
+create table if not exists public.community_join_requests (
+  id uuid primary key default gen_random_uuid(),
+  community_id uuid references public.communities(id) on delete cascade,
+  conference_id uuid references public.conferences(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'approved', 'rejected')),
+  note text,
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  check ((community_id is null) <> (conference_id is null))
+);
+create index if not exists community_join_requests_idx
+  on public.community_join_requests (community_id, conference_id, status);
+
+alter table public.community_join_requests enable row level security;
+drop policy if exists "cjr_read_own_or_admin" on public.community_join_requests;
+create policy "cjr_read_own_or_admin" on public.community_join_requests
+  for select using (auth.uid() = user_id);
+drop policy if exists "cjr_insert_own" on public.community_join_requests;
+create policy "cjr_insert_own" on public.community_join_requests
+  for insert with check (auth.uid() = user_id);
+
 -- Community comments on feedback posts. Jack: "lets also add the ability
 -- for replies on these from general people." Anyone signed-in can post;
 -- admin replies are marked at write time so the UI can highlight them.
@@ -942,6 +1015,13 @@ alter table public.notification_preferences
   add column if not exists on_new_match boolean not null default true;
 alter table public.notification_preferences
   add column if not exists match_threshold integer not null default 65;
+
+-- Weekly proposals digest opt-in. Default ON so existing users start
+-- receiving a Monday-morning roll-up of their unanswered proposals.
+-- Jack: "one of the email notifications we need to add is a weekly
+-- summary of proposals with buttons so you can click right into those."
+alter table public.notification_preferences
+  add column if not exists on_weekly_digest boolean not null default true;
 
 alter table public.notification_preferences enable row level security;
 

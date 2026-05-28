@@ -14,6 +14,7 @@ import {
   scrubAiTells
 } from "@/lib/twin-prompt";
 import type { Profile, TwinProfile, Message, EditDelta } from "@/lib/types";
+import { maybeGifTrigger, pickGif } from "@/lib/giphy";
 
 /**
  * Generate the NEXT turn in a conversation and insert it.
@@ -192,6 +193,25 @@ export async function POST(req: Request) {
         .join("\n")
         .trim()
     );
+
+    // Sparse GIF reaction — fires on celebration cues + occasionally
+    // at random after turn 3 so two twins agreeing feels alive, not
+    // robotic. Jack: "should only be used in specific use cases, so
+    // there's randomness and it doesn't seem like it's hardcoded."
+    // The image is appended on its own line as markdown so the chat
+    // renderer can detect it and inline-render. Skipped silently when
+    // GIPHY_API_KEY is unset.
+    try {
+      const gifHint = maybeGifTrigger(text, msgs.length);
+      if (gifHint) {
+        const hit = await pickGif(gifHint);
+        if (hit) {
+          text = `${text}\n\n![${hit.alt}](${hit.url})`;
+        }
+      }
+    } catch {
+      /* GIF is decorative — never fail the turn over a fetch error */
+    }
   } catch (e: any) {
     console.error("run-conversation generation error", e);
     // FriendlyAnthropicError already carries a user-presentable .message.

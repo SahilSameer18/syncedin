@@ -389,87 +389,54 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
                   <ClientDate value={c.created_at} />
                 </div>
               </Link>
+              {/* Compact single-row score cluster. Jack: "FIX THE UI/UX
+                  HERE" — the previous stacked SYNC + DEAL labels ate
+                  ~80px vertical per card and read as duplicate noise
+                  next to the "SYNC SCORE" column header. New design:
+                  ONE row with `77%` (sync, color-coded) and `◆91`
+                  (deal/excitement, blue) separated by a thin divider,
+                  no caps labels. The column header above the list now
+                  explains both. Hover tooltips on each kept for the
+                  curious. */}
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "flex-end",
-                  gap: 4
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 8,
+                  flexShrink: 0
                 }}
               >
-                {/* Two-scores cluster. Jack: "Why are there 2 different
-                    sync connection scores now?" They aren't the same —
-                    SYNC is the complementarity score between the two
-                    twins (computed pair-wise from twin context, doesn't
-                    change as conversations happen). EXCITE is the
-                    outcome quality your twin assigns to THIS specific
-                    conversation's deal (0–99, updates per chat).
-                    Adding tiny labels above each so they read as
-                    distinct, not duplicative. */}
-                <div
+                <span
+                  title="Sync — pair-wise complementarity between your twins."
                   style={{
-                    display: "inline-flex",
-                    flexDirection: "column",
-                    alignItems: "flex-end",
-                    gap: 1
+                    fontSize: 13,
+                    fontWeight: 800,
+                    color:
+                      c.sync_score >= 70
+                        ? "var(--green)"
+                        : c.sync_score >= 40
+                        ? "var(--amber-bright)"
+                        : "var(--text-dim)",
+                    fontFamily:
+                      '"IBM Plex Mono", ui-monospace, monospace',
+                    lineHeight: 1
                   }}
-                  title="Sync = how well-matched your twins are (pair-wise complementarity)."
                 >
-                  <span
-                    style={{
-                      fontSize: 8,
-                      fontWeight: 800,
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      color: "var(--text-dim)"
-                    }}
-                  >
-                    sync
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 800,
-                      color:
-                        c.sync_score >= 70
-                          ? "var(--green)"
-                          : c.sync_score >= 40
-                          ? "var(--amber-bright)"
-                          : "var(--text-dim)",
-                      fontFamily:
-                        '"IBM Plex Mono", ui-monospace, monospace',
-                      lineHeight: 1
-                    }}
-                  >
-                    {c.sync_score}%
-                  </span>
-                </div>
-                <div
+                  {c.sync_score}%
+                </span>
+                <span
+                  aria-hidden="true"
                   style={{
-                    display: "inline-flex",
-                    flexDirection: "column",
-                    alignItems: "flex-end",
-                    gap: 1
+                    width: 1,
+                    height: 14,
+                    background: "var(--border)"
                   }}
-                  title="Excitement = your twin's read on this deal's high-potential-ness (0–99)."
-                >
-                  <span
-                    style={{
-                      fontSize: 8,
-                      fontWeight: 800,
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      color: "var(--text-dim)"
-                    }}
-                  >
-                    deal
-                  </span>
-                  <ExcitementControl
-                    conversationId={c.id}
-                    score={c.excitement_score}
-                    locked={!!c.excitement_locked}
-                  />
-                </div>
+                />
+                <ExcitementControl
+                  conversationId={c.id}
+                  score={c.excitement_score}
+                  locked={!!c.excitement_locked}
+                />
               </div>
             </div>
           </div>
