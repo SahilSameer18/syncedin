@@ -14,10 +14,17 @@ import Link from "next/link";
 import type { Message, AgreementResponse } from "@/lib/types";
 
 export default async function ConversationPage({
-  params
+  params,
+  searchParams
 }: {
   params: { id: string };
+  searchParams?: { first_match?: string };
 }) {
+  // #185 — set when the user lands here straight from onboarding via
+  // the auto-matchmaker. We render a "this is your first match" banner
+  // so the moment doesn't feel mysterious — they understand WHY this
+  // person is in their thread and that the twins are talking right now.
+  const isFirstMatch = (searchParams?.first_match ?? "") === "1";
   const supabase = createClient();
   const {
     data: { user }
@@ -388,6 +395,41 @@ export default async function ConversationPage({
           sidebar, showing other convos. Was previously at left:16, now
           at left:252 to clear the 220px sidebar + a 16px gap. */}
       <ConversationRail activeId={params.id} />
+      {/* #185 — First-match welcome banner. Renders ONLY when the user
+          arrived here straight from onboarding. Lives outside ChatUI so
+          ChatUI's height: 100dvh layout isn't disturbed; floats over the
+          top of the chat with a dismiss-on-click feel via opacity. */}
+      {isFirstMatch && (
+        <div
+          style={{
+            position: "fixed",
+            top: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 60,
+            maxWidth: 520,
+            padding: "12px 16px",
+            background:
+              "linear-gradient(135deg, rgba(35,88,255,0.96), rgba(107,45,201,0.96))",
+            color: "#fff",
+            borderRadius: 14,
+            boxShadow: "0 8px 28px rgba(0,0,0,0.25)",
+            fontSize: 13,
+            lineHeight: 1.5,
+            textAlign: "center"
+          }}
+        >
+          <div style={{ fontWeight: 800, marginBottom: 2 }}>
+            Your first match is in flight
+          </div>
+          <div style={{ opacity: 0.92 }}>
+            Your twin and {otherProfile?.display_name ?? "their twin"} are
+            already talking. Watch the thread unfold below — a proposal
+            will land in the right rail when they reach a real
+            opportunity.
+          </div>
+        </div>
+      )}
       <ChatUI
       conversationId={params.id}
       selfUserId={user.id}

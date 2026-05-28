@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { slugifyHandle } from "@/lib/handle";
 import { scrapePublicProfile } from "@/lib/scrape";
-import { notifyNewMatch } from "@/lib/notify";
+import { notifyNewMatch, notifyNewConnection } from "@/lib/notify";
+import { pickBestFirstMatch } from "@/lib/matchmaking";
+import { assignConversationSlug } from "@/lib/conversationSlugServer";
 
 function s(v: FormDataEntryValue | null): string | null {
   if (v === null) return null;
@@ -145,8 +147,79 @@ export async function saveTwin(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/onboarding");
-  // ?saved=1 lets the dashboard scroll to top + show a confirmation.
-  // Without it, browser scroll-restoration kept the page anchored to
-  // wherever the user last was, landing them at the bottom.
+
+  // #185 — North-star UX shift. Instead of landing the user on an empty
+  // dashboard ("your twin is ready, now go find someone"), pick the
+  // best real-user counterpart for them right now, create the conversation,
+  // kick off the twin-to-twin auto-loop, and redirect DIRECTLY into the
+  // live thread. Their first real proposal lands in minutes, not days.
+  //
+  // Skip entirely if the user is coming in via /claim/<slug> (they
+  // already have a conversation waiting) — detected by checking for an
+  // existing conv at this point. Otherwise pick the best match.
+  try {
+    const service = createServiceClient();
+    const { data: existingConvs } = await service
+      .from("conversations")
+      .select("id")
+      .or(
+        `participant_a.eq.${user.id},participant_b.eq.${user.id}`
+      )
+      .limit(1);
+    const hasConv = ((existingConvs as any[]) ?? []).length > 0;
+
+    if (!hasConv) {
+      const match = await pickBestFirstMatch(user.id);
+      if (match) {
+        const { data: conv, error: convErr } = await service
+          .from("conversations")
+          .insert({
+            participant_a: user.id,
+            participant_b: match.counterpartId
+          })
+          .select("id")
+          .single();
+        if (!convErr && conv) {
+          const convId = (conv as any).id as string;
+          // Fire-and-forget: assign short slug, notify both sides, AND
+          // kick off the twin-to-twin auto-loop so when the user lands
+          // the conversation is already in motion.
+          assignConversationSlug(convId).catch(() => {});
+          notifyNewConnection({
+            conversationId: convId,
+            participantA: user.id,
+            participantB: match.counterpartId
+          }).catch(() => {});
+          void (async () => {
+            try {
+              const baseUrl = (
+                process.env.NEXT_PUBLIC_APP_URL || "https://syncedin.org"
+              ).replace(/\/$/, "");
+              // Best-effort: start the loop on the server. If the call
+              // fails (e.g. timeout), the user can still re-trigger from
+              // the conversation page — ChatUI auto-starts on mount.
+              await fetch(`${baseUrl}/api/run-conversation`, {
+                method: "POST",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ conversation_id: convId })
+              });
+            } catch (e) {
+              console.warn("[onboarding] first-match auto-start failed", e);
+            }
+          })();
+          redirect(`/conversations/${convId}?first_match=1`);
+        }
+      }
+    }
+  } catch (e: any) {
+    // `redirect()` throws an internal Next.js error — let it propagate.
+    if (e?.digest?.startsWith?.("NEXT_REDIRECT")) throw e;
+    console.warn("[onboarding] first-match auto-create failed", e);
+  }
+
+  // Fallback redirect — used when there's no good first-match candidate
+  // (very early platform), when the user already has a conversation, or
+  // when the match flow errored. ?saved=1 lets the dashboard scroll to
+  // top + show a confirmation.
   redirect("/dashboard?saved=1");
 }
