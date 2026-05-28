@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
+import {
+  runContextDive,
+  buildWittyShowcasePrompt,
+  type ContextDive
+} from "@/lib/context-dive";
 
 /**
  * Demo conversation generator — drives the pre-auth invite landing page.
@@ -119,45 +124,94 @@ ${
           .join("\n")}`
       : "";
 
-  // Prompt asks for one JSON object per line inside the array so we can
-  // detect a completed message as soon as a newline lands during
-  // streaming. Length is UNBOUNDED — the conversation runs until one
-  // side floats a concrete win-win proposal and the other accepts (or
-  // counter-proposes a specific tweak). Jack: "not limit the amount
-  // of messages between the two parties but go all the way until a
-  // proposal is reached."
-  const systemPrompt = `You're generating a SIMULATED conversation between two people's digital twins to show a recipient what a real twin-to-twin negotiation on SyncedIn would look like. The recipient is reading this BEFORE signing up — your job is to make them think "wow, that's exactly the conversation I'd want to have."
+  // === DIVE-FIRST ARCHITECTURE (Jack: "the context dive happens first
+  // and then the conversation can not be as long as the search for
+  // potential — instead, a surfacing of the chat that would have
+  // happened to get to the best endpoint. More witty, more funny,
+  // showcasing the alignment.") ===
+  //
+  // Step 1: run the dive (or load the cached one from pending_invites).
+  //         Produces JSON alignment + recommended_destination + the
+  //         right voice for these two.
+  // Step 2: feed the dive into a SHORT WITTY showcase prompt — 5
+  //         messages, snappy, leans into the dive's voice angle,
+  //         lands the recommended_destination on message 5.
+  let dive: ContextDive | null = (invite as any).context_dive ?? null;
+  if (!dive || extraContext || edits.length > 0) {
+    // Re-dive whenever the recipient added new context or edited a
+    // line — the alignment should reflect their corrections. Cached
+    // dive only used for cold-load.
+    try {
+      const contextA = `Goals: ${(inviterTwin as any)?.goals || "(not specified)"}
+Deal preferences: ${(inviterTwin as any)?.deal_preferences || "(not specified)"}
+Communication style: ${(inviterTwin as any)?.communication_style || "(not specified)"}
+Deal breakers: ${(inviterTwin as any)?.deal_breakers || "(not specified)"}
+Context blob (excerpts):
+${((inviterTwin as any)?.ai_export_blob || "").slice(0, 4000)}`;
+      const contextB = `Public footprint:
+${highlights.join("\n\n").slice(0, 6000)}${
+        extraContext
+          ? `\n\nNew context they just added (treat as latest truth):\n${extraContext}`
+          : ""
+      }`;
+      dive = await runContextDive({
+        name_a: inviterName,
+        context_a: contextA,
+        name_b: recipientName,
+        context_b: contextB
+      });
+      // Cache the dive on the invite row (fire-and-forget). Schema-
+      // missing case degrades silently — the conversation still works.
+      void service
+        .from("pending_invites")
+        .update({ context_dive: dive })
+        .eq("slug", slug)
+        .then(
+          () => undefined,
+          () => undefined
+        );
+    } catch (e) {
+      console.warn(
+        "[demo-conversation] dive failed; falling back to no-dive prompt",
+        e
+      );
+      dive = null;
+    }
+  }
 
-Hard rules:
-- Alternate senders strictly. Message 1 = "${inviterName}'s twin" (sender: "inviter"). Message 2 = "${recipientName}'s twin" (sender: "recipient"). Keep alternating.
-- Do NOT cap the conversation at a fixed length. Keep going until one side puts a CONCRETE win-win proposal on the table (specific deliverable, specific channel, specific timing) and the other side either accepts it cleanly or counter-proposes one specific tweak the first side then accepts. Most realistic conversations land in 6–14 messages; some need more — let it run as long as needed. Never stop short of a proposal.
-- The FINAL message must be the one that accepts the proposal, and it must END with the literal marker line "PROPOSAL:" followed by a one-sentence restatement of the agreed-on next step (who does what, when, on what channel). Example final-message ending: "Sounds great, I'll send the calendar invite tonight. PROPOSAL: 30-min Zoom Tuesday at 10am PT to review the cohort metrics, ${inviterName} to send the deck the night before."
-- Each message: 2-4 sentences, conversational, specific. NO em-dashes, NO emojis, NO markdown.
-- Every message must reference concrete details from the profile blocks below — names of products, companies, specific projects. Generic chat is wrong.
-- The conversation should progress: opener → context exchange → identify the overlap → put a specific next step on the table → resolve any pushback → land the proposal.
-- ${recipientName}'s twin should sound like ${recipientName} would sound — pulled from the public footprint + any added context. If the footprint is thin, infer cautiously and hedge claims.
-- It's a CONVERSATION, not pitches at each other. Each side should ask things or react to what the other just said.
+  // === WITTY SHOWCASE PROMPT — short, snappy, lands the proposal ===
+  // If the dive succeeded, use the showcase prompt that assumes
+  // coordination already happened. If it failed (no anthropic, schema
+  // issue, etc.), fall back to a brief discovery-style prompt that
+  // still caps at 6 messages instead of running forever.
+  let systemPrompt: string;
+  let userContent: string;
+  if (dive) {
+    const { system, userIntro } = buildWittyShowcasePrompt(
+      inviterName,
+      recipientName,
+      dive
+    );
+    systemPrompt = system;
+    userContent = `${userIntro}${editsBlock}`;
+  } else {
+    // Fallback (no dive available) — still SHORT now (was: run until
+    // proposal lands, no cap). 5 messages max, witty, lands proposal
+    // on the last message.
+    systemPrompt = `You're generating a SHORT WITTY conversation between two people's digital twins. EXACTLY 5 messages alternating senders. Message 1 = "${inviterName}'s twin" (sender: "inviter"). Message 2 = "${recipientName}'s twin" (sender: "recipient"). Each message 1–3 sentences. NO em-dashes, NO emojis, NO markdown. Skip discovery beats — start IN the alignment. Message 5 must land a concrete win-win and END with the literal "PROPOSAL: …" marker (who does what, when, what channel).
 
-Output format — return ONLY valid JSON in this EXACT shape, with each message object on its own line (newline-separated inside the array). This formatting matters for streaming. Continue the array for as many messages as it takes to land the proposal:
+Output ONLY JSON:
 {
 "messages": [
+{"sender": "inviter", "text": "..."},
+{"sender": "recipient", "text": "..."},
 {"sender": "inviter", "text": "..."},
 {"sender": "recipient", "text": "..."},
 {"sender": "inviter", "text": "..."}
 ]
 }`;
-
-  const userContent = `${inviterTwinBlock}
-
----
-
-${recipientGuessBlock}${editsBlock}
-
-Generate the JSON now. ${
-    extraContext
-      ? `Bias toward the new context ${recipientName} just added.`
-      : ""
-  }`;
+    userContent = `${inviterTwinBlock}\n\n---\n\n${recipientGuessBlock}${editsBlock}\n\nWrite the 5-message JSON now.`;
+  }
 
   // ============ STREAMING PATH ============
   if (wantsStream) {
@@ -179,11 +233,11 @@ Generate the JSON now. ${
           // and watch for completed message objects in the stream.
           const stream = anthropic.messages.stream({
             model: TWIN_MODEL,
-            // Was 1400 when capped at 6 messages. Bumped to leave room
-            // for the conversation to actually reach a proposal — 14
-            // 2-4-sentence turns + JSON scaffolding fits comfortably
-            // inside ~3500 tokens.
-            max_tokens: 3500,
+            // Dive-first architecture: surface conversation is now a
+            // SHORT 5-message witty showcase, not a turn-by-turn search.
+            // 1500 tokens is plenty for 5 1–3 sentence messages + JSON
+            // scaffolding.
+            max_tokens: 1500,
             system: systemPrompt,
             messages: [{ role: "user", content: userContent }]
           });
@@ -249,9 +303,9 @@ Generate the JSON now. ${
   try {
     const response = await anthropic.messages.create({
       model: TWIN_MODEL,
-      // Matches the streaming path — room for a full proposal-lands
-      // conversation (was 1400 when capped at 6 messages).
-      max_tokens: 3500,
+      // Matches the streaming path — 5-message witty showcase fits
+      // comfortably in 1500 tokens.
+      max_tokens: 1500,
       system: systemPrompt,
       messages: [{ role: "user", content: userContent }]
     });
@@ -273,9 +327,9 @@ Generate the JSON now. ${
     );
   }
 
-  // No hard cap on message count — the conversation runs until a
-  // proposal lands. We still defensively clamp to a generous upper
-  // bound (40) to prevent a runaway model from blowing out the UI.
+  // Dive-first surface conversation: hard cap at 6 messages (target
+  // is 5; +1 buffer for model drift). The dive already did the
+  // coordination — the surface is a witty showcase, not a search.
   const cleaned = (parsed.messages ?? [])
     .map((m) => ({
       sender:
@@ -285,7 +339,7 @@ Generate the JSON now. ${
       text: (m.text || "").toString().trim()
     }))
     .filter((m) => m.text.length > 0)
-    .slice(0, 40);
+    .slice(0, 6);
 
   return NextResponse.json({
     messages: cleaned,

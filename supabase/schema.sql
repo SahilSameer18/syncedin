@@ -155,6 +155,12 @@ alter table public.pending_invites
   add column if not exists demo_messages jsonb;
 alter table public.pending_invites
   add column if not exists demo_generated_at timestamptz;
+-- Context dive cached on the invite row too so the demo-conversation
+-- generator can read it as input (architecture: dive-first, surface
+-- conversation is a witty showcase of the alignment the dive found,
+-- not a search for it).
+alter table public.pending_invites
+  add column if not exists context_dive jsonb;
 
 -- Context-to-context "dive" — Jack's architecture shift: instead of the
 -- visible message stack being the coordination layer, run a one-shot
