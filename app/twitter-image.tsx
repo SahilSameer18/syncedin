@@ -1,30 +1,22 @@
 /**
- * Twitter image route — serves the static JPG (same as opengraph).
+ * Twitter image route — serves the animated GIF (same as opengraph).
  *
- * Previously this served the animated GIF. Switched to JPG because
- * LinkedIn's Post Inspector was rejecting the GIF-served-from-dynamic-
- * route as "No image found" even though iMessage / Slack / Discord
- * happily animated it. A static JPG is the most universally accepted
- * preview image type.
- *
- * Platforms that animate GIFs (iMessage, Slack, Discord, Telegram)
- * will still animate when the GIF is shared DIRECTLY at
- * /social/syncedin-preview.gif — we just stop offering it as the
- * canonical twitter:image. The video itself lives at
- * /social/syncedin-preview-small.mp4 for explicit linking.
+ * Jack: "having the GIF across the board, unless we have a different
+ * custom social preview image for that page, is best." Twitter / X
+ * animates GIFs in preview cards, so this matches the OG route.
  */
 
 export const runtime = "edge";
 export const alt =
   "SyncedIn — two twins finding the highest-leverage win-win between you.";
 export const size = { width: 1200, height: 630 };
-export const contentType = "image/jpeg";
+export const contentType = "image/gif";
 
 export default async function TwitterImage(): Promise<Response> {
   const SITE_URL =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";
-  const res = await fetch(`${SITE_URL}/social/syncedin-preview.jpg`, {
+  const res = await fetch(`${SITE_URL}/social/syncedin-preview.gif`, {
     next: { revalidate: 60 * 60 * 24 * 7 }
   });
   if (!res.ok) {
@@ -43,7 +35,7 @@ export default async function TwitterImage(): Promise<Response> {
   const buf = await res.arrayBuffer();
   return new Response(buf, {
     headers: {
-      "content-type": "image/jpeg",
+      "content-type": "image/gif",
       "cache-control":
         "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
     }

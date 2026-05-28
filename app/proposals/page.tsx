@@ -3,8 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { Avatar } from "../Avatar";
-import { ExpandProposalInline } from "./ExpandProposalInline";
-import { InlineActions } from "./InlineActions";
+import { ProposalRowBody } from "./ProposalRowBody";
 import { SocialIconRow } from "../SocialIconRow";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 
@@ -367,32 +366,25 @@ export default async function ProposalsPage() {
                       </span>
                     )}
                   </div>
-                  <p
-                    style={{
-                      marginTop: 8,
-                      fontSize: 14,
-                      lineHeight: 1.5,
-                      color: "var(--text)",
-                      whiteSpace: "pre-wrap"
-                    }}
-                  >
-                    {c.summary}
-                  </p>
-                  {/* Inline expand — full agreement text pre-fetched
-                      server-side so no loading state. Click is instant. */}
-                  <ExpandProposalInline
-                    fullText={fullTextByConv.get(c.id) ?? c.summary}
+                  {/* Client wrapper — owns local proposal state so
+                      "Change proposal" updates the displayed summary
+                      + expand panel inline (no router.refresh that
+                      would re-render the whole heavy server tree). */}
+                  <ProposalRowBody
+                    conversationId={c.id}
+                    initialSummary={c.summary ?? ""}
+                    initialFullText={
+                      fullTextByConv.get(c.id) ?? c.summary ?? ""
+                    }
+                    alreadyAccepted={myResp?.response === "accepted"}
+                    alreadyRejected={myResp?.response === "rejected"}
+                    sealed={sealed}
                   />
-                  {!sealed && (
-                    <InlineActions
-                      conversationId={c.id}
-                      alreadyAccepted={myResp?.response === "accepted"}
-                      alreadyRejected={myResp?.response === "rejected"}
-                      currentProposal={
-                        fullTextByConv.get(c.id) ?? c.summary ?? ""
-                      }
-                    />
-                  )}
+                  {/* (sealed + denied/accepted state still rendered
+                      from server-side respsByConv in the header
+                      above — only the action surface is lifted to
+                      the client wrapper.) */}
+                  {false && null}
                   {/* Even when sealed, give a way back to the full
                       messages thread for context — but as a quiet text
                       link instead of a button. */}

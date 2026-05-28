@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 /**
@@ -19,12 +18,21 @@ import { useState } from "react";
  *  - Change / Counter → still link to the chat with the right hash
  *    + action query (they open the agreement panel in edit / counter
  *    mode there, which needs the message stream to be live).
+ *
+ * Reload-free path: every successful action now mutates LOCAL state
+ * (acceptedJustNow / rejectedJustNow / onProposalChanged callback)
+ * instead of calling router.refresh(). The whole /proposals page is
+ * a heavy server render — refresh used to cause a visible re-flow
+ * (Jack: "After I did change proposal it had to reload the whole
+ * page"). Local state keeps the UI snappy; canonical server data
+ * picks up on next nav.
  */
 export function InlineActions({
   conversationId,
   alreadyAccepted,
   alreadyRejected,
-  currentProposal
+  currentProposal,
+  onProposalChanged
 }: {
   conversationId: string;
   alreadyAccepted: boolean;
@@ -32,13 +40,18 @@ export function InlineActions({
   /** The existing proposal text — pre-fills the Change textarea so
    *  the user edits instead of writes from blank. */
   currentProposal?: string;
+  /** Called after a successful "change proposal" save so the parent
+   *  can update what's displayed without a router.refresh. If not
+   *  provided we still close the editor + show a confirmation, just
+   *  without an in-place update of any summary the parent renders. */
+  onProposalChanged?: (newText: string) => void;
 }) {
-  const router = useRouter();
   const [busy, setBusy] = useState<"accept" | "deny" | "change" | null>(null);
   const [err, setErr] = useState<string>("");
   const [denyOpen, setDenyOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [acceptedJustNow, setAcceptedJustNow] = useState(false);
+  const [rejectedJustNow, setRejectedJustNow] = useState(false);
   const [changeOpen, setChangeOpen] = useState(false);
   const [changeText, setChangeText] = useState(currentProposal ?? "");
 
@@ -60,9 +73,9 @@ export function InlineActions({
         throw new Error(j.detail || j.error || `HTTP ${res.status}`);
       }
       setAcceptedJustNow(true);
-      // Refresh the server-rendered page so the row re-renders in the
-      // "accepted" state without a hard navigation.
-      router.refresh();
+      // No router.refresh — local state ("accepted") already drives
+      // the UI swap. Avoids a full re-render of the heavy /proposals
+      // server tree.
     } catch (e: any) {
       setErr(e?.message || String(e));
     } finally {
@@ -88,7 +101,9 @@ export function InlineActions({
         throw new Error(j.detail || j.error || `HTTP ${res.status}`);
       }
       setChangeOpen(false);
-      router.refresh();
+      // Push the new proposal to the parent wrapper so the displayed
+      // summary + expand panel update inline. No router.refresh.
+      onProposalChanged?.(changeText.trim());
     } catch (e: any) {
       setErr(e?.message || String(e));
     } finally {
@@ -116,7 +131,8 @@ export function InlineActions({
       }
       setDenyOpen(false);
       setReason("");
-      router.refresh();
+      setRejectedJustNow(true);
+      // No router.refresh — local "rejected" state hides the deny btn.
     } catch (e: any) {
       setErr(e?.message || String(e));
     } finally {
@@ -148,7 +164,7 @@ export function InlineActions({
         >
           💬 open full messages
         </a>
-        {!alreadyAccepted && (
+        {!alreadyAccepted && !acceptedJustNow && (
           <button
             type="button"
             onClick={accept}
@@ -160,10 +176,25 @@ export function InlineActions({
               opacity: busy ? 0.6 : 1
             }}
           >
-            {busy === "accept" || acceptedJustNow
-              ? "✓ accepted"
-              : "✓ accept"}
+            {busy === "accept" ? "✓ accepted" : "✓ accept"}
           </button>
+        )}
+        {acceptedJustNow && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#15803d",
+              background: "rgba(34, 197, 94, 0.12)",
+              border: "1px solid rgba(34, 197, 94, 0.30)",
+              borderRadius: 999
+            }}
+          >
+            ✓ accepted
+          </span>
         )}
         <button
           type="button"
@@ -197,7 +228,7 @@ export function InlineActions({
         >
           ↺ counter
         </a>
-        {!alreadyRejected && (
+        {!alreadyRejected && !rejectedJustNow && (
           <button
             type="button"
             onClick={() => setDenyOpen((v) => !v)}
@@ -212,6 +243,23 @@ export function InlineActions({
           >
             {denyOpen ? "cancel" : "✕ deny with reason"}
           </button>
+        )}
+        {rejectedJustNow && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              color: "#b91c1c",
+              background: "rgba(239, 68, 68, 0.10)",
+              border: "1px solid rgba(239, 68, 68, 0.30)",
+              borderRadius: 999
+            }}
+          >
+            ✕ denied
+          </span>
         )}
       </div>
       {changeOpen && (

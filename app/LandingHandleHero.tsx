@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BrandLogo, type BrandKey } from "./BrandLogo";
 
@@ -10,7 +10,7 @@ import { BrandLogo, type BrandKey } from "./BrandLogo";
  *   - Bold sans headline
  *   - Tight subhead
  *   - Platform pill row (Instagram / TikTok / X / LinkedIn / YouTube)
- *   - One @handle input
+ *   - One @handle input — accepts EITHER bare handle OR full profile URL
  *   - Oversized blue CTA
  *   - Micro-trust copy
  *
@@ -21,12 +21,20 @@ import { BrandLogo, type BrandKey } from "./BrandLogo";
  * /login?next=/onboarding so they start a twin first.
  *
  * Per Jack: "we need to look more modern and elite."
+ *
+ * Placeholder cycling: greys text rotates between "yourhandle" and
+ * "linkedin.com/in/yourhandle" form every ~2.6s so the user instantly
+ * sees that either is accepted. Jack: "FOR LINKEDIN AND ALL IT SHOULD
+ * BE HANDLE OR FULL LINK THE GREY TEXT CAN SWITCH BACK AND FORTH."
  */
 type Platform = {
   key: BrandKey;
   label: string;
   prefix: string;
-  placeholder: string;
+  // Two-form placeholder: handle-only and full-URL. We rotate between
+  // them on a timer so users see at a glance that either is accepted.
+  placeholderHandle: string;
+  placeholderUrl: string;
 };
 
 const PLATFORMS: Platform[] = [
@@ -34,27 +42,70 @@ const PLATFORMS: Platform[] = [
     key: "instagram",
     label: "Instagram",
     prefix: "instagram.com/",
-    placeholder: "yourhandle"
+    placeholderHandle: "yourhandle",
+    placeholderUrl: "instagram.com/yourhandle"
   },
   {
     key: "x",
     label: "X",
     prefix: "x.com/",
-    placeholder: "yourhandle"
+    placeholderHandle: "yourhandle",
+    placeholderUrl: "x.com/yourhandle"
   },
   {
     key: "linkedin",
     label: "LinkedIn",
     prefix: "linkedin.com/in/",
-    placeholder: "your-handle"
+    placeholderHandle: "your-handle",
+    placeholderUrl: "linkedin.com/in/your-handle"
   },
   {
     key: "facebook",
     label: "Facebook",
     prefix: "facebook.com/",
-    placeholder: "yourhandle"
+    placeholderHandle: "yourhandle",
+    placeholderUrl: "facebook.com/yourhandle"
   }
 ];
+
+/**
+ * Pull the bare handle out of either form of input. Accepts:
+ *   - "yourhandle"             → "yourhandle"
+ *   - "@yourhandle"            → "yourhandle"
+ *   - "linkedin.com/in/foo"    → "foo" (also auto-detects platform)
+ *   - "https://x.com/foo?bar"  → "foo" (strips query)
+ *   - "https://www.instagram.com/foo/" → "foo"
+ *
+ * Returns { handle, detectedPlatform? }. Detected platform overrides
+ * the user's pill choice if we can tell from the URL — that's a better
+ * UX than yelling about a mismatch.
+ */
+function parseInput(
+  raw: string
+): { handle: string; detectedPlatform?: BrandKey } {
+  let s = raw.trim().replace(/^@+/, "");
+  if (!s) return { handle: "" };
+  // Strip scheme + www.
+  s = s.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
+  // Detect platform from domain.
+  let detected: BrandKey | undefined;
+  if (/^linkedin\.com\/in\//i.test(s)) {
+    detected = "linkedin";
+    s = s.replace(/^linkedin\.com\/in\//i, "");
+  } else if (/^(twitter|x)\.com\//i.test(s)) {
+    detected = "x";
+    s = s.replace(/^(twitter|x)\.com\//i, "");
+  } else if (/^instagram\.com\//i.test(s)) {
+    detected = "instagram";
+    s = s.replace(/^instagram\.com\//i, "");
+  } else if (/^facebook\.com\//i.test(s)) {
+    detected = "facebook";
+    s = s.replace(/^facebook\.com\//i, "");
+  }
+  // Drop trailing slash + querystring + hash.
+  s = s.split(/[?#]/)[0].replace(/\/+$/, "");
+  return { handle: s, detectedPlatform: detected };
+}
 
 export function LandingHandleHero() {
   const router = useRouter();
@@ -63,20 +114,41 @@ export function LandingHandleHero() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  // Toggle between two placeholder forms on a timer so the user sees
+  // that BOTH "yourhandle" and "linkedin.com/in/yourhandle" work. Index
+  // 0 = handle-only, 1 = full URL.
+  const [phIdx, setPhIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setPhIdx((i) => (i + 1) % 2), 2600);
+    return () => clearInterval(t);
+  }, []);
+  const placeholder =
+    phIdx === 0 ? platform.placeholderHandle : platform.placeholderUrl;
+
   async function go() {
-    const h = handle.replace(/^@+/, "").trim();
+    const parsed = parseInput(handle);
+    const h = parsed.handle;
     if (!h || busy) return;
+    // If the user pasted a full URL we can detect the platform from —
+    // switch the active pill so the routing matches what they typed.
+    const effectivePlatform =
+      (parsed.detectedPlatform &&
+        PLATFORMS.find((p) => p.key === parsed.detectedPlatform)) ||
+      platform;
     setBusy(true);
     setErr("");
     try {
       // Build the synthetic profile URL from the chosen platform.
-      const profileUrl = `https://${platform.prefix}${h}`;
+      const profileUrl = `https://${effectivePlatform.prefix}${h}`;
       // Stash the intended URL so the post-login onboarding flow can
       // prefill scrape context from it immediately.
       try {
         sessionStorage.setItem(
           "syncedin.signupIntent",
-          JSON.stringify({ profile_url: profileUrl, platform: platform.key })
+          JSON.stringify({
+            profile_url: profileUrl,
+            platform: effectivePlatform.key
+          })
         );
       } catch {
         /* private mode */
@@ -313,7 +385,7 @@ export function LandingHandleHero() {
               void go();
             }
           }}
-          placeholder={platform.placeholder}
+          placeholder={placeholder}
           className="lh-input"
           autoComplete="off"
           autoCapitalize="off"

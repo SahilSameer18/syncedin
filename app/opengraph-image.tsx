@@ -1,27 +1,33 @@
 /**
- * OG image route — serves the static JPG extracted from Jack's
- * uploaded hero video (see /public/social/syncedin-preview.jpg).
+ * OG image route — serves the animated GIF extracted from Jack's
+ * uploaded hero video (see /public/social/syncedin-preview.gif).
  *
- * History: this file used to ImageResponse-render a card. The auto-
- * routed file convention overrides metadata.openGraph.images in
- * layout.tsx, so the ONLY way to put the new image at the canonical
- * `/opengraph-image` URL is to make THIS file return its bytes.
+ * History: ImageResponse → static JPG → now GIF bytes. Jack: "having
+ * the GIF across the board, unless we have a different custom social
+ * preview image for that page, is best." iMessage, Slack, Discord,
+ * Telegram, Twitter all animate GIFs inside preview cards. LinkedIn
+ * + WhatsApp show the first frame as a static, which is acceptable.
  *
- * For the GIF/animated version see app/twitter-image.tsx (Twitter
- * animates GIFs inside preview cards; LinkedIn / WhatsApp don't).
+ * The auto-routed file convention overrides metadata.openGraph.images
+ * in layout.tsx, so to switch what's served you change the bytes
+ * THIS file returns — not the metadata.
+ *
+ * If we ever need a per-page card (e.g. /conversations/[id] showing
+ * the deal text), add a page-level `generateMetadata` with explicit
+ * `openGraph.images` — that override beats the file convention.
  */
 
 export const runtime = "edge";
 export const alt =
   "SyncedIn — two twins finding the highest-leverage win-win between you.";
 export const size = { width: 1200, height: 630 };
-export const contentType = "image/jpeg";
+export const contentType = "image/gif";
 
 export default async function OG(): Promise<Response> {
   const SITE_URL =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
     "https://syncedin.org";
-  const res = await fetch(`${SITE_URL}/social/syncedin-preview.jpg`, {
+  const res = await fetch(`${SITE_URL}/social/syncedin-preview.gif`, {
     next: { revalidate: 60 * 60 * 24 * 7 }
   });
   if (!res.ok) {
@@ -41,7 +47,7 @@ export default async function OG(): Promise<Response> {
   const buf = await res.arrayBuffer();
   return new Response(buf, {
     headers: {
-      "content-type": "image/jpeg",
+      "content-type": "image/gif",
       "cache-control":
         "public, max-age=3600, s-maxage=86400, stale-while-revalidate=86400"
     }
