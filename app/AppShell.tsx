@@ -142,21 +142,41 @@ export async function AppShell({
   }
 
   async function computePollUnread(): Promise<number> {
+    // Jack: "lets add to the polls page when a new poll that their
+    // twin reacts to is there." Badge counts polls where the user's
+    // TWIN has posted a response but the user hasn't human-overridden
+    // it yet — i.e., they haven't engaged with what their twin said
+    // on their behalf. (Previous logic counted polls the user owed a
+    // response on, which dropped to 0 the moment the twin auto-
+    // responded — exactly the opposite of what Jack wants.)
     const { data: polls } = await supabase
       .from("polls")
       .select("id, status")
       .neq("status", "closed");
     const pollIds = ((polls ?? []) as any[]).map((p) => p.id);
     if (pollIds.length === 0) return 0;
-    const { data: myResponses } = await supabase
-      .from("poll_responses")
-      .select("poll_id")
-      .eq("twin_user_id", userId)
-      .in("poll_id", pollIds);
-    const respondedSet = new Set(
-      ((myResponses ?? []) as any[]).map((r) => r.poll_id)
-    );
-    return pollIds.filter((id: string) => !respondedSet.has(id)).length;
+    let rows: Array<{ poll_id: string; was_overridden: boolean | null }> = [];
+    try {
+      const { data } = await supabase
+        .from("poll_responses")
+        .select("poll_id, was_overridden")
+        .eq("twin_user_id", userId)
+        .in("poll_id", pollIds);
+      rows = (data ?? []) as any;
+    } catch {
+      // was_overridden column may not exist — degrade to "twin
+      // responded at all" as the unread signal.
+      const { data } = await supabase
+        .from("poll_responses")
+        .select("poll_id")
+        .eq("twin_user_id", userId)
+        .in("poll_id", pollIds);
+      rows = ((data ?? []) as any[]).map((r) => ({
+        ...r,
+        was_overridden: null
+      }));
+    }
+    return rows.filter((r) => !r.was_overridden).length;
   }
 
   async function computeProposalsUnread(): Promise<number> {

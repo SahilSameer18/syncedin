@@ -1115,19 +1115,39 @@ export function ChatUI({
 
   return (
     <main
-      className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-[calc(100dvh-56px)] lg:h-[calc(100dvh-64px)] overflow-hidden"
-      // Was h-screen (100vh). That ignored the sticky mobile top bar
-      // (~56px) AND the desktop TopBar (~64px) sitting above main in
-      // normal flow, so the page extended past the viewport and the
-      // body itself scrolled. Jack: "We can make this part fit rather
-      // than there being any scroll on the EXTERNAL part of this
-      // chat." Now we subtract the top-bar height so main exactly
-      // fills the remaining viewport — the messages-scroll container
-      // inside handles all scrolling internally, no body scroll.
+      className="max-w-2xl mx-auto px-4 py-4 flex flex-col h-[calc(100dvh-56px)] lg:h-[calc(100dvh-64px)] overflow-hidden conv-main"
+      // 100dvh - top-bar height so main exactly fills the remaining
+      // viewport (messages-scroll handles all internal scroll, no
+      // body scroll). dvh (not vh) so mobile address-bar retraction
+      // works correctly.
       //
-      // 100dvh (dynamic viewport height) instead of 100vh so the
-      // calc shrinks correctly when mobile address bars retract.
+      // .conv-main rules below clear the fixed left sidebar (220px)
+      // + conv rail (110px) on lg+ so the chat doesn't slide
+      // underneath them. Jack: "There is still overlapping error"
+      // — the centered max-w-2xl was ignoring the fixed columns.
     >
+      <style>{`
+        @media (min-width: 1024px) {
+          .conv-main {
+            /* Push the chat column right past the fixed sidebar
+               (left:16 width:220) + gap + conv rail (left:252
+               width:110) + small breathing buffer. */
+            margin-left: 380px !important;
+            margin-right: auto !important;
+            /* Cap so on very wide screens we don't stretch the
+               chat across the entire viewport. */
+            max-width: min(672px, calc(100vw - 380px - 24px));
+          }
+        }
+        @media (min-width: 1440px) {
+          .conv-main {
+            /* When the right rail is active, also reserve room on
+               the right (rail is right:28 width:330 = 358px from
+               edge). Cap chat width tighter so it stays in its lane. */
+            max-width: min(672px, calc(100vw - 380px - 380px));
+          }
+        }
+      `}</style>
       {(() => {
         // Short label helpers — emails crammed into a single row with two
         // spans and a "×" between them produced the mess Jack flagged

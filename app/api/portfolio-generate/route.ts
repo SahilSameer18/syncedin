@@ -75,6 +75,15 @@ export async function POST(req: Request) {
 
   const body = await req.json().catch(() => ({}));
   const force = !!body?.force; // owner clicked "regenerate"
+  // Optional user-supplied extra direction. Jack: "on the regenerate
+  // for portfolio page lets expose the prompt and let someone edit."
+  // Appended to the system prompt as high-weight guidance so Claude
+  // honors it ("lead with my Brazil chapter", "dark mode", "no
+  // projects section", etc).
+  const extraInstructions: string =
+    typeof body?.extra_instructions === "string"
+      ? body.extra_instructions.slice(0, 1200).trim()
+      : "";
 
   const service = createServiceClient();
 
@@ -169,7 +178,7 @@ export async function POST(req: Request) {
     .filter(Boolean)
     .join("\n\n");
 
-  const systemPrompt = `You are a senior product designer + brand storyteller building a CUSTOM portfolio website for one specific person. You receive their full context and you design the site that would actually make a stranger want to work with them.
+  const systemPrompt = `${extraInstructions ? `EXTRA DIRECTION FROM THE USER (weight this VERY heavily — they want this honored):\n${extraInstructions}\n\n` : ""}You are a senior product designer + brand storyteller building a CUSTOM portfolio website for one specific person. You receive their full context and you design the site that would actually make a stranger want to work with them.
 
 OUTPUT: A single JSON object matching this exact schema. No prose outside the JSON. No markdown fences.
 
