@@ -31,7 +31,13 @@ import { socialsFromBlob } from "@/lib/social-from-blob";
  */
 export const dynamic = "force-dynamic";
 
-export default async function ProposalsPage() {
+export default async function ProposalsPage({
+  searchParams
+}: {
+  searchParams?: { blocked?: string; owed?: string };
+}) {
+  const blockedPending = searchParams?.blocked === "pending";
+  const owedCount = Number(searchParams?.owed) || 0;
   const supabase = createClient();
   const {
     data: { user }
@@ -230,6 +236,40 @@ export default async function ProposalsPage() {
           rest with a reason so your twin learns.
         </p>
       </header>
+
+      {blockedPending && (
+        // Dead-weight guard hit — startConversationByUserId redirects
+        // here with ?blocked=pending when the user has ≥10 unanswered
+        // proposals. Tell them why they can't start new convos and
+        // point them at the open ones.
+        <div
+          className="retro-panel"
+          style={{
+            marginBottom: 16,
+            padding: 14,
+            borderColor: "var(--amber)",
+            background: "rgba(245, 158, 11, 0.08)"
+          }}
+        >
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase",
+              color: "var(--amber-bright)",
+              marginBottom: 4
+            }}
+          >
+            ⏸ network pause
+          </div>
+          <p style={{ margin: 0, fontSize: 14, lineHeight: 1.55 }}>
+            You have <strong>{owedCount || "10+"}</strong> proposals waiting on
+            you. Reply to a few below before starting new conversations —
+            this keeps the network from filling up with dead weight.
+          </p>
+        </div>
+      )}
 
       {rows.length === 0 ? (
         <div

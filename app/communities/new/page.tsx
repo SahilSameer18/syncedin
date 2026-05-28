@@ -13,34 +13,26 @@ export default async function NewCommunityPage() {
 
   return (
     <AppShell>
-      {/* MANIFESTO */}
-      <section className="mt-4">
+      {/* MANIFESTO — shrunk so the NetworkDensity animation lands
+          above-the-fold. Jack: "we can make this element a bit smaller
+          so that that whole part is viewable without scrolling." */}
+      <section className="mt-2">
         <div className="retro-label">sync a community</div>
-        <h1 className="retro-h1 text-4xl sm:text-5xl mt-3 leading-tight">
+        <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
           Increase the network density of your community.
         </h1>
         <p
-          className="mt-5 text-base sm:text-lg leading-relaxed"
+          className="mt-2 text-sm sm:text-base leading-relaxed"
           style={{ color: "var(--text-dim)" }}
         >
-          A community is just a group of nodes. The single biggest predictor
-          of whether a community will compound — into deals, jobs, projects,
-          friendships — is the density of real connections between its
-          members. Most communities have low density: people share a
-          Discord, a Slack, a group chat, an alumni list, but the
-          high-leverage pairs never actually meet.
-        </p>
-        <p
-          className="mt-4 text-base leading-relaxed"
-          style={{ color: "var(--text-dim)" }}
-        >
-          SyncedIn raises density automatically. Every member onboards a
-          twin. Every twin talks to every other twin. The win-wins surface
-          as a ranked feed, so members walk into your community already
-          knowing who to message, what to propose, and why.
+          The single biggest predictor of a community compounding into deals,
+          jobs, and projects is the density of real connections between
+          members. SyncedIn raises that automatically — every member onboards
+          a twin, every twin talks to every other twin in parallel, and the
+          win-wins surface as a ranked feed.
         </p>
 
-        <div className="mt-8">
+        <div className="mt-4">
           <NetworkDensity
             slowLabel="Today · speed of human bandwidth"
             fastLabel="On SyncedIn · speed of light"

@@ -746,6 +746,32 @@ alter table public.feedback_posts
 create index if not exists feedback_posts_status_idx
   on public.feedback_posts (status, created_at desc);
 
+-- Community comments on feedback posts. Jack: "lets also add the ability
+-- for replies on these from general people." Anyone signed-in can post;
+-- admin replies are marked at write time so the UI can highlight them.
+create table if not exists public.feedback_comments (
+  id uuid primary key default gen_random_uuid(),
+  post_id uuid not null references public.feedback_posts(id) on delete cascade,
+  user_id uuid references auth.users(id) on delete set null,
+  author_name text,
+  body text not null,
+  is_admin boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists feedback_comments_post_idx
+  on public.feedback_comments (post_id, created_at);
+
+alter table public.feedback_comments enable row level security;
+
+drop policy if exists "feedback_comments_read_all" on public.feedback_comments;
+create policy "feedback_comments_read_all" on public.feedback_comments
+  for select using (true);
+
+drop policy if exists "feedback_comments_insert_authed" on public.feedback_comments;
+create policy "feedback_comments_insert_authed" on public.feedback_comments
+  for insert with check (auth.uid() is not null);
+
 create table if not exists public.feedback_votes (
   post_id uuid not null references public.feedback_posts(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,

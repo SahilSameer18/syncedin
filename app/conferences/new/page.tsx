@@ -13,35 +13,31 @@ export default async function NewConferencePage() {
 
   return (
     <AppShell>
-      {/* MANIFESTO HERO */}
-      <section className="mt-4">
+      {/* MANIFESTO HERO — shrunk so the NetworkDensity animation lands
+          above-the-fold. Jack: "we can make this element a bit smaller
+          so that that whole part is viewable without scrolling." Hero
+          headline reduced from text-4xl/5xl → text-2xl/3xl, gaps + body
+          copy trimmed, single-paragraph collapse. */}
+      <section className="mt-2">
         <div className="retro-label">sync a conference</div>
-        <h1 className="retro-h1 text-4xl sm:text-5xl mt-3 leading-tight">
+        <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
           Build the strongest inner-network of your life.
         </h1>
         <p
-          className="mt-5 text-base sm:text-lg leading-relaxed"
+          className="mt-2 text-sm sm:text-base leading-relaxed"
           style={{ color: "var(--text-dim)" }}
         >
-          The most leveraged thing you can do for a community is help its
-          members find each other. Conferences, cohorts, residencies, and
-          retreats are loose collections of brilliant people who mostly never
-          talk to the right counterpart in the room. SyncedIn fixes that.
-        </p>
-        <p
-          className="mt-4 text-base leading-relaxed"
-          style={{ color: "var(--text-dim)" }}
-        >
-          Every attendee builds a twin. Every twin talks to every other twin
-          in parallel. Win-wins surface as a ranked list. Each person walks
-          in already knowing the three people they should sit next to, and
-          why.
+          Conferences, cohorts, residencies are loose collections of brilliant
+          people who mostly never talk to the right counterpart in the room.
+          Every attendee builds a twin, every twin talks to every other twin
+          in parallel, and each human walks in with a ranked shortlist of who
+          to sit next to.
         </p>
 
         {/* Same animated walking-vs-light-speed comparison as the community
             manifesto, but framed for a one-time event. Replaces the older
             static SVG NetworkComparison. */}
-        <div className="mt-8">
+        <div className="mt-4">
           <NetworkDensity
             slowLabel="Today · speed of walking & small talk"
             fastLabel="On SyncedIn · speed of light"

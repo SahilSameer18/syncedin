@@ -397,28 +397,79 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
                   gap: 4
                 }}
               >
-                <span
-                  title="Sync score"
+                {/* Two-scores cluster. Jack: "Why are there 2 different
+                    sync connection scores now?" They aren't the same —
+                    SYNC is the complementarity score between the two
+                    twins (computed pair-wise from twin context, doesn't
+                    change as conversations happen). EXCITE is the
+                    outcome quality your twin assigns to THIS specific
+                    conversation's deal (0–99, updates per chat).
+                    Adding tiny labels above each so they read as
+                    distinct, not duplicative. */}
+                <div
                   style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color:
-                      c.sync_score >= 70
-                        ? "var(--green)"
-                        : c.sync_score >= 40
-                        ? "var(--amber-bright)"
-                        : "var(--text-dim)",
-                    fontFamily:
-                      '"IBM Plex Mono", ui-monospace, monospace'
+                    display: "inline-flex",
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                    gap: 1
                   }}
+                  title="Sync = how well-matched your twins are (pair-wise complementarity)."
                 >
-                  {c.sync_score}%
-                </span>
-                <ExcitementControl
-                  conversationId={c.id}
-                  score={c.excitement_score}
-                  locked={!!c.excitement_locked}
-                />
+                  <span
+                    style={{
+                      fontSize: 8,
+                      fontWeight: 800,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      color: "var(--text-dim)"
+                    }}
+                  >
+                    sync
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color:
+                        c.sync_score >= 70
+                          ? "var(--green)"
+                          : c.sync_score >= 40
+                          ? "var(--amber-bright)"
+                          : "var(--text-dim)",
+                      fontFamily:
+                        '"IBM Plex Mono", ui-monospace, monospace',
+                      lineHeight: 1
+                    }}
+                  >
+                    {c.sync_score}%
+                  </span>
+                </div>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    flexDirection: "column",
+                    alignItems: "flex-end",
+                    gap: 1
+                  }}
+                  title="Excitement = your twin's read on this deal's high-potential-ness (0–99)."
+                >
+                  <span
+                    style={{
+                      fontSize: 8,
+                      fontWeight: 800,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      color: "var(--text-dim)"
+                    }}
+                  >
+                    deal
+                  </span>
+                  <ExcitementControl
+                    conversationId={c.id}
+                    score={c.excitement_score}
+                    locked={!!c.excitement_locked}
+                  />
+                </div>
               </div>
             </div>
           </div>

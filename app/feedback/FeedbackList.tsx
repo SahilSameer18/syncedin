@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { FeedbackComments } from "./FeedbackComments";
 
 type Post = {
   id: string;
@@ -521,7 +522,10 @@ export function FeedbackList({
                     {/* Existing admin reply — shown to EVERYONE so the
                         original poster + the community see how Jack
                         responded. Distinctive gold border so it reads
-                        as the canonical answer, not just a comment. */}
+                        as the canonical answer, not just a comment.
+                        Labelled "ADMIN INTELLIGENCE" per Jack's rename:
+                        positions Jack's responses as the canonical
+                        roadmap signal, not just a personal note. */}
                     {p.admin_reply && (
                       <div
                         className="mt-3"
@@ -542,16 +546,32 @@ export function FeedbackList({
                             letterSpacing: "0.12em",
                             textTransform: "uppercase",
                             color: "#f59e0b",
-                            marginBottom: 5
+                            marginBottom: 5,
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6
                           }}
                         >
-                          reply from Jack {isMine ? "· to you" : ""}
+                          <span aria-hidden="true">★</span>
+                          <span>admin intelligence</span>
+                          {isMine && (
+                            <span
+                              style={{
+                                color: "var(--text-dim)",
+                                fontWeight: 600,
+                                letterSpacing: 0,
+                                textTransform: "none"
+                              }}
+                            >
+                              · replying to you
+                            </span>
+                          )}
                           {p.admin_reply_at && (
                             <span
                               style={{
                                 color: "var(--text-dim)",
                                 fontWeight: 400,
-                                marginLeft: 8,
+                                marginLeft: "auto",
                                 letterSpacing: 0,
                                 textTransform: "none"
                               }}
@@ -565,6 +585,18 @@ export function FeedbackList({
                         </div>
                       </div>
                     )}
+
+                    {/* Community comments — anyone signed in can reply.
+                        Mounted below admin intelligence so the canonical
+                        answer reads first, the open thread reads under
+                        it. Comments + form lazy-mount per post. */}
+                    <FeedbackComments
+                      postId={p.id}
+                      signedIn={signedIn}
+                      userId={userId}
+                      adminIsViewer={isAdmin}
+                    />
+
 
                     {/* Admin-only controls — reply textarea + status
                         buttons. Hidden from every non-Jack viewer. */}
