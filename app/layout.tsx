@@ -85,31 +85,18 @@ export const metadata: Metadata = {
         type: "image/jpeg"
       }
     ],
-    videos: [
-      {
-        url: "/social/syncedin-preview-small.mp4",
-        secureUrl: "/social/syncedin-preview-small.mp4",
-        width: 1280,
-        height: 720,
-        type: "video/mp4"
-      }
-    ]
+    // og:video REMOVED — LinkedIn was promoting the page to "Video"
+    // type when any og:video tag was present, then refusing to render
+    // the GIF as og:image because video posts have stricter image
+    // requirements. The MP4 still lives at /social/syncedin-preview-
+    // small.mp4 for direct sharing; we just stop advertising it in
+    // OG meta. Twitter player card removed for the same reason.
   },
   twitter: {
-    // player card so Twitter shows the actual MP4 inline. Fallback to
-    // the GIF / JPG for clients that don't render the player.
-    card: "player",
+    card: "summary_large_image",
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
-    images: ["/social/syncedin-preview.gif", "/social/syncedin-preview.jpg"],
-    players: [
-      {
-        playerUrl: `${SITE_URL}/social/syncedin-preview-small.mp4`,
-        streamUrl: `${SITE_URL}/social/syncedin-preview-small.mp4`,
-        width: 1280,
-        height: 720
-      }
-    ]
+    images: ["/social/syncedin-preview.jpg"]
   }
 };
 

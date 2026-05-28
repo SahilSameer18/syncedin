@@ -1,11 +1,22 @@
+"use client";
+
 /**
- * Avatar — placeholder until a user uploads their own photo.
+ * Avatar — gradient-initials placeholder unless we have a working
+ * photo URL. If avatarUrl is present, render the image; on load
+ * failure, fall back to the same initials chip the no-URL path uses.
  *
- * If avatarUrl is provided, render the image. Otherwise generate a circular
- * gradient placeholder with the user's initials. The gradient is derived
- * deterministically from the user id (or name) so each person always gets
- * the same look across the app.
+ * Previously this was a server component that rendered <img> with no
+ * onError handler — so dead URLs (LinkedIn CDN links expire, X CDN
+ * URLs are auth-walled, etc.) showed a browser broken-image icon
+ * forever. Jack: "lets fix this image error." Now a client component
+ * so onError fires when the image fails to load, swapping to the
+ * gradient initials.
+ *
+ * The gradient is derived deterministically from the user id (or name)
+ * so each person always gets the same look across the app.
  */
+
+import { useState } from "react";
 
 function hashCode(s: string): number {
   let h = 0;
@@ -50,17 +61,31 @@ export function Avatar({
   size?: number;
   ringColor?: string;
 }) {
+  // Track image-load failures so we can swap to the initials fallback.
+  // Keyed on the avatarUrl itself so a parent passing a NEW url after
+  // a previous failure gets a fresh attempt instead of being stuck on
+  // the fallback.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const useImage = avatarUrl && failedUrl !== avatarUrl;
+
   const [a, b] = gradientFor(id || name || "x");
   const txt = initials(name);
   const fontSize = Math.max(10, Math.round(size * 0.4));
 
-  if (avatarUrl) {
+  if (useImage) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={avatarUrl}
+        src={avatarUrl as string}
         alt={name}
         width={size}
         height={size}
+        onError={() => setFailedUrl(avatarUrl as string)}
+        // referrerPolicy=no-referrer helps LinkedIn / Google photo URLs
+        // load — many CDNs reject cross-origin requests that include a
+        // referer header pointing to a different domain.
+        referrerPolicy="no-referrer"
+        loading="lazy"
         style={{
           width: size,
           height: size,
@@ -68,7 +93,11 @@ export function Avatar({
           objectFit: "cover",
           flexShrink: 0,
           border: ringColor ? `2px solid ${ringColor}` : undefined,
-          display: "inline-block"
+          display: "inline-block",
+          // Underlying gradient peeks through during load + on partial
+          // transparency, so a slow-loading photo doesn't show a blank
+          // white circle.
+          background: `linear-gradient(135deg, ${a}, ${b})`
         }}
       />
     );
