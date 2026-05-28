@@ -6,6 +6,7 @@ import { Wordmark } from "../Wordmark";
 import { NetworkDensity } from "../communities/NetworkDensity";
 import { DemoConversation } from "./DemoConversation";
 import { NetworkPreview } from "./NetworkPreview";
+import { RealFacesStrip, type FaceRow } from "./RealFacesStrip";
 
 // Force per-request render — Next.js was caching the Supabase fetch result
 // for missing-slug 404s, so even after a row was backfilled the page kept
@@ -184,6 +185,64 @@ export default async function InviteLandingPage({
   ]);
   const inviterName =
     inviter?.display_name || inviter?.email || "someone on SyncedIn";
+
+  // Real faces strip — pull existing SyncedIn users who have BOTH a
+  // real profile photo AND a substantive twin context. Jack: "show
+  // the list of real faces and good profile photos that we get
+  // currently. Let's show this list on the custom invite pages."
+  // Social proof on the landing page so the recipient sees actual
+  // humans they could talk to, not a placeholder demo.
+  let realFaces: FaceRow[] = [];
+  try {
+    const { data: faceRows } = await service
+      .from("profiles")
+      .select(
+        "id, display_name, avatar_url, handle, portfolio_about, is_test_persona"
+      )
+      .neq("is_test_persona", true)
+      .not("avatar_url", "is", null)
+      .not("display_name", "is", null)
+      .limit(40);
+    const faceIds = ((faceRows ?? []) as any[]).map((p) => p.id);
+    let goalsById = new Map<string, string>();
+    if (faceIds.length > 0) {
+      const { data: twinRows } = await service
+        .from("twin_profiles")
+        .select("user_id, goals")
+        .in("user_id", faceIds);
+      goalsById = new Map(
+        ((twinRows ?? []) as any[])
+          .filter((t) => (t.goals || "").trim().length > 5)
+          .map((t) => [t.user_id, t.goals as string])
+      );
+    }
+    realFaces = ((faceRows ?? []) as any[])
+      .filter(
+        (p) =>
+          typeof p.avatar_url === "string" &&
+          p.avatar_url.startsWith("http") &&
+          // Must have either goals or portfolio_about — otherwise the
+          // card has nothing meaningful to render below the name.
+          (goalsById.has(p.id) ||
+            ((p.portfolio_about ?? "").toString().trim().length > 20))
+      )
+      .map((p) => {
+        const headline =
+          goalsById.get(p.id) ||
+          ((p.portfolio_about ?? "").toString().trim().split(/[.\n]/)[0] ??
+            "");
+        return {
+          id: p.id,
+          display_name: p.display_name,
+          avatar_url: p.avatar_url,
+          handle: p.handle ?? null,
+          headline: headline ? headline.slice(0, 140) : null
+        };
+      })
+      .slice(0, 8);
+  } catch {
+    /* schema drift / missing column on prod — degrade gracefully */
+  }
 
   // Pull a one-line blurb from twin_profiles.goals for each candidate.
   // Done in a second batched query so the first lookup stays fast.
@@ -647,6 +706,11 @@ export default async function InviteLandingPage({
             linkedinContext={linkedinContext}
           />
         </section>
+
+        {/* REAL FACES — existing SyncedIn users with real photos + a
+            one-line headline. Renders nothing if no qualifying users
+            (i.e. avatar + substantive twin) are found in the DB. */}
+        <RealFacesStrip faces={realFaces} />
 
         {/* NETWORK PREVIEW — answers the most common recipient objection:
             "if I only get one twin-to-twin chat, this is shallower."

@@ -539,8 +539,13 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
       //   IG via ScrapingDog: profile_image
       //   X via Apify: avatar / profile_image_url
       //   LinkedIn via ScrapingDog: profile_image / profile_photo
+      // Expanded to match every photo-key variant we now extract in
+      // lib/scrape.ts (LinkedIn / IG / X all surface the photo under
+      // different keys). Without this list, ScrapingDog responses that
+      // returned the photo under e.g. `image_url` or `headshot` were
+      // landing in the flattened blob but the regex skipped them.
       const m = scrape.match(
-        /(?:^|\n)\s*(?:profile_image|profile_photo|profilePhoto|profile_pic_url_hd|profile_pic_url|profilePicUrl|profile_image_url|profileImageUrl|avatar|image|picture)\s*:\s*(https?:\/\/\S+)/i
+        /(?:^|\n)\s*(?:profile_image|profile_photo|profilePhoto|profile_photo_url|profilePhotoUrl|profile_pic_url_hd|profile_pic_url|profilePicUrl|profile_pic|profile_picture|profile_picture_url|profilePictureUrl|profile_image_url|profileImageUrl|profileImage|avatar|avatar_url|avatarUrl|image|image_url|imageUrl|image_link|imageLink|picture|picture_url|pictureUrl|headshot|headshot_url|photo|photo_url|photoUrl)\s*:\s*(https?:\/\/\S+)/i
       );
       if (m && m[1]) avatar_url = m[1].trim();
     }
@@ -616,6 +621,57 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
         { status: 500 }
       );
     }
+
+    // === AUTO-GENERATE DEMO CONVERSATION AT INVITE CREATION TIME ===
+    // Jack: "Have the custom invite pages reach the final proposal. I
+    // loaded another one of my messages and conversations, and again,
+    // it hadn't already completed. I had to watch it, probably Rerun,
+    // which is a waste of credits and a waste of time. So you should
+    // run once and store the data."
+    //
+    // Fire-and-forget POST to our own /api/demo-conversation (non-
+    // streaming path). Runs server-side, no recipient required. By the
+    // time the recipient lands on /<slug>, demo_messages is already
+    // cached on the row — the page renders the conversation
+    // instantly with no LLM round-trip + no missed-proposal cliff.
+    // Wrapped in try/catch + never awaited so a slow generation
+    // doesn't block the invite-create response.
+    void (async () => {
+      try {
+        const appUrl =
+          process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+          "https://syncedin.org";
+        const res = await fetch(`${appUrl}/api/demo-conversation`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ slug })
+        });
+        if (!res.ok) {
+          console.warn(
+            "[bulk-invite] demo pre-gen failed for",
+            slug,
+            await res.text().catch(() => "")
+          );
+          return;
+        }
+        const j = await res.json();
+        const msgs = Array.isArray(j.messages) ? j.messages : [];
+        if (msgs.length === 0) return;
+        // Cache directly to pending_invites.demo_messages so the next
+        // visit reads from the row without hitting /api/save-demo-
+        // messages (which is the path a client-side regenerate would
+        // take).
+        await service
+          .from("pending_invites")
+          .update({
+            demo_messages: msgs,
+            demo_generated_at: new Date().toISOString()
+          })
+          .eq("slug", slug);
+      } catch (e) {
+        console.warn("[bulk-invite] demo pre-gen threw for", slug, e);
+      }
+    })();
     results.push({
       contact: c,
       slug,

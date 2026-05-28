@@ -262,14 +262,41 @@ async function scrapingDogLinkedIn(handle: string): Promise<string> {
   const headline = pick("headline", "title", "current_position");
   const about = pick("about", "summary", "description");
   const location = pick("location", "geo_location", "city", "country");
+  // ScrapingDog returns the LinkedIn profile photo under wildly
+  // different keys depending on the response version + whether premium
+  // was used. Catch every variant we've observed in production — Jack:
+  // "The profile photo extraction from LinkedIn isn't working properly."
   const profilePhoto = pick(
     "profile_photo",
     "profilePhoto",
-    "image",
-    "avatar",
-    "picture",
+    "profile_photo_url",
+    "profilePhotoUrl",
+    "profile_image",
+    "profileImage",
     "profile_image_url",
-    "profile_pic"
+    "profileImageUrl",
+    "profile_pic",
+    "profile_pic_url",
+    "profilePicUrl",
+    "profile_picture",
+    "profile_picture_url",
+    "profilePictureUrl",
+    "picture",
+    "picture_url",
+    "pictureUrl",
+    "image",
+    "image_url",
+    "imageUrl",
+    "image_link",
+    "imageLink",
+    "avatar",
+    "avatar_url",
+    "avatarUrl",
+    "headshot",
+    "headshot_url",
+    "photo",
+    "photo_url",
+    "photoUrl"
   );
   // Public website/portfolio links surfaced on the profile (the "contact
   // info" section). Useful for the twin to reference the recipient's
