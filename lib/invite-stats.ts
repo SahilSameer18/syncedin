@@ -30,47 +30,32 @@ export type ReferralCount = {
 export async function countReferrals(userId: string): Promise<ReferralCount> {
   const service = createServiceClient();
   try {
-    // Pull claimed_at AND claimed_by_user_id. Some rows have one but not
-    // the other due to historical schema changes — count either as a
-    // successful claim. Jack hit this mismatch: PI page showed 0
-    // successful invites while the /invite page showed several. Both
-    // call this helper, so the discrepancy was rows where
-    // `claimed_by_user_id` was null but `claimed_at` was set (the
-    // recipient signed up before we wired the user-id link).
-    let list: Array<{
+    // Drop `claimed_at` from the query entirely — that column does not
+    // exist in prod (confirmed via SQL editor: ERROR 42703). When we
+    // selected it, the whole query returned data:null and we silently
+    // counted zero. `claimed_by_user_id` is sufficient to detect claims
+    // that went through /claim/<slug>; the email + handle fallbacks
+    // below catch the rest.
+    type Row = {
       id: string;
       slug: string;
       claimed_by_user_id: string | null;
-      claimed_at: string | null;
       recipient_email: string | null;
-    }> = [];
-    // CHECK error in the response — Supabase JS returns errors in the
-    // response object, not as throws. The previous try/catch only fired
-    // on network errors. When `claimed_at` column doesn't exist in prod
-    // (which it doesn't, confirmed via SQL Editor), the bundled select
-    // returned data:null + error:"column does not exist" silently, so
-    // `list` stayed empty and the count was always 0.
-    const first = await service
+    };
+    const { data: rows, error } = await service
       .from("pending_invites")
-      .select("id, slug, claimed_by_user_id, claimed_at, recipient_email")
+      .select("id, slug, claimed_by_user_id, recipient_email")
       .eq("inviter_user_id", userId);
-    if (first.error) {
-      const fallback = await service
-        .from("pending_invites")
-        .select("id, slug, claimed_by_user_id, recipient_email")
-        .eq("inviter_user_id", userId);
-      list = ((fallback.data ?? []) as any[]).map((r) => ({
-        ...r,
-        claimed_at: null
-      }));
-    } else {
-      list = (first.data ?? []) as any;
+    if (error) {
+      console.warn("[invite-stats] base query failed", error);
+      return { count: 0, contributing_slugs: [] };
     }
+    const list: Row[] = (rows ?? []) as any;
     const contributing = new Set<string>();
-    // 1) Strict claim — either claimed_by_user_id OR claimed_at proves
-    //    someone actually went through /claim/<slug>.
+    // 1) Strict claim — claimed_by_user_id non-null means the recipient
+    //    went through /claim/<slug> and got linked.
     for (const r of list) {
-      if (r.claimed_by_user_id || r.claimed_at) contributing.add(r.slug);
+      if (r.claimed_by_user_id) contributing.add(r.slug);
     }
     // 2) Email match — only check the ones not already in the set.
     const remaining = list.filter((r) => !contributing.has(r.slug));
