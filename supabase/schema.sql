@@ -654,6 +654,19 @@ create unique index if not exists conversations_short_slug_uq
   on public.conversations (short_slug)
   where short_slug is not null;
 
+-- Per-conversation sync-score override (#278). Mirrors the excitement
+-- override pattern. User clicks the sync pill on a conv card, picks a
+-- new 0-100, adds an optional reason. The override is the displayed
+-- value going forward; the reason feeds future calibration. Different
+-- from /api/scoring-prompt (which edits the GLOBAL rubric) — this is
+-- a per-pair correction.
+alter table public.conversations
+  add column if not exists sync_score_override integer;
+alter table public.conversations
+  add column if not exists sync_score_override_reason text;
+alter table public.conversations
+  add column if not exists sync_score_override_at timestamptz;
+
 -- Perf indexes (#271). These cover the hottest queries that were doing
 -- full sequential scans:
 --   - messages by sender (dashboard "completed convs" count, conv page

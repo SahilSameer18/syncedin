@@ -68,7 +68,7 @@ export default async function DashboardPage() {
     supabase
       .from("conversations")
       .select(
-        "id, participant_a, participant_b, status, created_at, summary, counterpart_summary, excitement_score, excitement_locked"
+        "id, participant_a, participant_b, status, created_at, summary, counterpart_summary, excitement_score, excitement_locked, sync_score_override"
       )
       .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
       .order("created_at", { ascending: false })
@@ -646,6 +646,7 @@ export default async function DashboardPage() {
                 excitement_score: c.excitement_score ?? null,
                 excitement_locked: c.excitement_locked ?? null,
                 sync_score,
+                sync_score_override: (c as any).sync_score_override ?? null,
                 last_message_at: lastMsgByConv.get(c.id) ?? null
               };
             });

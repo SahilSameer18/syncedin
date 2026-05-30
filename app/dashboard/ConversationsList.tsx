@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "../Avatar";
 import { ClientDate } from "../ClientDate";
 import { ExcitementControl } from "./ExcitementControl";
+import { SyncControl } from "./SyncControl";
 import { SocialIconRow, type SocialUrls } from "../SocialIconRow";
 
 /**
@@ -42,6 +43,7 @@ export type ConversationRow = {
   excitement_score: number | null;
   excitement_locked: boolean | null;
   sync_score: number;
+  sync_score_override?: number | null;
   last_message_at: string | null;
 };
 
@@ -389,48 +391,22 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
                   <ClientDate value={c.created_at} />
                 </div>
               </Link>
-              {/* Compact single-row score cluster. Jack: "FIX THE UI/UX
-                  HERE" — the previous stacked SYNC + DEAL labels ate
-                  ~80px vertical per card and read as duplicate noise
-                  next to the "SYNC SCORE" column header. New design:
-                  ONE row with `77%` (sync, color-coded) and `◆91`
-                  (deal/excitement, blue) separated by a thin divider,
-                  no caps labels. The column header above the list now
-                  explains both. Hover tooltips on each kept for the
-                  curious. */}
+              {/* #278 — Each score in its OWN pill with its OWN (i)
+                  explainer + editor. Sync uses /api/sync-override,
+                  Deal uses /api/excitement. Both look like matched
+                  bubbles — clean UI, separate concerns. */}
               <div
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: 8,
+                  gap: 10,
                   flexShrink: 0
                 }}
               >
-                <span
-                  title="Sync — pair-wise complementarity between your twins."
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 800,
-                    color:
-                      c.sync_score >= 70
-                        ? "var(--green)"
-                        : c.sync_score >= 40
-                        ? "var(--amber-bright)"
-                        : "var(--text-dim)",
-                    fontFamily:
-                      '"IBM Plex Mono", ui-monospace, monospace',
-                    lineHeight: 1
-                  }}
-                >
-                  {c.sync_score}%
-                </span>
-                <span
-                  aria-hidden="true"
-                  style={{
-                    width: 1,
-                    height: 14,
-                    background: "var(--border)"
-                  }}
+                <SyncControl
+                  conversationId={c.id}
+                  aiScore={c.sync_score}
+                  overrideScore={c.sync_score_override ?? null}
                 />
                 <ExcitementControl
                   conversationId={c.id}
