@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Wordmark } from "../Wordmark";
 import { TalkChat } from "./TalkChat";
+import { OrbitingPlatformUsers, type OrbitUser } from "../OrbitingPlatformUsers";
+import { createServiceClient } from "@/lib/supabase/server";
 
 /**
  * /talk — chat-landing variant. The "talking to the master model of
@@ -23,7 +25,45 @@ export const metadata: Metadata = {
     "Talk to the SyncedIn master AI. See who's on the platform, get matched live, sign up only when you're ready."
 };
 
-export default function TalkLandingPage() {
+export default async function TalkLandingPage() {
+  // Pull real platform users for the orbit + a count for the "N+
+  // already syncing" caption. Best-effort; silently degrades to an
+  // empty orbit if the query fails.
+  let orbitUsers: OrbitUser[] = [];
+  let totalCount = 0;
+  try {
+    const service = createServiceClient();
+    const { count } = await service
+      .from("profiles")
+      .select("id", { count: "exact", head: true })
+      .neq("is_test_persona", true);
+    totalCount = count ?? 0;
+    const { data: rows } = await service
+      .from("profiles")
+      .select("id, display_name, avatar_url, handle, bio, portfolio_about")
+      .neq("is_test_persona", true)
+      .not("avatar_url", "is", null)
+      .not("avatar_url", "ilike", "%dicebear%")
+      .not("avatar_url", "ilike", "%robohash%")
+      .order("last_active_at", { ascending: false, nullsFirst: false })
+      .limit(15);
+    orbitUsers = ((rows ?? []) as any[]).map((r) => ({
+      id: r.id as string,
+      name:
+        (r.display_name as string) ||
+        (r.handle as string) ||
+        "Someone",
+      avatar_url: r.avatar_url as string | null,
+      handle: r.handle as string | null,
+      achievement:
+        (r.bio as string | null)?.slice(0, 140) ??
+        (r.portfolio_about as string | null)?.split("\n")[0]?.slice(0, 140) ??
+        null
+    }));
+  } catch {
+    /* render without orbit users */
+  }
+
   return (
     <main
       style={{
@@ -64,6 +104,27 @@ export default function TalkLandingPage() {
           Sign in
         </Link>
       </header>
+
+      {/* Orbital social proof — only renders when we have ≥5 real
+          users with photos. Otherwise the chat takes the whole
+          viewport and the social proof shows up inside the
+          conversation via the search_users tool. */}
+      {orbitUsers.length >= 5 && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            padding: "12px 16px 0"
+          }}
+        >
+          <OrbitingPlatformUsers
+            users={orbitUsers}
+            size={300}
+            totalCount={totalCount}
+            caption="syncing right now"
+          />
+        </div>
+      )}
 
       <TalkChat />
     </main>
