@@ -59,16 +59,12 @@ export function Sidebar({
     // "ghost" twin (modeled from public data), then send it to them.
     // See /ghosts route + GhostsConsole.
     { href: "/ghosts", label: "Talk with ghosts", icon: "👻" },
-    // #166 — Upload an existing chat export, model the other person,
-    // generate "where it goes next." Sits next to Ghosts since both are
-    // pre-conversation modeling surfaces.
-    //
-    // Jack: "Continue a chat feels more like you're continuing one of
-    // the messages rather than like an upload." Renamed to "Import a
-    // chat" + 📤 upload-arrow icon so the affordance reads as
-    // bringing in an existing thread from outside, not adding to one
-    // already in the platform.
-    { href: "/continuation", label: "Import a chat", icon: "📤" },
+    // #166 — Import-a-chat moved out of the sidebar into the profile
+    // dropdown (Jack: "let's move that under that top right part where
+    // you click your name. I think that would be better"). It's a
+    // one-off import action, not a daily nav destination, so it lives
+    // with Edit twin / Settings / Sign out where infrequent actions go.
+    // Route still exists at /continuation.
     { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
     { href: "/feedback", label: "Feedback", icon: "💡" }

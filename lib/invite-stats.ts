@@ -22,25 +22,63 @@ const BONUS_REFERRALS_BY_EMAIL: Record<string, number> = {
 };
 
 /**
- * Resolve a userId → bonus referral count by looking up the user's
- * email in BONUS_REFERRALS_BY_EMAIL. Returns 0 if no override exists
- * or the lookup fails. Cached per-invocation by caller (we hit
- * profiles once per countReferrals call).
+ * Resolve a userId → bonus referral count.
+ *
+ * Triple-lookup chain because of a real bug Jack hit: the original
+ * version only queried `profiles.email`, and many auth users don't
+ * mirror their email into the profiles row (the field is sparse —
+ * populated by some signup paths but not all). Result: Jack on
+ * commit da18732 saw 0 referrals despite the override being live.
+ *
+ * Order of preference:
+ *   1. `profiles.email` (cheapest, works for users who did set it)
+ *   2. `auth.users.email` via service.auth.admin.getUserById — this
+ *      is the canonical source the user signed in with, but it
+ *      requires service-role privileges (which we have).
+ *   3. Direct userId lookup — last resort, lets us hardcode
+ *      bonuses for known user_ids when neither email match works.
+ *
+ * Any layer succeeding short-circuits the rest.
  */
+const BONUS_REFERRALS_BY_USER_ID: Record<string, number> = {
+  // Jack's user_id can be hardcoded here once known — until then the
+  // email lookups above carry the override.
+};
+
 async function bonusReferralsFor(userId: string): Promise<number> {
   const service = createServiceClient();
+  // Direct userId match first (fastest, no DB hit if we have the id)
+  if (BONUS_REFERRALS_BY_USER_ID[userId]) {
+    return BONUS_REFERRALS_BY_USER_ID[userId];
+  }
+  // profiles.email
   try {
     const { data } = await service
       .from("profiles")
       .select("email")
       .eq("id", userId)
       .maybeSingle();
-    const email = ((data as any)?.email || "").toLowerCase();
-    if (!email) return 0;
-    return BONUS_REFERRALS_BY_EMAIL[email] ?? 0;
+    const email = ((data as any)?.email || "").toLowerCase().trim();
+    if (email && BONUS_REFERRALS_BY_EMAIL[email]) {
+      return BONUS_REFERRALS_BY_EMAIL[email];
+    }
   } catch {
-    return 0;
+    /* fall through to auth lookup */
   }
+  // auth.users.email — canonical, always present for any signed-in
+  // user. This is the layer that catches Jack since his profile row
+  // didn't mirror his Google email.
+  try {
+    const { data, error } = await service.auth.admin.getUserById(userId);
+    if (error) return 0;
+    const email = (data?.user?.email || "").toLowerCase().trim();
+    if (email && BONUS_REFERRALS_BY_EMAIL[email]) {
+      return BONUS_REFERRALS_BY_EMAIL[email];
+    }
+  } catch {
+    /* swallow — final return 0 */
+  }
+  return 0;
 }
 
 /**

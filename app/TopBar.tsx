@@ -281,6 +281,39 @@ export function TopBar({
                 <span>My portfolio</span>
               </Link>
             )}
+            {/* DATA section — Jack: "let's move that under that top
+                right part where you click your name. I think that would
+                be better. And let's move the upload/export file next to
+                that upload part drop-down." Import + export sit as
+                peers here since both are one-off data operations. */}
+            <div
+              style={{
+                height: 1,
+                background: "var(--border)",
+                margin: "6px 4px"
+              }}
+            />
+            <Link
+              href="/continuation"
+              role="menuitem"
+              onClick={() => setProfileOpen(false)}
+              style={menuItemStyle}
+              title="Upload an iMessage / WhatsApp / SMS export to model the other person and generate the next 8-10 messages"
+            >
+              <span style={{ width: 18, textAlign: "center" }}>📤</span>
+              <span>Import a chat</span>
+            </Link>
+            <a
+              href="/api/export-messages"
+              role="menuitem"
+              onClick={() => setProfileOpen(false)}
+              style={menuItemStyle}
+              title="Download every conversation + message you've sent on SyncedIn as a single JSON file"
+              download
+            >
+              <span style={{ width: 18, textAlign: "center" }}>📥</span>
+              <span>Export my messages</span>
+            </a>
             <div
               style={{
                 height: 1,

@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createCommunity } from "./actions";
 import { NetworkDensity } from "../NetworkDensity";
 import { AppShell } from "../../AppShell";
@@ -11,6 +12,30 @@ export default async function NewCommunityPage() {
     data: { user }
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/communities/new");
+
+  // Pull the user's existing communities so we can list them at the
+  // bottom of this page. Jack: "I previously set up a community
+  // ('DNA Roundtable'). However, when I'm on my communities page, I
+  // don't actually see that link at the bottom of that page of the
+  // community already made." There's no /communities index route —
+  // this page IS that surface. Filter is `kind='community'` because
+  // conferences + communities share the same table.
+  const service = createServiceClient();
+  const { data: mineRaw } = await service
+    .from("conferences")
+    .select("slug, name, description, city, created_at, logo_url, brand_color")
+    .eq("owner_user_id", user.id)
+    .eq("kind", "community")
+    .order("created_at", { ascending: false });
+  const myCommunities = (mineRaw ?? []) as Array<{
+    slug: string;
+    name: string;
+    description: string | null;
+    city: string | null;
+    created_at: string;
+    logo_url: string | null;
+    brand_color: string | null;
+  }>;
 
   return (
     <AppShell>
@@ -70,11 +95,150 @@ export default async function NewCommunityPage() {
         </div>
       </section>
 
+      {/* YOUR COMMUNITIES — existing rows pulled above. Renders only
+          when the user has created at least one. Goes BEFORE the form
+          so returning creators don't scroll past the create CTA looking
+          for their own work. */}
+      {myCommunities.length > 0 && (
+        <section className="mt-16">
+          <div className="retro-label">your communities</div>
+          <h2 className="retro-h1 text-2xl mt-2">
+            Already spinning {myCommunities.length === 1
+              ? "one community"
+              : `${myCommunities.length} communities`}
+            .
+          </h2>
+          <p
+            className="text-sm mt-2"
+            style={{ color: "var(--text-dim)" }}
+          >
+            Click into any to copy the share link, view density stats,
+            or manage members.
+          </p>
+          <div
+            className="mt-5"
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fill, minmax(260px, 1fr))",
+              gap: 12
+            }}
+          >
+            {myCommunities.map((c) => (
+              <Link
+                key={c.slug}
+                href={`/communities/${c.slug}`}
+                className="retro-panel retro-panel-hover"
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                  padding: 14,
+                  textDecoration: "none",
+                  color: "inherit"
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    minWidth: 0
+                  }}
+                >
+                  {c.logo_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={c.logo_url}
+                      alt={c.name}
+                      width={32}
+                      height={32}
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        objectFit: "cover",
+                        flexShrink: 0,
+                        background: c.brand_color ?? "var(--panel-2)"
+                      }}
+                    />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 8,
+                        flexShrink: 0,
+                        background:
+                          c.brand_color ??
+                          "linear-gradient(135deg, #2358ff 0%, #6b2dc9 100%)",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        fontWeight: 800,
+                        fontSize: 14
+                      }}
+                    >
+                      {c.name.trim().charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 14,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      {c.name}
+                    </div>
+                    <div
+                      className="retro-dim"
+                      style={{
+                        fontSize: 11,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap"
+                      }}
+                    >
+                      syncedin.org/communities/{c.slug}
+                    </div>
+                  </div>
+                </div>
+                {(c.description || c.city) && (
+                  <div
+                    className="retro-dim"
+                    style={{
+                      fontSize: 12,
+                      lineHeight: 1.45,
+                      // Truncate to 2 visual lines so cards stay
+                      // uniform height in the grid.
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden"
+                    }}
+                  >
+                    {c.description ?? c.city}
+                  </div>
+                )}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* FORM */}
       <section className="mt-16">
         <div className="retro-label">create your community</div>
         <h2 className="retro-h1 text-2xl mt-2">
-          Spin up your community link.
+          {myCommunities.length > 0
+            ? "Spin up another community."
+            : "Spin up your community link."}
         </h2>
         <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
           Get a private space at syncedin.org/communities/your-slug. Members

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Wordmark } from "./Wordmark";
 import Link from "next/link";
+import { Avatar } from "./Avatar";
 
 /**
  * MobileShell — client wrapper that ONLY renders on mobile (≤ lg breakpoint).
@@ -22,7 +23,23 @@ import Link from "next/link";
  * `<div className="hidden lg:block">` so it disappears on mobile, and
  * MobileShell takes over the navigation chrome for ≤lg.
  */
-export function MobileShell({ children }: { children: React.ReactNode }) {
+export function MobileShell({
+  children,
+  userId,
+  displayName,
+  avatarUrl
+}: {
+  children: React.ReactNode;
+  /** Authenticated user info — drives the top-right avatar that opens
+   *  /settings. Jack: "on mobile, in the top right corner of the menu
+   *  bar, should be my face, which is where I get to the settings. For
+   *  mobile, right now I can't get to settings." Made optional so the
+   *  shell still works on logged-out routes if it ever gets reused
+   *  there (currently AppShell only renders for authed users). */
+  userId?: string;
+  displayName?: string;
+  avatarUrl?: string | null;
+}) {
   const [open, setOpen] = useState(false);
 
   // Close drawer on route change. Detect via popstate since Next 14 App
@@ -128,6 +145,36 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             style={{ height: 44, width: "auto", display: "block" }}
           />
         </Link>
+        {/* Right-side avatar — Jack: "on mobile in the top right
+            corner of the menu bar should be my face, which is where I
+            get to the settings. Right now I can't get to settings."
+            Pinned to flex-end via marginLeft:auto. Tap → /settings. */}
+        {userId && (
+          <Link
+            href="/settings"
+            aria-label="Settings"
+            title="Settings"
+            style={{
+              marginLeft: "auto",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 2,
+              borderRadius: 999,
+              border: "1px solid var(--border)",
+              background: "var(--panel)",
+              textDecoration: "none"
+            }}
+          >
+            <Avatar
+              id={userId}
+              name={displayName ?? "Settings"}
+              avatarUrl={avatarUrl ?? null}
+              size={34}
+            />
+          </Link>
+        )}
       </div>
 
       {/* Drawer + scrim — slides in from left when open. Same

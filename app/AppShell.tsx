@@ -319,8 +319,17 @@ export async function AppShell({
   return (
     <>
       {/* Mobile chrome — hamburger top bar + slide-in drawer holding the
-          full sidebar. Hidden on lg+. */}
-      <MobileShell>{sidebar}</MobileShell>
+          full sidebar. Hidden on lg+. Pass userId/name/avatar so the
+          top-right of the mobile bar renders the user's avatar as a
+          link to /settings (Jack: "right now I can't get to settings"
+          on mobile). */}
+      <MobileShell
+        userId={userId}
+        displayName={displayName}
+        avatarUrl={(profile as any)?.avatar_url ?? null}
+      >
+        {sidebar}
+      </MobileShell>
 
       {/* Warm the router cache for every primary nav destination so
           clicks anywhere in the app feel instant. Mounted ONCE per
