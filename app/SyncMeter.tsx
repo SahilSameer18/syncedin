@@ -1,3 +1,6 @@
+"use client";
+
+import { useId } from "react";
 import { computeSyncScore, type SyncInputs } from "@/lib/sync-score";
 
 /**
@@ -169,6 +172,21 @@ export function SyncMeter({
 }) {
   const { total, parts, nextStep } = computeSyncScore(inputs);
 
+  // Per-instance unique IDs for the SVG <defs>. Critical: when two
+  // SyncMeter instances mount on the same page (e.g. AppShell sidebar
+  // at size=110 + a second one inside the page), they used to share the
+  // hard-coded "syncUpload" / "syncBodyClip" IDs and the browser would
+  // resolve `url(#syncUpload)` to whichever `<defs>` it parsed first.
+  // On desktop with the sidebar mounted, the page-level SyncMeter would
+  // resolve to the sidebar's gradient (out of the page's viewBox space)
+  // and render as outline-only (no fill). Jack: "The mobile human sync
+  // thing looks far better. It got messed up on desktop. Not really
+  // filled in." useId() makes every instance's IDs collision-proof.
+  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
+  const gradId = `syncUpload-${uid}`;
+  const haloId = `syncSurfaceHalo-${uid}`;
+  const clipId = `syncBodyClip-${uid}`;
+
   // Body spans y=50 (top of torso) to y=295 (feet bottom). Fill rises from
   // y=FILL_BOTTOM up to y=fillY where fillY = bottom - range * (pct/100).
   const FILL_TOP = 50;
@@ -242,7 +260,7 @@ export function SyncMeter({
               The further you've uploaded, the further up this ramp the fill
               has climbed. Powerful, not pretty. */}
           <linearGradient
-            id="syncUpload"
+            id={gradId}
             x1="0"
             y1={FILL_BOTTOM}
             x2="0"
@@ -258,7 +276,7 @@ export function SyncMeter({
           {/* Hot surface halo — used behind the white surface bar so the
               fill line reads as molten / overclocked rather than flat. */}
           <linearGradient
-            id="syncSurfaceHalo"
+            id={haloId}
             x1="0"
             y1="0"
             x2="0"
@@ -268,7 +286,7 @@ export function SyncMeter({
             <stop offset="50%" stopColor="#ff5cf0" stopOpacity="0.85" />
             <stop offset="100%" stopColor="#ff5cf0" stopOpacity="0" />
           </linearGradient>
-          <clipPath id="syncBodyClip" clipPathUnits="userSpaceOnUse">
+          <clipPath id={clipId} clipPathUnits="userSpaceOnUse">
             <path d={bodyPath} />
           </clipPath>
         </defs>
@@ -278,13 +296,13 @@ export function SyncMeter({
             fill we paint a bright "surface" bar riding the fill line + a few
             thin scan lines drifting up through the fill — evoking a data-
             upload progress display from a sci-fi UI. */}
-        <g clipPath="url(#syncBodyClip)">
+        <g clipPath={`url(#${clipId})`}>
           <rect
             x="0"
             y={fillY}
             width={VB_W}
             height={VB_H - fillY}
-            fill="url(#syncUpload)"
+            fill={`url(#${gradId})`}
           />
           {/* Hot magenta halo — sits behind the surface bar so the white
               core reads as molten metal at the upload front, not a thin
@@ -294,7 +312,7 @@ export function SyncMeter({
             y={fillY - 18}
             width={VB_W}
             height={36}
-            fill="url(#syncSurfaceHalo)"
+            fill={`url(#${haloId})`}
           >
             <animate
               attributeName="height"

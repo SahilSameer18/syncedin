@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { Message } from "@/lib/types";
+import { MicButton } from "../../MicButton";
 
 /**
  * Always-on chat input at the bottom of a conversation. Replaces the
@@ -176,6 +177,19 @@ export function PersistentCompose({
             minHeight: 44,
             resize: "none"
           }}
+        />
+        {/* Voice dictation — Jack: "most people don't realize they can
+            voice type. I'd like across the platform for there to be a
+            little mic button." Uses Web Speech API (free, browser
+            native, instant). Appends transcribed text to the existing
+            input value so users can speak after typing. */}
+        <MicButton
+          onText={(chunk) =>
+            setText((t) => `${t}${t && !t.endsWith(" ") ? " " : ""}${chunk}`)
+          }
+          ariaLabel="Dictate message"
+          size={34}
+          style={{ marginRight: 2 }}
         />
         {/* Attach a file/video. Hidden native input + paperclip button. */}
         <input

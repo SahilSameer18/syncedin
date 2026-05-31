@@ -319,13 +319,61 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
         </span>
       </div>
 
+      {/* Mobile-only layout rules (Jack: "On mobile, there's far too
+          much white space. The text should be the full bulk of this.
+          The icon should go to the right of the name. The sync deal
+          thing needs to be over on the right side.")
+
+          On mobile: header row = [avatar 32px][name + pills][scores
+          tucked top-right]. Body text wraps below at FULL width
+          (no longer squeezed into a narrow middle column).
+
+          On desktop: legacy layout — avatar | text block | scores
+          right rail. */}
+      <style>{`
+        .conv-card-row { display: flex; align-items: flex-start; gap: 12px; }
+        .conv-card-text { min-width: 0; flex: 1; text-decoration: none; color: inherit; display: block; }
+        .conv-card-scores {
+          display: inline-flex; align-items: center; gap: 10px; flex-shrink: 0;
+        }
+        .conv-card-body { margin-top: 6px; }
+        @media (max-width: 767px) {
+          /* Stack: header row (avatar + name + scores) then body below. */
+          .conv-card-row {
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: flex-start;
+          }
+          .conv-card-avatar { flex-shrink: 0; }
+          .conv-card-text {
+            /* Take 100% width once we wrap below the header. */
+            flex: 1 1 100%;
+            order: 3;
+            margin-top: 4px;
+          }
+          .conv-card-name-row {
+            /* Name row should take the bulk of remaining width on the
+               header line so it doesn't push the scores under itself. */
+            min-width: 0;
+            flex: 1 1 auto;
+            order: 2;
+          }
+          .conv-card-scores {
+            order: 3;
+            margin-left: auto;
+            align-self: flex-start;
+          }
+          /* Tighter body text on mobile — denser info per card. */
+          .conv-card-body { margin-top: 4px; }
+        }
+      `}</style>
       <div className="mt-3 space-y-2">
         {sorted.map((c) => (
           <div key={c.id} className="retro-panel retro-panel-hover p-3">
-            <div className="flex items-start gap-3">
+            <div className="conv-card-row">
               <Link
                 href={`/conversations/${c.id}`}
-                className="shrink-0"
+                className="conv-card-avatar"
               >
                 <Avatar
                   id={c.other_id}
@@ -334,12 +382,39 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
                   size={40}
                 />
               </Link>
+              {/* Mobile-only: name + pills sit on the header line so
+                  scores can dock to the right of them, body wraps below.
+                  Desktop: this AND the body live inside conv-card-text. */}
+              <div className="conv-card-name-row hidden max-md:flex items-center gap-2 flex-wrap font-semibold text-sm min-w-0">
+                <Link
+                  href={`/conversations/${c.id}`}
+                  style={{ textDecoration: "none", color: "inherit" }}
+                >
+                  {c.other_name}
+                </Link>
+                {c.status && (
+                  <span
+                    className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                    style={{
+                      color: c.status.color,
+                      border: `1px solid ${c.status.color}`,
+                      background: "transparent",
+                      letterSpacing: "0.04em"
+                    }}
+                  >
+                    {c.status.label}
+                  </span>
+                )}
+                <SocialIconRow urls={c.other_socials} size={14} />
+              </div>
               <Link
                 href={`/conversations/${c.id}`}
-                className="min-w-0 flex-1"
-                style={{ textDecoration: "none", color: "inherit" }}
+                className="conv-card-text"
               >
-                <div className="font-semibold text-sm flex items-center gap-2 flex-wrap">
+                {/* Desktop-only: this name row renders the full pill
+                    set inline. Mobile hides this and uses the dedicated
+                    .conv-card-name-row above. */}
+                <div className="font-semibold text-sm flex items-center gap-2 flex-wrap max-md:hidden">
                   <span>{c.other_name}</span>
                   {c.status && (
                     <span
@@ -376,33 +451,50 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
                   })()}
                   <SocialIconRow urls={c.other_socials} size={14} />
                 </div>
-                {c.counterpart_summary && (
-                  <div className="retro-dim text-xs mt-1">
-                    {c.counterpart_summary}
+                <div className="conv-card-body">
+                  {/* Last-active pill ALSO renders on mobile, but here
+                      in the body so the header line stays compact. */}
+                  {(() => {
+                    const la = formatLastActive(c.other_last_active_at);
+                    if (!la) return null;
+                    return (
+                      <span
+                        className="text-[10px] font-semibold px-2 py-0.5 rounded-full md:hidden inline-block mb-1"
+                        title={`Last seen ${new Date(
+                          c.other_last_active_at!
+                        ).toLocaleString()}`}
+                        style={{
+                          color: la.color,
+                          border: `1px solid ${la.color}`,
+                          background: "transparent",
+                          letterSpacing: "0.04em"
+                        }}
+                      >
+                        {la.label}
+                      </span>
+                    );
+                  })()}
+                  {c.counterpart_summary && (
+                    <div className="retro-dim text-xs">
+                      {c.counterpart_summary}
+                    </div>
+                  )}
+                  {c.summary && (
+                    <div className="text-xs mt-1.5">
+                      <span className="retro-dim">outcome: </span>
+                      {c.summary}
+                    </div>
+                  )}
+                  <div className="retro-dim text-[11px] mt-1">
+                    <ClientDate value={c.created_at} />
                   </div>
-                )}
-                {c.summary && (
-                  <div className="text-xs mt-1.5">
-                    <span className="retro-dim">outcome: </span>
-                    {c.summary}
-                  </div>
-                )}
-                <div className="retro-dim text-[11px] mt-1">
-                  <ClientDate value={c.created_at} />
                 </div>
               </Link>
               {/* #278 — Each score in its OWN pill with its OWN (i)
-                  explainer + editor. Sync uses /api/sync-override,
-                  Deal uses /api/excitement. Both look like matched
-                  bubbles — clean UI, separate concerns. */}
-              <div
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 10,
-                  flexShrink: 0
-                }}
-              >
+                  explainer + editor. On desktop these sit in the right
+                  rail; on mobile they dock to the top-right of the
+                  header row via the .conv-card-scores rules above. */}
+              <div className="conv-card-scores">
                 <SyncControl
                   conversationId={c.id}
                   aiScore={c.sync_score}

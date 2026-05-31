@@ -1,59 +1,41 @@
 "use client";
 
 import { useState } from "react";
+import { MicButton } from "../MicButton";
 
 /**
- * Inline accept / counter / change / deny actions on the /proposals
- * page. Hits the same /api/respond-agreement endpoint the chat UI
- * uses so the user doesn't have to jump to /conversations/[id] just
- * to click again.
+ * Inline actions on a /proposals row. Three buttons only (Jack:
+ * "this page just feels cluttered"):
  *
- * Per Jack: "I should be able to click accept from the proposals
- * page and have that be accepted... The same issue occurs with
- * counter and change proposal and deny with reason."
+ *   1. open full messages — link to the chat thread.
+ *   2. ✓ accept — POSTs to /api/respond-agreement.
+ *   3. ✕ deny with reason — expands a textarea (+ MicButton for
+ *      voice dictation), then POSTs with response="rejected".
  *
- *  - Accept → POST {response: "accepted"} and refresh the route.
- *  - Deny w/ reason → expand a textarea, then POST {response:
- *    "rejected", reason}.
- *  - Change / Counter → still link to the chat with the right hash
- *    + action query (they open the agreement panel in edit / counter
- *    mode there, which needs the message stream to be live).
+ * The "change proposal" and "counter" buttons were dropped — the
+ * summary text itself is now the editable target (see
+ * ProposalRowBody.tsx). Counter was redundant with change; both
+ * called change-proposal under the hood.
  *
- * Reload-free path: every successful action now mutates LOCAL state
- * (acceptedJustNow / rejectedJustNow / onProposalChanged callback)
- * instead of calling router.refresh(). The whole /proposals page is
- * a heavy server render — refresh used to cause a visible re-flow
- * (Jack: "After I did change proposal it had to reload the whole
- * page"). Local state keeps the UI snappy; canonical server data
- * picks up on next nav.
+ * No router.refresh anywhere — local state drives the UI swap so
+ * the heavy server-rendered /proposals tree doesn't reflow on
+ * every action.
  */
 export function InlineActions({
   conversationId,
   alreadyAccepted,
-  alreadyRejected,
-  currentProposal,
-  onProposalChanged
+  alreadyRejected
 }: {
   conversationId: string;
   alreadyAccepted: boolean;
   alreadyRejected: boolean;
-  /** The existing proposal text — pre-fills the Change textarea so
-   *  the user edits instead of writes from blank. */
-  currentProposal?: string;
-  /** Called after a successful "change proposal" save so the parent
-   *  can update what's displayed without a router.refresh. If not
-   *  provided we still close the editor + show a confirmation, just
-   *  without an in-place update of any summary the parent renders. */
-  onProposalChanged?: (newText: string) => void;
 }) {
-  const [busy, setBusy] = useState<"accept" | "deny" | "change" | null>(null);
+  const [busy, setBusy] = useState<"accept" | "deny" | null>(null);
   const [err, setErr] = useState<string>("");
   const [denyOpen, setDenyOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [acceptedJustNow, setAcceptedJustNow] = useState(false);
   const [rejectedJustNow, setRejectedJustNow] = useState(false);
-  const [changeOpen, setChangeOpen] = useState(false);
-  const [changeText, setChangeText] = useState(currentProposal ?? "");
 
   async function accept() {
     if (busy) return;
@@ -73,37 +55,6 @@ export function InlineActions({
         throw new Error(j.detail || j.error || `HTTP ${res.status}`);
       }
       setAcceptedJustNow(true);
-      // No router.refresh — local state ("accepted") already drives
-      // the UI swap. Avoids a full re-render of the heavy /proposals
-      // server tree.
-    } catch (e: any) {
-      setErr(e?.message || String(e));
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  async function submitChange() {
-    if (busy || !changeText.trim()) return;
-    setBusy("change");
-    setErr("");
-    try {
-      const res = await fetch(
-        `/api/conversations/${conversationId}/change-proposal`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ text: changeText.trim() })
-        }
-      );
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}) as any);
-        throw new Error(j.detail || j.error || `HTTP ${res.status}`);
-      }
-      setChangeOpen(false);
-      // Push the new proposal to the parent wrapper so the displayed
-      // summary + expand panel update inline. No router.refresh.
-      onProposalChanged?.(changeText.trim());
     } catch (e: any) {
       setErr(e?.message || String(e));
     } finally {
@@ -132,7 +83,6 @@ export function InlineActions({
       setDenyOpen(false);
       setReason("");
       setRejectedJustNow(true);
-      // No router.refresh — local "rejected" state hides the deny btn.
     } catch (e: any) {
       setErr(e?.message || String(e));
     } finally {
@@ -196,38 +146,6 @@ export function InlineActions({
             ✓ accepted
           </span>
         )}
-        <button
-          type="button"
-          onClick={() => {
-            // Toggle the inline editor. Reset to the current proposal
-            // text each time it opens so the user edits the latest.
-            setChangeOpen((v) => {
-              if (!v) setChangeText(currentProposal ?? "");
-              return !v;
-            });
-            // Close the deny panel if open — only one editor at a time.
-            setDenyOpen(false);
-          }}
-          disabled={busy !== null}
-          className="retro-btn text-xs"
-          style={{
-            padding: "6px 12px",
-            fontWeight: 700
-          }}
-        >
-          {changeOpen ? "cancel" : "✎ change proposal"}
-        </button>
-        <a
-          href={`/conversations/${conversationId}?action=counter#agreement`}
-          className="retro-btn text-xs"
-          style={{
-            padding: "6px 12px",
-            fontWeight: 700,
-            textDecoration: "none"
-          }}
-        >
-          ↺ counter
-        </a>
         {!alreadyRejected && !rejectedJustNow && (
           <button
             type="button"
@@ -262,94 +180,6 @@ export function InlineActions({
           </span>
         )}
       </div>
-      {changeOpen && (
-        <div
-          style={{
-            padding: 10,
-            borderRadius: 10,
-            border: "1px solid rgba(31, 139, 255, 0.35)",
-            background: "rgba(31, 139, 255, 0.05)"
-          }}
-        >
-          <label
-            style={{
-              fontSize: 11,
-              fontWeight: 700,
-              color: "#1f8bff",
-              letterSpacing: "0.04em",
-              textTransform: "uppercase"
-            }}
-          >
-            Edit the proposal
-          </label>
-          <p
-            style={{
-              margin: "4px 0 6px",
-              fontSize: 11,
-              color: "var(--text-dim)",
-              lineHeight: 1.45
-            }}
-          >
-            Tweak the deal terms below. Saving clears both sides&apos;
-            previous accept / reject so the counterpart sees the new
-            version fresh.
-          </p>
-          <textarea
-            value={changeText}
-            onChange={(e) => setChangeText(e.target.value.slice(0, 4000))}
-            rows={6}
-            className="retro-input mt-1"
-            style={{
-              width: "100%",
-              fontSize: 13,
-              padding: 10,
-              minHeight: 140,
-              resize: "vertical"
-            }}
-          />
-          <div
-            style={{
-              marginTop: 6,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: 8
-            }}
-          >
-            <span
-              style={{ fontSize: 11, color: "var(--text-dim)" }}
-            >
-              {changeText.length}/4000
-            </span>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setChangeOpen(false);
-                  setChangeText(currentProposal ?? "");
-                }}
-                className="retro-btn text-xs"
-                style={{ padding: "6px 12px" }}
-              >
-                cancel
-              </button>
-              <button
-                type="button"
-                onClick={submitChange}
-                disabled={
-                  !changeText.trim() ||
-                  changeText.trim() === (currentProposal ?? "").trim() ||
-                  busy !== null
-                }
-                className="retro-btn retro-btn-primary text-xs"
-                style={{ padding: "6px 12px" }}
-              >
-                {busy === "change" ? "saving…" : "save new proposal"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       {denyOpen && (
         <div
           style={{
@@ -370,14 +200,32 @@ export function InlineActions({
           >
             Reason for denial
           </label>
-          <textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value.slice(0, 600))}
-            placeholder="What needs to change for you to accept this? Your twin will regenerate the conversation with this objection in context."
-            rows={3}
-            className="retro-input mt-1"
-            style={{ width: "100%", fontSize: 13, padding: 10 }}
-          />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 6,
+              marginTop: 4
+            }}
+          >
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value.slice(0, 600))}
+              placeholder="What needs to change for you to accept this? Your twin will regenerate the conversation with this objection in context."
+              rows={3}
+              className="retro-input"
+              style={{ flex: 1, fontSize: 13, padding: 10 }}
+            />
+            <MicButton
+              onText={(chunk) =>
+                setReason(
+                  (r) => `${r}${r && !r.endsWith(" ") ? " " : ""}${chunk}`
+                )
+              }
+              ariaLabel="Dictate denial reason"
+              size={30}
+            />
+          </div>
           <div
             style={{
               marginTop: 8,

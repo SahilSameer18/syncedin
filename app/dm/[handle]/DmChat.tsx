@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { MicButton } from "../../MicButton";
 
 type Msg = { id?: string; role: "visitor" | "twin" | "creator"; body: string };
 
@@ -454,6 +455,13 @@ export function DmChat({
             resize: "none",
             outline: "none"
           }}
+        />
+        <MicButton
+          onText={(chunk) =>
+            setText((t) => `${t}${t && !t.endsWith(" ") ? " " : ""}${chunk}`)
+          }
+          ariaLabel={`Dictate message to ${creatorName}'s twin`}
+          size={40}
         />
         <button
           type="button"
