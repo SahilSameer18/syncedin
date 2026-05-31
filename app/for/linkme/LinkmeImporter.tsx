@@ -59,9 +59,14 @@ export function LinkmeImporter() {
   }
 
   function continueToSignup() {
-    // Carry a flag to onboarding so it auto-applies the cached scrape
-    // (lives in sessionStorage; the post-signup hook reads it).
-    window.location.href = "/signup?from=linkme";
+    // Carry a flag through the auth flow so the post-signup hook knows
+    // to apply the cached scrape (the actual data lives in
+    // sessionStorage under HANDOFF_KEY, set above). Auth lives at
+    // /login (handles both signup + signin via magic link / Google).
+    // `next` lands the user on /onboarding after auth completes.
+    window.location.href =
+      "/login?from=linkme&next=" +
+      encodeURIComponent("/onboarding?from=linkme");
   }
 
   if (result?.ok) {
