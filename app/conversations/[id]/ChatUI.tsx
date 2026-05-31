@@ -357,7 +357,7 @@ function TwinLink({
 }) {
   return (
     <div
-      className="flex items-center"
+      className="flex items-center conv-twin-link"
       style={{ gap: 0, position: "relative", height: 44 }}
       aria-label={`${self.name} ↔ ${other.name}`}
     >
@@ -818,6 +818,21 @@ export function ChatUI({
     apply();
     // Re-evaluate on resize so dragging the browser between widths
     // does the right thing without a reload.
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  // Outcome card collapsed-on-mobile pattern (Jack: "the ability to
+  // collapse the outcome … just need the ability to have more room on
+  // that"). Default true so the SSR/mobile paint matches "show the
+  // pill, not the full card"; a post-mount effect expands once we hit
+  // ≥768px so desktop users still see the full outcome inline like
+  // before.
+  const [summaryCollapsed, setSummaryCollapsed] = useState(true);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(min-width: 768px)");
+    const apply = () => setSummaryCollapsed(!mq.matches);
+    apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
@@ -1313,6 +1328,32 @@ export function ChatUI({
             max-width: min(672px, calc(100vw - 380px - 380px));
           }
         }
+        /* Mobile-only chrome reductions (Jack: "There's really no
+           room on this mobile view. There's lots of room to be saved
+           around the profile photos and the ability to collapse the
+           outcome.") */
+        @media (max-width: 767px) {
+          /* Shrink the twin-link avatar pair to ~32px (40 * 0.78) so
+             the header eats less vertical space. Transform-origin
+             keeps it left-anchored so the name block doesn't shift. */
+          .conv-twin-link {
+            transform: scale(0.78);
+            transform-origin: left center;
+            margin-right: -10px;
+          }
+          /* Hide the "< messages" inline back link — mobile browsers
+             have native back gestures + we have a bottom-bar back arrow,
+             so this row is duplicate chrome eating a full line of pixels. */
+          .conv-back-link { display: none !important; }
+          /* Hide the right-click / double-click instruction strip —
+             touch users can't right-click and the inline ✎ edit
+             button on each bubble already teaches the action. */
+          .conv-bottom-hint { display: none !important; }
+          /* Smaller status line under the names. */
+          .conv-status-line { font-size: 10px !important; }
+          /* Tighter header padding-bottom. */
+          .conv-header { padding-bottom: 8px !important; }
+        }
       `}</style>
       {(() => {
         // Short label helpers — emails crammed into a single row with two
@@ -1329,7 +1370,7 @@ export function ChatUI({
         const selfShort = shortName(selfName);
         const otherShort = shortName(other.name);
         return (
-          <header className="flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
+          <header className="conv-header flex items-start justify-between gap-3 pb-3 border-b border-[var(--border)]">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               {(() => {
                 // #162 — compute receipt status for the SELF avatar.
@@ -1369,7 +1410,7 @@ export function ChatUI({
                 <Link
                   href="/messages"
                   prefetch={true}
-                  className="retro-dim text-xs"
+                  className="retro-dim text-xs conv-back-link"
                   style={{ display: "inline-block", marginBottom: 2 }}
                 >
                   &lt; messages
@@ -1410,7 +1451,7 @@ export function ChatUI({
                     otherName={other.name}
                   />
                 </div>
-                <div className="retro-dim text-xs flex items-center gap-1.5 mt-0.5">
+                <div className="conv-status-line retro-dim text-xs flex items-center gap-1.5 mt-0.5">
                   <span>
                     {running
                       ? "twins are talking…"
@@ -1822,28 +1863,62 @@ export function ChatUI({
           panel where the user accepts / counters / rejects. */}
       {summaryResult && (
         <div
-          className="mb-2 p-3 retro-panel"
+          className="mb-2 retro-panel"
           style={{
             borderColor: "var(--amber)",
-            background: "var(--panel-2)"
+            background: "var(--panel-2)",
+            padding: summaryCollapsed ? "8px 12px" : 12
           }}
         >
-          <div
+          {/* Header row is always the click target — tap to toggle. On
+              mobile the body collapses by default so the header is
+              effectively a pill. On desktop the body stays open. */}
+          <button
+            type="button"
+            onClick={() => setSummaryCollapsed((v) => !v)}
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               gap: 8,
-              marginBottom: 6
+              width: "100%",
+              padding: 0,
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              marginBottom: summaryCollapsed ? 0 : 6,
+              textAlign: "left"
             }}
+            aria-expanded={!summaryCollapsed}
+            aria-label={
+              summaryCollapsed
+                ? "Expand outcome summary"
+                : "Collapse outcome summary"
+            }
           >
-            <div
+            <span
               className="retro-label"
-              style={{ color: "var(--amber-bright)" }}
+              style={{
+                color: "var(--amber-bright)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6
+              }}
             >
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-block",
+                  width: 8,
+                  fontSize: 10,
+                  color: "var(--text-dim)"
+                }}
+              >
+                {summaryCollapsed ? "▸" : "▾"}
+              </span>
               outcome
-            </div>
-            <div
+            </span>
+            <span
               style={{
                 fontSize: 11,
                 fontWeight: 700,
@@ -1853,9 +1928,9 @@ export function ChatUI({
               title="Excitement score — your twin's read on how high-potential this connection is (0-99)."
             >
               {Math.round(summaryResult.excitement_score)}%
-            </div>
-          </div>
-          {summaryResult.summary && (
+            </span>
+          </button>
+          {!summaryCollapsed && summaryResult.summary && (
             <div
               className="text-sm"
               style={{ marginBottom: 6, lineHeight: 1.45 }}
@@ -1863,7 +1938,7 @@ export function ChatUI({
               {summaryResult.summary}
             </div>
           )}
-          {summaryResult.counterpart_summary && (
+          {!summaryCollapsed && summaryResult.counterpart_summary && (
             <div
               className="retro-dim text-xs"
               style={{ lineHeight: 1.5 }}
@@ -2268,7 +2343,7 @@ export function ChatUI({
             on the right side on desktop instead of cluttering the
             bottom of the chat flow. */}
 
-        <div className="retro-dim text-[11px] text-center">
+        <div className="conv-bottom-hint retro-dim text-[11px] text-center">
           right-click any message to copy · double-click your own to edit —
           editing regenerates everything after
         </div>

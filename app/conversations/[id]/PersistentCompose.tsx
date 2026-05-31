@@ -164,7 +164,10 @@ export function PersistentCompose({
             }
           }}
           rows={Math.min(8, Math.max(2, text.split("\n").length + 1))}
-          placeholder="Type a message, or tap ✨ to have your twin draft one for you…"
+          // Long placeholder for desktop, short for mobile (set via the
+          // .compose-textarea CSS class + a media-query swap below).
+          placeholder="Message…"
+          data-desktop-placeholder="Type a message, or tap ✨ to have your twin draft one for you…"
           className="retro-input"
           style={{
             flex: 1,
@@ -238,13 +241,12 @@ export function PersistentCompose({
           {sending ? "…" : "send →"}
         </button>
       </div>
-      {/* The "let twins continue" affordance moved OUT of this row and
-          UP next to the "add specific goal" chip per Jack — both twin-
-          control affordances should sit together above the compose,
-          not buried inside it. We still receive onContinueLoop via
-          props so the parent can wire it to whatever button it
-          renders; we just no longer surface our own button here. */}
+      {/* Keyboard-shortcut hint. Hidden on mobile (no ⌘ key on a phone
+          — Jack: "the command enter plus send part doesn't even need
+          to be shown on mobile"). The class is targeted via the
+          @media block at the bottom of this file. */}
       <div
+        className="compose-keyhint"
         style={{
           display: "flex",
           alignItems: "center",
@@ -256,6 +258,11 @@ export function PersistentCompose({
       >
         <span>⌘+Enter to send</span>
       </div>
+      <style>{`
+        @media (max-width: 767px) {
+          .compose-keyhint { display: none !important; }
+        }
+      `}</style>
       {err && (
         <div style={{ fontSize: 12, color: "#ef4444" }}>{err}</div>
       )}

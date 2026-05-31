@@ -175,6 +175,130 @@ export default function RootLayout({
             })
           }}
         />
+        {/* WebSite + Sitelinks Searchbox — gives Google a search box
+            inside the SERP listing for branded searches ("syncedin").
+            Google needs (a) this exact JSON-LD shape with a
+            potentialAction SearchAction pointing at a search URL that
+            accepts ?q=, and (b) the /search route to actually handle
+            the query (we redirect it to the dashboard discovery flow).
+            Eligibility takes weeks of crawling after first deploy. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              name: "SyncedIn",
+              alternateName: ["Synced In", "SyncedIn AI"],
+              url: SITE_URL,
+              potentialAction: {
+                "@type": "SearchAction",
+                target: {
+                  "@type": "EntryPoint",
+                  urlTemplate: `${SITE_URL}/search?q={search_term_string}`
+                },
+                "query-input": "required name=search_term_string"
+              }
+            })
+          }}
+        />
+        {/* Organization schema — controls the brand panel that appears
+            on the right of branded searches (logo, social links, official
+            name). `sameAs` is the critical signal Google uses to merge
+            our brand identity across platforms. Without it, Google
+            shows nothing about us next to the search results. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              name: "SyncedIn",
+              alternateName: "Synced In",
+              url: SITE_URL,
+              logo: `${SITE_URL}/icons/icon-512.png`,
+              description: SITE_DESCRIPTION,
+              foundingDate: "2025",
+              founder: {
+                "@type": "Person",
+                name: "Jackson Jesionowski"
+              },
+              sameAs: [
+                "https://x.com/syncedinhq",
+                "https://www.linkedin.com/company/syncedin",
+                "https://www.instagram.com/syncedinhq",
+                "https://www.youtube.com/@syncedin",
+                "https://github.com/theguysaccount/syncedin",
+                "https://persist.org"
+              ]
+            })
+          }}
+        />
+        {/* SiteNavigationElement — the explicit sitemap Google uses to
+            decide which links to elevate as sitelinks under the main
+            result. Each entry here is a candidate for the 6-link grid
+            that appears under a branded search. Google picks the most
+            clicked-on ones; we just have to tell it which are eligible. */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "ItemList",
+              name: "SyncedIn navigation",
+              itemListElement: [
+                {
+                  "@type": "SiteNavigationElement",
+                  position: 1,
+                  name: "Dashboard",
+                  url: `${SITE_URL}/dashboard`
+                },
+                {
+                  "@type": "SiteNavigationElement",
+                  position: 2,
+                  name: "Talk to your twin",
+                  url: `${SITE_URL}/twin`
+                },
+                {
+                  "@type": "SiteNavigationElement",
+                  position: 3,
+                  name: "Hypernetwork",
+                  url: `${SITE_URL}/hypernetwork`
+                },
+                {
+                  "@type": "SiteNavigationElement",
+                  position: 4,
+                  name: "Sync a conference",
+                  url: `${SITE_URL}/conferences/new`
+                },
+                {
+                  "@type": "SiteNavigationElement",
+                  position: 5,
+                  name: "Sync a community",
+                  url: `${SITE_URL}/communities/new`
+                },
+                {
+                  "@type": "SiteNavigationElement",
+                  position: 6,
+                  name: "Personal Intelligence",
+                  url: `${SITE_URL}/personal-intelligence`
+                },
+                {
+                  "@type": "SiteNavigationElement",
+                  position: 7,
+                  name: "For Link.me creators",
+                  url: `${SITE_URL}/for/linkme`
+                },
+                {
+                  "@type": "SiteNavigationElement",
+                  position: 8,
+                  name: "Careers",
+                  url: `${SITE_URL}/careers`
+                }
+              ]
+            })
+          }}
+        />
       </head>
       <body className="min-h-screen">
         {/* Catches ChunkLoadError on stale tabs that survived a deploy
