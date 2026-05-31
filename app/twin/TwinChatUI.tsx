@@ -237,6 +237,45 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending, loaded]);
 
+  // Allow callers (suggestion chips above the composer) to bypass the
+  // text-state ceremony — they pass the message string directly so the
+  // user doesn't have to click chip → wait for state → click send.
+  async function sendText(direct: string) {
+    const t = direct.trim();
+    if (!t || sending) return;
+    setText("");
+    setSending(true);
+    setErr(null);
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `tmp-${Date.now()}`,
+        role: "user",
+        body: t,
+        created_at: new Date().toISOString()
+      }
+    ]);
+    try {
+      const res = await fetch("/api/twin/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ body: t })
+      });
+      const j = await res.json();
+      if (!res.ok || j?.error) {
+        setErr(j?.detail || j?.error || "Couldn't reach your twin.");
+        return;
+      }
+      if (j.assistant) {
+        setMessages((prev) => [...prev, j.assistant]);
+      }
+    } catch (e: any) {
+      setErr(e?.message || "Network error.");
+    } finally {
+      setSending(false);
+    }
+  }
+
   async function send() {
     const t = text.trim();
     if (!t || sending) return;
@@ -477,6 +516,67 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
             {err}
           </div>
         )}
+      </div>
+
+      {/* SUGGESTION CHIPS — inferred next prompts. Click → fires the
+          message immediately so the user doesn't have to type the
+          first prompt cold. Static V1 — V2 should pull the most-recent
+          counterpart name + most-recent pending proposal title from
+          props to make these dynamic. */}
+      <div
+        style={{
+          position: "fixed",
+          left: 0,
+          right: 0,
+          bottom: "calc(68px + env(safe-area-inset-bottom, 0px))",
+          padding: "0 16px 6px",
+          pointerEvents: "none",
+          zIndex: 29
+        }}
+        className="twin-chips"
+      >
+        <div
+          style={{
+            maxWidth: 900,
+            margin: "0 auto",
+            display: "flex",
+            gap: 6,
+            overflowX: "auto",
+            paddingBottom: 4,
+            pointerEvents: "auto",
+            scrollbarWidth: "none"
+          }}
+        >
+          {[
+            "What proposals should I accept first?",
+            "Who should I reach out to today?",
+            "Draft a follow-up to my most recent counterpart",
+            "What's my top match this week?",
+            "Help me prioritize my inbox"
+          ].map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => void sendText(q)}
+              disabled={sending}
+              style={{
+                flexShrink: 0,
+                padding: "6px 12px",
+                fontSize: 12,
+                fontWeight: 600,
+                borderRadius: 999,
+                border: "1px solid var(--border)",
+                background: "var(--panel)",
+                color: "var(--text-dim)",
+                cursor: sending ? "default" : "pointer",
+                whiteSpace: "nowrap",
+                opacity: sending ? 0.5 : 1
+              }}
+            >
+              {q}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* FIXED COMPOSER — sticks to viewport bottom regardless of scroll

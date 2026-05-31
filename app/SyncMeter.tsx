@@ -267,10 +267,15 @@ export function SyncMeter({
             y2={FILL_TOP - 30}
             gradientUnits="userSpaceOnUse"
           >
-            <stop offset="0%" stopColor="#05021f" />
-            <stop offset="22%" stopColor="#1e3aff" />
-            <stop offset="50%" stopColor="#6b2dc9" />
-            <stop offset="78%" stopColor="#d83bff" />
+            {/* Was #05021f at the bottom — read as empty/black against
+                the dark page bg, so at 98% the legs looked vacant even
+                though the math was correct. Brightened the floor to
+                live indigo so the WHOLE filled silhouette reads as
+                "lit up" all the way down. */}
+            <stop offset="0%" stopColor="#1e3aff" />
+            <stop offset="35%" stopColor="#4a3dff" />
+            <stop offset="60%" stopColor="#6b2dc9" />
+            <stop offset="82%" stopColor="#d83bff" />
             <stop offset="100%" stopColor="#ff5cf0" />
           </linearGradient>
           {/* Hot surface halo — used behind the white surface bar so the

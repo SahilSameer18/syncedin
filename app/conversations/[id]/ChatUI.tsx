@@ -1850,52 +1850,14 @@ export function ChatUI({
           above the compose. */}
       {done && !running && !editingId && (
         <>
-          {/* Twin-control chips sit together in one row above the
-              compose — "add specific goal" + "let twins continue" are
-              peers per Jack's restructure. Same on desktop and mobile.
-              Both render as low-emphasis chips so the compose textarea
-              stays the dominant affordance. */}
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 8,
-              marginTop: 8
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => setGoalOpen((v) => !v)}
-              className="retro-btn text-xs"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                borderColor: goalOpen ? "#1f8bff" : undefined,
-                color: goalOpen ? "#1f8bff" : undefined,
-                fontSize: 11,
-                padding: "5px 10px"
-              }}
-              title="Set a goal that's specific to this conversation"
-            >
-              {goalOpen ? "× hide goal" : "🎯 add a specific goal for this convo"}
-            </button>
-            <button
-              type="button"
-              onClick={() => runLoop()}
-              className="retro-btn text-xs"
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                fontSize: 11,
-                padding: "5px 10px"
-              }}
-              title="Have the twins continue the conversation on their own"
-            >
-              ↻ let twins continue
-            </button>
-          </div>
+          {/* Goal-set + let-twins-continue chips removed per Jack's
+              "clean this up a lot more" pass. Goal is now accessed via
+              a tiny pencil icon next to the destination card header
+              (less prominent, no longer competing with the composer
+              for attention). "Let twins continue" was redundant with
+              the ✨ AI button which already drafts the twin's next
+              turn. Keeping the goal form mountable for the case where
+              someone opens it from the OUTCOME card. */}
           {goalOpen && (
             <PerConversationGoal
               conversationId={conversationId}
