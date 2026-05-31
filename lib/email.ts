@@ -161,9 +161,19 @@ export async function sendEmail(
 }
 
 /**
- * Minimal HTML email wrapper. Inline styles only (most email clients strip
- * <style> blocks). Keep it utilitarian — most reads happen in iMessage-style
- * preview cards.
+ * Branded HTML email wrapper. Inline styles only (most email clients
+ * strip <style> blocks). Table-based layout so Gmail + Outlook render
+ * correctly.
+ *
+ * Cool extras (all optional, all email-client-safe):
+ *  - Gradient hero band with the SyncedIn wordmark + tagline
+ *  - Avatar-pair visual showing the connection ("you ↔ them") when
+ *    avatar URLs are passed in
+ *  - Sync % chip when available
+ *  - Quoted message-preview block when there's a snippet to show
+ *
+ * Designed to make "SyncedIn just connected you with X" feel like a
+ * real platform event, not a transactional notification.
  */
 export function renderEmailHtml(opts: {
   preheader?: string;
@@ -172,39 +182,156 @@ export function renderEmailHtml(opts: {
   ctaText?: string;
   ctaUrl?: string;
   footerNote?: string;
+  // — NEW optional extras —
+  // Small label above the heading, e.g. "NEW CONNECTION" / "PROPOSAL".
+  kicker?: string;
+  // Renders the iconic "two avatars + arc between" visual when both
+  // URLs are passed. Mine = left (you), theirs = right (counterpart).
+  heroAvatars?: { mine?: string | null; theirs?: string | null };
+  // Pulled-out quote block — perfect for showing a message preview or
+  // the proposed deal text.
+  previewQuote?: string | null;
+  // 0-100 sync score chip rendered next to the avatar pair when present.
+  syncScore?: number | null;
 }): string {
-  const { preheader, heading, body, ctaText, ctaUrl, footerNote } = opts;
+  const {
+    preheader,
+    heading,
+    body,
+    ctaText,
+    ctaUrl,
+    footerNote,
+    kicker,
+    heroAvatars,
+    previewQuote,
+    syncScore
+  } = opts;
   const escaped = (s: string) =>
     s
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
+  // Avatar pair — only renders if BOTH urls exist (asymmetric one-side
+  // looks weird). Inline `img` with table-cell layout for max client
+  // compatibility. The connecting arc is a small inline-SVG that
+  // degrades gracefully (turns into empty space) in clients that strip
+  // SVG — the two avatars still read as "the pair."
+  const hasAvatarPair =
+    !!(heroAvatars?.mine && heroAvatars?.theirs);
+  const avatarPairHtml = hasAvatarPair
+    ? `
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 18px auto;">
+      <tr>
+        <td style="padding:0 4px;">
+          <img src="${escaped(heroAvatars!.mine!)}" width="56" height="56" alt="you" style="display:block;width:56px;height:56px;border-radius:28px;border:2px solid #ffffff;object-fit:cover;background:#ffffff;" />
+        </td>
+        <td style="padding:0;vertical-align:middle;">
+          <!--[if !mso]><!-->
+          <svg xmlns="http://www.w3.org/2000/svg" width="56" height="40" viewBox="0 0 56 40" style="display:block;">
+            <defs>
+              <linearGradient id="syncedin-arc" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55"/>
+                <stop offset="50%" stop-color="#ffd966" stop-opacity="0.95"/>
+                <stop offset="100%" stop-color="#ffffff" stop-opacity="0.55"/>
+              </linearGradient>
+            </defs>
+            <path d="M 4 20 Q 28 -4 52 20" fill="none" stroke="url(#syncedin-arc)" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="28" cy="8" r="2.4" fill="#ffd966"/>
+          </svg>
+          <!--<![endif]-->
+        </td>
+        <td style="padding:0 4px;">
+          <img src="${escaped(heroAvatars!.theirs!)}" width="56" height="56" alt="them" style="display:block;width:56px;height:56px;border-radius:28px;border:2px solid #ffffff;object-fit:cover;background:#ffffff;" />
+        </td>
+      </tr>
+    </table>`
+    : "";
+
+  const syncChipHtml =
+    typeof syncScore === "number" && syncScore >= 0 && syncScore <= 100
+      ? `<div style="display:inline-block;margin:0 0 14px 0;padding:5px 12px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:999px;font-size:11px;font-weight:800;letter-spacing:0.1em;color:#ffffff;text-transform:uppercase;">${syncScore}% sync</div>`
+      : "";
+
+  const previewQuoteHtml = previewQuote
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0 4px 0;">
+        <tr>
+          <td style="border-left:3px solid #f59e0b;padding:10px 14px;background:rgba(245,158,11,0.06);border-radius:0 8px 8px 0;font-size:14px;line-height:1.6;color:#e7eaf0;font-style:italic;">
+            ${escaped(previewQuote)}
+          </td>
+        </tr>
+      </table>`
+    : "";
+
   return `<!doctype html>
-<html><body style="margin:0;padding:0;background:#0b0f17;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#e7eaf0;">
-${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escaped(preheader)}</div>` : ""}
-<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#0b0f17;padding:32px 16px;">
+<html><body style="margin:0;padding:0;background:#0b0f17;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e7eaf0;">
+${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;color:#0b0f17;">${escaped(preheader)}</div>` : ""}
+<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#0b0f17;padding:24px 16px 32px 16px;">
   <tr><td align="center">
-    <table role="presentation" cellpadding="0" cellspacing="0" width="560" style="max-width:560px;background:#121826;border:1px solid #1f2937;border-radius:12px;padding:32px;">
-      <tr><td>
-        <div style="font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:12px;letter-spacing:0.18em;color:#f59e0b;text-transform:uppercase;margin-bottom:16px;">SyncedIn</div>
-        <h1 style="margin:0 0 16px 0;font-size:22px;font-weight:700;color:#fff;line-height:1.3;">${escaped(heading)}</h1>
-        <div style="font-size:15px;line-height:1.6;color:#d1d5db;">${body}</div>
-        ${
-          ctaText && ctaUrl
-            ? `<div style="margin:24px 0 8px 0;"><a href="${escaped(ctaUrl)}" style="display:inline-block;background:#f59e0b;color:#0b0f17;text-decoration:none;font-weight:700;padding:12px 18px;border-radius:8px;font-size:14px;">${escaped(ctaText)}</a></div>`
-            : ""
-        }
-        ${
-          footerNote
-            ? `<div style="margin-top:24px;padding-top:16px;border-top:1px solid #1f2937;font-size:12px;color:#6b7280;line-height:1.5;">${footerNote}</div>`
-            : ""
-        }
+
+    <!-- BRAND BAR — small wordmark above the card so the email is
+         immediately recognizable as SyncedIn in the preview pane. -->
+    <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;margin:0 0 14px 0;">
+      <tr><td align="left" style="padding:0 6px;">
+        <a href="https://syncedin.org" style="text-decoration:none;color:inherit;">
+          <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.01em;color:#ffffff;">Synced</span><span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.01em;color:#f59e0b;">In</span>
+        </a>
       </td></tr>
     </table>
-    <div style="margin-top:16px;font-size:11px;color:#6b7280;">
-      <a href="https://syncedin.org/settings/notifications" style="color:#6b7280;">notification settings</a> · <a href="https://syncedin.org" style="color:#6b7280;">syncedin.org</a>
-    </div>
+
+    <!-- MAIN CARD: gradient hero band stacked above a dark body card -->
+    <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#121826;border:1px solid #1f2937;border-radius:16px;overflow:hidden;">
+
+      <!-- HERO BAND -->
+      <tr>
+        <td align="center" style="padding:32px 28px 28px 28px;background:#1f59ff;background-image:linear-gradient(135deg,#1f59ff 0%,#6b2dc9 65%,#9333ea 100%);">
+          ${avatarPairHtml}
+          ${syncChipHtml}
+          ${
+            kicker
+              ? `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.18em;color:rgba(255,255,255,0.85);text-transform:uppercase;margin:0 0 10px 0;">${escaped(kicker)}</div>`
+              : ""
+          }
+          <h1 style="margin:0;font-size:24px;font-weight:800;color:#ffffff;line-height:1.25;letter-spacing:-0.01em;">${escaped(heading)}</h1>
+        </td>
+      </tr>
+
+      <!-- BODY -->
+      <tr>
+        <td style="padding:24px 28px 28px 28px;">
+          <div style="font-size:15px;line-height:1.65;color:#d6dae5;">${body}</div>
+          ${previewQuoteHtml}
+          ${
+            ctaText && ctaUrl
+              ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 4px 0;"><tr><td style="border-radius:10px;background:#f59e0b;background-image:linear-gradient(135deg,#ffb800 0%,#f59e0b 100%);">
+                  <a href="${escaped(ctaUrl)}" style="display:inline-block;padding:13px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:800;color:#0b0f17;text-decoration:none;border-radius:10px;letter-spacing:-0.005em;">${escaped(ctaText)} →</a>
+                </td></tr></table>`
+              : ""
+          }
+          ${
+            footerNote
+              ? `<div style="margin-top:22px;padding-top:16px;border-top:1px solid #1f2937;font-size:12px;color:#7c8499;line-height:1.55;">${footerNote}</div>`
+              : ""
+          }
+        </td>
+      </tr>
+    </table>
+
+    <!-- FOOTER — accent line + brand links. The 1px gradient line is
+         a subtle nod to the brand without screaming. -->
+    <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;margin:18px 0 0 0;">
+      <tr><td align="center" style="padding:0 0 8px 0;">
+        <div style="display:inline-block;width:120px;height:2px;background:#1f59ff;background-image:linear-gradient(90deg,#1f59ff 0%,#6b2dc9 50%,#f59e0b 100%);border-radius:2px;opacity:0.6;"></div>
+      </td></tr>
+      <tr><td align="center" style="padding-top:8px;font-size:11px;color:#6b7280;line-height:1.6;">
+        <a href="https://syncedin.org/settings/notifications" style="color:#7c8499;text-decoration:none;">notification settings</a>
+        &nbsp;·&nbsp;
+        <a href="https://syncedin.org" style="color:#7c8499;text-decoration:none;">syncedin.org</a>
+        <div style="margin-top:6px;color:#52596d;font-size:10px;letter-spacing:0.04em;">the AI relationship layer</div>
+      </td></tr>
+    </table>
+
   </td></tr>
 </table>
 </body></html>`;

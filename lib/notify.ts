@@ -17,6 +17,17 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, renderEmailHtml } from "@/lib/email";
 import { computePairScore, type TwinSnapshot } from "@/lib/pair-score";
 
+// Minimal entity escape — names + emails can contain & < > " '
+// which would break the HTML if interpolated directly.
+function escapeHtml(s: string): string {
+  return (s || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 const APP_URL =
   process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
   "https://syncedin.org";
@@ -179,13 +190,59 @@ async function notifyOneNewConnection(
   const convUrl = `${APP_URL}/conversations/${conversationId}`;
   const subject = `${otherName} connected with your twin`;
   const text = `Hey ${recipFirst},\n\n${otherName} just started a conversation with your twin on SyncedIn. Your twins are negotiating now — open the thread to see what they're working out and chime in whenever you want.\n\n${convUrl}\n\n— SyncedIn`;
+
+  // Fetch the extras the cool email template uses — both avatars and
+  // both twins so we can compute a sync %. Wrapped in try so a missing
+  // column on prod never breaks the email send.
+  let mineAvatar: string | null = null;
+  let theirsAvatar: string | null = null;
+  let syncPct: number | null = null;
+  try {
+    const [{ data: myProf }, { data: theirProf }, { data: myTwin }, { data: theirTwin }] =
+      await Promise.all([
+        service
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", recipientId)
+          .maybeSingle(),
+        service
+          .from("profiles")
+          .select("avatar_url")
+          .eq("id", otherId)
+          .maybeSingle(),
+        service
+          .from("twin_profiles")
+          .select("goals, deal_preferences, ai_export_blob, communication_style")
+          .eq("user_id", recipientId)
+          .maybeSingle(),
+        service
+          .from("twin_profiles")
+          .select("goals, deal_preferences, ai_export_blob, communication_style")
+          .eq("user_id", otherId)
+          .maybeSingle()
+      ]);
+    mineAvatar = ((myProf as any)?.avatar_url as string) ?? null;
+    theirsAvatar = ((theirProf as any)?.avatar_url as string) ?? null;
+    if (myTwin && theirTwin) {
+      syncPct = computePairScore(
+        myTwin as TwinSnapshot,
+        theirTwin as TwinSnapshot
+      );
+    }
+  } catch {
+    /* non-fatal — email just renders without the chrome */
+  }
+
   const html = renderEmailHtml({
     preheader: `${otherName} just connected with your twin.`,
     heading: `${otherName} connected with your twin`,
-    body: `<p>Hey ${firstName(recipient.profile.display_name, recipient.profile.email)},</p><p>Your twins are negotiating now. Open the thread to see what they're working out — you can edit any message before it sends.</p>`,
+    kicker: "new connection",
+    heroAvatars: { mine: mineAvatar, theirs: theirsAvatar },
+    syncScore: syncPct,
+    body: `<p style="margin:0 0 10px 0;">Hey ${escapeHtml(recipFirst)},</p><p style="margin:0;">Your twins are negotiating now. Open the thread to see what they&rsquo;re working out — you can edit any message before it sends.</p>`,
     ctaText: "Open conversation",
     ctaUrl: convUrl,
-    footerNote: `You're getting this because new connections are on in your notification settings.`
+    footerNote: `You&rsquo;re getting this because new connections are on in your notification settings.`
   });
   await logAndSend({
     userId: recipientId,
