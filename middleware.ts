@@ -71,6 +71,32 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // === A/B split: handle-picker hero (/) vs chat-landing (/talk) ===
+  // Jack: 'split test two different landing pages — one interface
+  // could be talking to the master model of the platform.' New unauthed
+  // visitors get a sticky cookie that assigns them to A (current /) or
+  // B (/talk). Variant B redirects from / → /talk on first paint. The
+  // assignment is sticky (30 days) so repeat visits don't thrash.
+  // Microsoft Clarity (already installed) gives us the conversion
+  // delta within 24-48h.
+  if (!user && path === "/") {
+    const AB_COOKIE = "syncedin_landing_ab";
+    let variant = request.cookies.get(AB_COOKIE)?.value;
+    if (variant !== "a" && variant !== "b") {
+      variant = Math.random() < 0.5 ? "a" : "b";
+      response.cookies.set(AB_COOKIE, variant, {
+        path: "/",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24 * 30
+      });
+    }
+    if (variant === "b") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/talk";
+      return NextResponse.redirect(url);
+    }
+  }
+
   // === Last-active stamp ===
   // Fire-and-forget update of profiles.last_active_at so dashboard
   // cards can render "active 3h ago" badges. Debounced via cookie:
