@@ -197,49 +197,95 @@ async function notifyOneNewConnection(
   let mineAvatar: string | null = null;
   let theirsAvatar: string | null = null;
   let syncPct: number | null = null;
+  let theirHeadline: string | null = null;
+  let previewQuote: string | null = null;
   try {
-    const [{ data: myProf }, { data: theirProf }, { data: myTwin }, { data: theirTwin }] =
-      await Promise.all([
-        service
-          .from("profiles")
-          .select("avatar_url")
-          .eq("id", recipientId)
-          .maybeSingle(),
-        service
-          .from("profiles")
-          .select("avatar_url")
-          .eq("id", otherId)
-          .maybeSingle(),
-        service
-          .from("twin_profiles")
-          .select("goals, deal_preferences, ai_export_blob, communication_style")
-          .eq("user_id", recipientId)
-          .maybeSingle(),
-        service
-          .from("twin_profiles")
-          .select("goals, deal_preferences, ai_export_blob, communication_style")
-          .eq("user_id", otherId)
-          .maybeSingle()
-      ]);
+    const [
+      { data: myProf },
+      { data: theirProf },
+      { data: myTwin },
+      { data: theirTwin }
+    ] = await Promise.all([
+      service
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", recipientId)
+        .maybeSingle(),
+      service
+        .from("profiles")
+        .select("avatar_url, bio, headline")
+        .eq("id", otherId)
+        .maybeSingle(),
+      service
+        .from("twin_profiles")
+        .select("goals, deal_preferences, ai_export_blob, communication_style")
+        .eq("user_id", recipientId)
+        .maybeSingle(),
+      service
+        .from("twin_profiles")
+        .select("goals, deal_preferences, ai_export_blob, communication_style")
+        .eq("user_id", otherId)
+        .maybeSingle()
+    ]);
     mineAvatar = ((myProf as any)?.avatar_url as string) ?? null;
     theirsAvatar = ((theirProf as any)?.avatar_url as string) ?? null;
+    theirHeadline =
+      ((theirProf as any)?.headline as string | null) ||
+      ((theirProf as any)?.bio as string | null) ||
+      null;
     if (myTwin && theirTwin) {
       syncPct = computePairScore(
         myTwin as TwinSnapshot,
         theirTwin as TwinSnapshot
       );
     }
+    // Preview snippet: pull the LATEST message body for this convo so
+    // the email shows what the twins are actually negotiating. Falls
+    // back to the counterpart's goal so the email never reads cold.
+    const { data: lastMsg } = await service
+      .from("messages")
+      .select("final_text")
+      .eq("conversation_id", conversationId)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const raw =
+      ((lastMsg as any)?.final_text as string | undefined) ||
+      ((theirTwin as any)?.goals as string | undefined) ||
+      null;
+    if (raw) {
+      // Strip the AGREEMENT marker block if present + collapse to 200 chars
+      const clean = raw
+        .replace(/>>> AGREEMENT:[\s\S]*$/i, "")
+        .replace(/!\[[^\]]*\]\(https?:\/\/[^\s)]+\)/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+      if (clean.length > 8) {
+        previewQuote =
+          clean.length > 200 ? clean.slice(0, 197) + "…" : clean;
+      }
+    }
   } catch {
     /* non-fatal — email just renders without the chrome */
   }
 
+  // Build the body — if we have a headline + preview, surface them so
+  // the recipient gets context before clicking through.
+  const headlineLine = theirHeadline
+    ? `<p style="margin:0 0 12px 0;color:#aab0c2;font-size:13px;">${escapeHtml(
+        theirHeadline.slice(0, 140)
+      )}</p>`
+    : "";
   const html = renderEmailHtml({
     preheader: `${otherName} just connected with your twin.`,
     heading: `${otherName} connected with your twin`,
     kicker: "new connection",
     heroAvatars: { mine: mineAvatar, theirs: theirsAvatar },
     syncScore: syncPct,
-    body: `<p style="margin:0 0 10px 0;">Hey ${escapeHtml(recipFirst)},</p><p style="margin:0;">Your twins are negotiating now. Open the thread to see what they&rsquo;re working out — you can edit any message before it sends.</p>`,
+    previewQuote,
+    body: `<p style="margin:0 0 10px 0;">Hey ${escapeHtml(
+      recipFirst
+    )},</p>${headlineLine}<p style="margin:0;">Your twins are negotiating now. Open the thread to see what they&rsquo;re working out — you can edit any message before it sends.</p>`,
     ctaText: "Open conversation",
     ctaUrl: convUrl,
     footerNote: `You&rsquo;re getting this because new connections are on in your notification settings.`

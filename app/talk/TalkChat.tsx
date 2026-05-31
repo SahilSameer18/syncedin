@@ -47,6 +47,54 @@ const EXAMPLE_PROMPTS = [
   "how does this work?"
 ];
 
+/**
+ * Fast-start affordances rendered as prominent buttons in the very
+ * first turn of /talk. Each pre-fills the composer with a structured
+ * request so Sync immediately knows to scrape + match (instead of
+ * making the visitor type "my linkedin is ..."). The "open" hint
+ * deep-links to the relevant platform so the visitor can copy their
+ * handle/URL in one tap.
+ */
+const FAST_STARTS: Array<{
+  label: string;
+  emoji: string;
+  prompt: string;
+  /** Optional deep-link the visitor can tap to copy from. */
+  openHref?: string;
+  openLabel?: string;
+}> = [
+  {
+    label: "Drop my X handle",
+    emoji: "𝕏",
+    prompt:
+      "My X is @ — match me against the platform from there.",
+    openHref: "https://x.com/home",
+    openLabel: "open X"
+  },
+  {
+    label: "Drop my LinkedIn URL",
+    emoji: "in",
+    prompt:
+      "My LinkedIn is linkedin.com/in/ — pull my profile and show me my top 3 matches.",
+    openHref: "https://www.linkedin.com/in/me/",
+    openLabel: "open LinkedIn"
+  },
+  {
+    label: "Drop my Instagram",
+    emoji: "📷",
+    prompt:
+      "My Instagram is @ — match me against the platform.",
+    openHref: "https://www.instagram.com/",
+    openLabel: "open IG"
+  },
+  {
+    label: "Paste my Personal Intelligence",
+    emoji: "✨",
+    prompt:
+      "Here's a paragraph about me — match me against the platform: \n\n"
+  }
+];
+
 export function TalkChat({
   orbitUsers,
   totalCount
@@ -392,36 +440,180 @@ export function TalkChat({
             </a>
           )}
 
-          {/* Example-prompt chips, only on the very first turn */}
+          {/* FAST-START AFFORDANCES — only on the first turn. Big
+              prominent cards that pre-fill the composer with a
+              structured request (so Sync immediately scrapes + matches
+              instead of making the visitor figure out what to type),
+              PLUS a small "open X / IG / LinkedIn" link inside each
+              card to deep-link the visitor to their own profile so
+              they can copy the handle in one tap.
+
+              Below the fast-starts: a smaller row of conversational
+              example prompts (the original chips) for visitors who'd
+              rather just chat than drop a handle. */}
           {messages.length === 1 && !signupUrl && (
             <div
               style={{
-                alignSelf: "flex-start",
+                alignSelf: "stretch",
                 display: "flex",
-                flexWrap: "wrap",
-                gap: 6,
-                marginTop: 4
+                flexDirection: "column",
+                gap: 14,
+                marginTop: 6
               }}
             >
-              {EXAMPLE_PROMPTS.map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => void send(p)}
-                  style={{
-                    padding: "6px 12px",
-                    fontSize: 12,
-                    fontWeight: 500,
-                    borderRadius: 999,
-                    border: "1px solid var(--border)",
-                    background: "var(--panel)",
-                    color: "var(--text-dim)",
-                    cursor: "pointer"
-                  }}
-                >
-                  {p}
-                </button>
-              ))}
+              {/* Always-visible Sign Up CTA — Jack: "homepage chat
+                  interface should have clickable buttons like Sign
+                  Up." */}
+              <a
+                href="/login?from=talk"
+                style={{
+                  alignSelf: "stretch",
+                  textAlign: "center",
+                  padding: "12px 18px",
+                  borderRadius: 14,
+                  background:
+                    "linear-gradient(135deg, #2358ff 0%, #6b2dc9 100%)",
+                  color: "#fff",
+                  fontWeight: 700,
+                  fontSize: 15,
+                  textDecoration: "none",
+                  boxShadow:
+                    "0 8px 24px -8px rgba(31, 139, 255, 0.55)"
+                }}
+              >
+                Sign up — spin up my twin in 30 seconds →
+              </a>
+
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  color: "var(--text-dim)",
+                  textAlign: "center"
+                }}
+              >
+                — or watch Sync match you live in 1 tap —
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                  gap: 8
+                }}
+              >
+                {FAST_STARTS.map((fs) => (
+                  <div
+                    key={fs.label}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 6,
+                      padding: "12px 14px",
+                      borderRadius: 14,
+                      border: "1px solid var(--border)",
+                      background: "var(--panel)",
+                      cursor: "pointer",
+                      transition: "transform 0.1s ease, border-color 0.15s"
+                    }}
+                    onClick={() => {
+                      setInput(fs.prompt);
+                      // Don't auto-send — the user needs to fill in
+                      // their actual handle / paragraph first. Focus
+                      // the textarea so they can type immediately.
+                      setTimeout(() => {
+                        const ta = document.querySelector(
+                          'textarea[placeholder*="Sync"]'
+                        ) as HTMLTextAreaElement | null;
+                        ta?.focus();
+                        // Position cursor at end so they don't have to
+                        // manually move past the prefilled prefix.
+                        ta?.setSelectionRange(
+                          fs.prompt.length,
+                          fs.prompt.length
+                        );
+                      }, 30);
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontSize: 18,
+                          fontWeight: 800,
+                          fontFamily:
+                            '"IBM Plex Mono", ui-monospace, monospace'
+                        }}
+                      >
+                        {fs.emoji}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: 13.5,
+                          fontWeight: 700,
+                          color: "var(--text)"
+                        }}
+                      >
+                        {fs.label}
+                      </span>
+                    </div>
+                    {fs.openHref && (
+                      <a
+                        href={fs.openHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          fontSize: 11,
+                          color: "#1f8bff",
+                          textDecoration: "none",
+                          alignSelf: "flex-start"
+                        }}
+                      >
+                        ↗ {fs.openLabel}
+                      </a>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Smaller text-only prompt chips for the "just want to
+                  chat first" path. */}
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginTop: 2
+                }}
+              >
+                {EXAMPLE_PROMPTS.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => void send(p)}
+                    style={{
+                      padding: "6px 12px",
+                      fontSize: 12,
+                      fontWeight: 500,
+                      borderRadius: 999,
+                      border: "1px solid var(--border)",
+                      background: "var(--panel)",
+                      color: "var(--text-dim)",
+                      cursor: "pointer"
+                    }}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>
