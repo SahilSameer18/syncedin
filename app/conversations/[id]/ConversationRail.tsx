@@ -243,11 +243,12 @@ export async function ConversationRail({
           position: "fixed",
           top: 16,
           bottom: 16,
-          // Sits immediately right of the main AppShell sidebar.
-          // Widened from 76 → 110px (Jack: "this part's too small
-          // width-wise and can be made bigger") so avatar photos render
-          // at full size without the squish that was cropping faces.
-          left: 252,
+          // Sits immediately right of the main sidebar. After
+          // matching sidebar width to AppShell's 200px the rail
+          // moves from left:252 → left:232 (200 + 16 gap + 16
+          // padding) so the chat column starts at the same place
+          // it does on every other AppShell page.
+          left: 232,
           width: 110,
           flexDirection: "column",
           gap: 6,

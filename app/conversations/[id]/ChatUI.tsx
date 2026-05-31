@@ -1361,13 +1361,14 @@ export function ChatUI({
         @media (min-width: 1024px) {
           .conv-main {
             /* Push the chat column right past the fixed sidebar
-               (left:16 width:220) + gap + conv rail (left:252
-               width:110) + small breathing buffer. */
-            margin-left: 380px !important;
+               (left:16 width:200 — matched to AppShell) + gap +
+               conv rail (left:232 width:110) + small buffer.
+               16 + 200 + 16 + 110 + 18 = 360. */
+            margin-left: 360px !important;
             margin-right: auto !important;
             /* Cap so on very wide screens we don't stretch the
                chat across the entire viewport. */
-            max-width: min(672px, calc(100vw - 380px - 24px));
+            max-width: min(672px, calc(100vw - 360px - 24px));
           }
         }
         @media (min-width: 1200px) {
@@ -1378,8 +1379,8 @@ export function ChatUI({
                of stranding the outcome / deal panels under the chat),
                reserve room on the right too. Rail is 300px + 28px
                offset + 8px gap = 336px on this side. Subtract that +
-               the 380px left chrome. */
-            max-width: min(672px, calc(100vw - 380px - 336px));
+               the 360px left chrome. */
+            max-width: min(672px, calc(100vw - 360px - 336px));
           }
         }
         /* Mobile-only chrome reductions (Jack: "There's really no
@@ -1882,11 +1883,20 @@ export function ChatUI({
           inline at the bottom of the chat. */}
       <div className="conv-action-rail">
         <style>{`
-          /* Mobile / tablet / narrow desktop (<1440): inline (default
+          /* Mobile / tablet / narrow desktop (<1200): inline (default
              block flow). Panels appear after the message stream but
-             before the input. Saves us from cramming a 330px rail
-             into a viewport that doesn't have room for it. */
-          .conv-action-rail { display: block; }
+             before the input. Saves us from cramming a 300px rail
+             into a viewport that doesn't have room for it.
+             Jack: 'still has a ton of blank space in between outcome,
+             proposed final destination, and the actual messages.'
+             Tightened: no top margin on the rail wrapper, panels
+             inside use a single 6px gap instead of stacked mb-2's. */
+          .conv-action-rail {
+            display: block;
+            margin-top: 0;
+          }
+          .conv-action-rail > * + * { margin-top: 6px; }
+          .conv-action-rail .retro-panel { margin-bottom: 0 !important; }
 
           /* Right rail engages at ≥1200px now (was 1440). Jack:
              "when I make the thing a bit smaller, it puts it on the

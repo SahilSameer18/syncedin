@@ -389,7 +389,12 @@ export default async function ConversationPage({
           top: 64,
           bottom: 16,
           left: 16,
-          width: 220,
+          // 200px matches AppShell's grid-cols-[200px_1fr] sidebar
+          // column width. Was 220 which made the menu render visibly
+          // WIDER on /conversations/[id] than every other page in
+          // the platform. Jack: "the menu size when in conversations
+          // is still not there." Now identical to the rest.
+          width: 200,
           // Bumped 4 → 10 so the SyncMeter (i) tooltip floats ABOVE
           // the conversation rail (z:6) and the new conv-action-rail
           // (z:6). The sidebar + those rails don't visually overlap
@@ -407,8 +412,9 @@ export default async function ConversationPage({
       </aside>
 
       {/* Conversation rail — narrow strip TO THE RIGHT of the main
-          sidebar, showing other convos. Was previously at left:16, now
-          at left:252 to clear the 220px sidebar + a 16px gap. */}
+          sidebar. After matching the sidebar width to AppShell's 200px,
+          this rail moves from left:252 → left:232 (200 + 16 gap + 16
+          padding). */}
       <ConversationRail activeId={params.id} />
       {/* #185 — First-match welcome banner. Renders ONLY when the user
           arrived here straight from onboarding. Lives outside ChatUI so
