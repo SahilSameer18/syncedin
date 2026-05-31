@@ -667,6 +667,85 @@ alter table public.conversations
 alter table public.conversations
   add column if not exists sync_score_override_at timestamptz;
 
+-- =========================================================================
+-- DM / Link.me partnership surface (#279). Public twin chat at
+-- /dm/<handle> — visitor (anonymous or email-known) talks to the
+-- creator's twin, optionally pays to boost to top of the creator's
+-- inbox. Creator owns the thread server-side; visitor proves ownership
+-- via a localStorage-stored visitor_token.
+--
+-- Distinct from `conversations` (twin-to-twin between two SyncedIn
+-- users). DM threads are visitor-to-twin, with a creator on the other
+-- end who reviews / edits posthoc. Different scoring, different routing.
+-- =========================================================================
+
+create table if not exists public.dm_threads (
+  id uuid primary key default uuid_generate_v4(),
+  creator_user_id uuid not null references public.profiles(id) on delete cascade,
+  -- Random uuid handed to the visitor's browser at thread-start. We
+  -- use this instead of cookies/auth so anonymous visitors can come back
+  -- to the same thread from any device that stored it.
+  visitor_token text not null,
+  -- Captured opportunistically — we don't gate the first 2 messages on
+  -- it but ask after, since email = the only way the creator can
+  -- follow up off-platform.
+  visitor_email text,
+  visitor_name text,
+  -- Paid-boost state. paid_cents is the amount; paid_at locks the order
+  -- in the creator's inbox (paid threads pin to top).
+  is_paid boolean not null default false,
+  paid_cents integer,
+  paid_at timestamptz,
+  -- Lifecycle: open (default) → replied (creator engaged) → closed
+  -- (creator dismissed or visitor abandoned).
+  status text not null default 'open',
+  last_message_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+create index if not exists dm_threads_creator_idx
+  on public.dm_threads (creator_user_id, last_message_at desc);
+create index if not exists dm_threads_creator_paid_idx
+  on public.dm_threads (creator_user_id, is_paid desc, paid_at desc nulls last);
+create unique index if not exists dm_threads_visitor_token_uq
+  on public.dm_threads (visitor_token);
+
+alter table public.dm_threads enable row level security;
+-- Creator can read/manage their own threads. Visitor access is via
+-- service client + visitor_token check in the API layer (no Supabase
+-- auth for anonymous visitors).
+drop policy if exists "dm_threads_creator_all" on public.dm_threads;
+create policy "dm_threads_creator_all" on public.dm_threads
+  for all using (auth.uid() = creator_user_id)
+  with check (auth.uid() = creator_user_id);
+
+create table if not exists public.dm_messages (
+  id uuid primary key default uuid_generate_v4(),
+  thread_id uuid not null references public.dm_threads(id) on delete cascade,
+  -- 'visitor' = anonymous-or-emailed person who initiated
+  -- 'twin' = AI reply (free, automatic)
+  -- 'creator' = real human creator reply (paid or unpaid)
+  role text not null check (role in ('visitor', 'twin', 'creator')),
+  body text not null,
+  -- When the creator edits a twin reply posthoc, we keep the original
+  -- body in `body` and add this stamp + revised text below. For MVP
+  -- we just overwrite `body` and stamp this — original-preservation
+  -- comes when we add the edit-history view.
+  edited_by_creator_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists dm_messages_thread_idx
+  on public.dm_messages (thread_id, created_at);
+
+alter table public.dm_messages enable row level security;
+drop policy if exists "dm_messages_creator_read" on public.dm_messages;
+create policy "dm_messages_creator_read" on public.dm_messages
+  for select using (
+    exists (
+      select 1 from public.dm_threads t
+      where t.id = thread_id and t.creator_user_id = auth.uid()
+    )
+  );
+
 -- Perf indexes (#271). These cover the hottest queries that were doing
 -- full sequential scans:
 --   - messages by sender (dashboard "completed convs" count, conv page
