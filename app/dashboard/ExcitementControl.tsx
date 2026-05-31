@@ -99,12 +99,41 @@ export function ExcitementControl({
         <button
           onClick={() => setOpen(true)}
           className="retro-panel retro-panel-hover px-2.5 py-1 text-sm"
+          title="Deal = how excited you are about this conversation. Click to override."
         >
           {score === null ? (
             <span className="retro-dim">score —</span>
           ) : (
-            <span style={{ color: tone(score) }}>
-              ◆ {score}
+            <span
+              style={{
+                color: tone(score),
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 4
+              }}
+            >
+              {/* DEAL icon — handshake silhouette. Jack: "have the
+                  icon better represent deal." Was a flat ◆ diamond
+                  glyph; the handshake reads as "agreement reached"
+                  which IS what excitement / deal score measures.
+                  Custom inline SVG tints to the score tone. */}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                style={{ flexShrink: 0 }}
+              >
+                <path d="M11 17l-5-5 4-4 3 3 4-4 5 5-6 6a3 3 0 0 1-4 0z" />
+                <path d="M14 7l-3 3" />
+                <path d="M2 13l4-4" />
+              </svg>
+              {score}
               {locked ? " ·set" : ""}
             </span>
           )}

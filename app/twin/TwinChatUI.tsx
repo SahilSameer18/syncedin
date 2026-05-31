@@ -10,6 +10,167 @@ type ChatRow = {
 };
 
 /**
+ * Tiny inline markdown renderer for twin chat bubbles.
+ *
+ * Jack: "it's got the kind of like bold asterisks that it's not
+ * formatted properly. Let's turn that into bold text."
+ *
+ * Handles per-line:
+ *   - `---` horizontal rule
+ *   - `- ` bullet (joined into a <ul>)
+ *   - `N. ` numbered list (joined into a <ol>)
+ *   - Inline: **bold**, *italic*, `code`
+ *
+ * Deliberately small — no full markdown parser, no XSS surface beyond
+ * what React's JSX escapes for free. Edit-mode shows raw text so users
+ * still see the asterisks when they tap to edit.
+ */
+function renderInlineMd(text: string): React.ReactNode[] {
+  // Tokenize **bold**, *italic*, `code` in one pass. Greedy match for
+  // bold first (so "**foo**" doesn't get eaten as two italics).
+  const out: React.ReactNode[] = [];
+  const re = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = re.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      out.push(text.slice(lastIndex, match.index));
+    }
+    const tok = match[0];
+    if (tok.startsWith("**") && tok.endsWith("**")) {
+      out.push(<strong key={`b${key++}`}>{tok.slice(2, -2)}</strong>);
+    } else if (tok.startsWith("*") && tok.endsWith("*")) {
+      out.push(<em key={`i${key++}`}>{tok.slice(1, -1)}</em>);
+    } else if (tok.startsWith("`") && tok.endsWith("`")) {
+      out.push(
+        <code
+          key={`c${key++}`}
+          style={{
+            background: "rgba(120, 130, 160, 0.18)",
+            padding: "1px 5px",
+            borderRadius: 4,
+            fontSize: "0.92em",
+            fontFamily:
+              '"IBM Plex Mono", ui-monospace, SFMono-Regular, monospace'
+          }}
+        >
+          {tok.slice(1, -1)}
+        </code>
+      );
+    }
+    lastIndex = match.index + tok.length;
+  }
+  if (lastIndex < text.length) out.push(text.slice(lastIndex));
+  return out;
+}
+
+function renderMarkdown(body: string): React.ReactNode {
+  const lines = body.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let i = 0;
+  let blockKey = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    // Horizontal rule
+    if (/^-{3,}$/.test(trimmed) || /^={3,}$/.test(trimmed)) {
+      blocks.push(
+        <hr
+          key={`hr${blockKey++}`}
+          style={{
+            border: 0,
+            borderTop: "1px solid var(--border, rgba(0,0,0,0.12))",
+            margin: "8px 0"
+          }}
+        />
+      );
+      i++;
+      continue;
+    }
+    // Bulleted list — collect consecutive `- ` / `* ` lines.
+    if (/^[-*]\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^[-*]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^[-*]\s+/, ""));
+        i++;
+      }
+      blocks.push(
+        <ul
+          key={`ul${blockKey++}`}
+          style={{
+            margin: "4px 0",
+            paddingLeft: 20,
+            listStyle: "disc"
+          }}
+        >
+          {items.map((it, idx) => (
+            <li key={idx} style={{ marginBottom: 2 }}>
+              {renderInlineMd(it)}
+            </li>
+          ))}
+        </ul>
+      );
+      continue;
+    }
+    // Numbered list — collect `1. ` / `2. ` lines.
+    if (/^\d+\.\s+/.test(line)) {
+      const items: string[] = [];
+      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\d+\.\s+/, ""));
+        i++;
+      }
+      blocks.push(
+        <ol
+          key={`ol${blockKey++}`}
+          style={{
+            margin: "4px 0",
+            paddingLeft: 22,
+            listStyle: "decimal"
+          }}
+        >
+          {items.map((it, idx) => (
+            <li key={idx} style={{ marginBottom: 2 }}>
+              {renderInlineMd(it)}
+            </li>
+          ))}
+        </ol>
+      );
+      continue;
+    }
+    // Blank line → paragraph break
+    if (trimmed === "") {
+      blocks.push(<div key={`gap${blockKey++}`} style={{ height: 6 }} />);
+      i++;
+      continue;
+    }
+    // Regular paragraph — collect consecutive non-blank, non-list lines.
+    const paraLines: string[] = [];
+    while (
+      i < lines.length &&
+      lines[i].trim() !== "" &&
+      !/^[-*]\s+/.test(lines[i]) &&
+      !/^\d+\.\s+/.test(lines[i]) &&
+      !/^-{3,}$/.test(lines[i].trim())
+    ) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+    blocks.push(
+      <div key={`p${blockKey++}`} style={{ marginBottom: 2 }}>
+        {paraLines.map((pl, idx) => (
+          <span key={idx}>
+            {renderInlineMd(pl)}
+            {idx < paraLines.length - 1 && <br />}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  return blocks;
+}
+
+/**
  * Talk-to-your-twin chat (#159). The "dojo" — Jack: "you can edit both
  * sides of the conversation and basically fix either response, and
  * that's data."
@@ -221,11 +382,54 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           />
         ))}
         {sending && (
+          // iMessage-style 3-dot typing bubble (matches the indicator
+          // used in two-twin chat). Jack: "when they're typing, let's
+          // show the typing animation."
           <div
-            className="retro-dim text-xs"
-            style={{ alignSelf: "flex-start", paddingLeft: 4 }}
+            style={{
+              alignSelf: "flex-start",
+              maxWidth: "min(86%, 580px)"
+            }}
           >
-            your twin is thinking…
+            <div
+              className="retro-dim text-[10px]"
+              style={{
+                marginBottom: 3,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: "var(--blue, #2358ff)"
+              }}
+            >
+              your twin
+            </div>
+            <div
+              aria-label="your twin is typing"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "12px 14px",
+                background: "var(--panel-solid)",
+                border: "1px solid var(--border)",
+                borderRadius: 18,
+                color: "var(--text-dim)"
+              }}
+            >
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: "50%",
+                    background: "currentColor",
+                    opacity: 0.7,
+                    animation: `twinTypingDot 1.2s ${i * 0.18}s infinite ease-in-out`
+                  }}
+                />
+              ))}
+            </div>
           </div>
         )}
         {err && (
@@ -436,7 +640,9 @@ function Bubble({
             border: mine
               ? "none"
               : "1px solid var(--border)",
-            whiteSpace: "pre-wrap",
+            // renderMarkdown handles paragraph + list breaks itself, so
+            // we don't need whiteSpace: "pre-wrap" here. Leaving it on
+            // would double-render newlines as extra vertical space.
             wordBreak: "break-word",
             fontSize: 14,
             lineHeight: 1.5,
@@ -452,7 +658,11 @@ function Bubble({
             e.currentTarget.style.boxShadow = "none";
           }}
         >
-          {m.body}
+          {/* Markdown render — **bold** / *italic* / `code` / lists /
+              --- separators turn into real formatting instead of raw
+              asterisks. Edit mode (above) keeps raw text so the user
+              can still see the markdown syntax when refining. */}
+          {renderMarkdown(m.body)}
           {/* tiny edit hint, fades in on hover via CSS-in-JS sibling */}
           <span
             aria-hidden="true"

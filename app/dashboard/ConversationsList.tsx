@@ -213,16 +213,58 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
             maxWidth: "100%"
           }}
         >
+          {/* Iconography legend — matches the SVG icons rendered inside
+              each SyncControl + ExcitementControl pill below. Jack:
+              "add the iconography next to its respective thing both on
+              mobile and desktop … have the icon better represent sync,
+              better represent deal." Same icons here → same pills
+              below = obvious mapping. */}
           <span
             style={{
               fontSize: 11,
               fontWeight: 800,
               letterSpacing: "0.14em",
               textTransform: "uppercase",
-              color: "var(--text-dim)"
+              color: "var(--text-dim)",
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6
             }}
           >
-            SYNC <span style={{ opacity: 0.55 }}>·</span> DEAL
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              style={{ verticalAlign: "middle" }}
+            >
+              <circle cx="9" cy="12" r="5" />
+              <circle cx="15" cy="12" r="5" />
+            </svg>
+            SYNC
+            <span style={{ opacity: 0.45, margin: "0 2px" }}>·</span>
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              style={{ verticalAlign: "middle" }}
+            >
+              <path d="M11 17l-5-5 4-4 3 3 4-4 5 5-6 6a3 3 0 0 1-4 0z" />
+              <path d="M14 7l-3 3" />
+              <path d="M2 13l4-4" />
+            </svg>
+            DEAL
           </span>
           {/* (i) explainer — opens a modal that surfaces the underlying
               scoring prompt + lets the user edit it. Jack: "surface

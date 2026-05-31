@@ -170,11 +170,20 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             bottom: 0,
             left: 0,
             width: "min(280px, 86vw)",
+            maxWidth: "86vw",
             background: "var(--panel-solid)",
             borderRight: "1px solid var(--border)",
             transform: open ? "translateX(0)" : "translateX(-100%)",
             transition: "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)",
             overflowY: "auto",
+            // Jack: "there's an error where I can scroll to the right side
+            // of the menu." Drawer content (long conference names, deep
+            // social URLs, etc.) was overflowing the 280px column and the
+            // user could pan sideways inside the drawer. Lock horizontal
+            // scroll + force long words to wrap.
+            overflowX: "hidden",
+            overscrollBehaviorX: "contain",
+            wordBreak: "break-word",
             // Pulled top padding entirely; the sweep band below
             // serves as the visual top edge and signals motion.
             padding: "0 6px 12px"
@@ -214,6 +223,21 @@ export function MobileShell({ children }: { children: React.ReactNode }) {
             padding-left: 6px !important;
             padding-right: 6px !important;
             gap: 6px !important;
+            /* Lock horizontal extent — nothing inside the sidebar can
+               push past the drawer's 280px / 86vw column. Fixes the
+               horizontal-pan bug Jack flagged. */
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+            box-sizing: border-box !important;
+          }
+          /* Wrap long URLs / conference titles inside the drawer so
+             they don't blow the column out horizontally. */
+          .syncedin-mobile-drawer a,
+          .syncedin-mobile-drawer span,
+          .syncedin-mobile-drawer div {
+            word-break: break-word;
+            overflow-wrap: anywhere;
+            min-width: 0;
           }
           .syncedin-mobile-drawer img.wordmark-themed,
           .syncedin-mobile-drawer img[src*="syncedin-wordmark"] {

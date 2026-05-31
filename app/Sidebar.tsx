@@ -62,7 +62,13 @@ export function Sidebar({
     // #166 — Upload an existing chat export, model the other person,
     // generate "where it goes next." Sits next to Ghosts since both are
     // pre-conversation modeling surfaces.
-    { href: "/continuation", label: "Continue a chat", icon: "📜" },
+    //
+    // Jack: "Continue a chat feels more like you're continuing one of
+    // the messages rather than like an upload." Renamed to "Import a
+    // chat" + 📤 upload-arrow icon so the affordance reads as
+    // bringing in an existing thread from outside, not adding to one
+    // already in the platform.
+    { href: "/continuation", label: "Import a chat", icon: "📤" },
     { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
     { href: "/feedback", label: "Feedback", icon: "💡" }

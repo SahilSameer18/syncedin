@@ -107,9 +107,36 @@ export function SyncControl({
             setVal(displayedScore);
           }}
           className="retro-panel retro-panel-hover px-2.5 py-1 text-sm"
-          title="Click to override the sync score for this pair"
+          title="Sync = pair-wise complementarity. Click to override."
         >
-          <span style={{ color: tone(displayedScore) }}>
+          <span
+            style={{
+              color: tone(displayedScore),
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 4
+            }}
+          >
+            {/* SYNC icon — two interlocked rings (Venn intersection)
+                signaling alignment between two twins. Custom inline
+                SVG so the color always tracks the score tone instead
+                of locking to the emoji renderer's default palette.
+                Jack: "have the icon better represent sync." */}
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+              style={{ flexShrink: 0 }}
+            >
+              <circle cx="9" cy="12" r="5" />
+              <circle cx="15" cy="12" r="5" />
+            </svg>
             {displayedScore}%
             {overrideScore !== null ? " ·set" : ""}
           </span>

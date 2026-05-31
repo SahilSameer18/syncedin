@@ -813,7 +813,10 @@ export function ChatUI({
   const [agreementCollapsed, setAgreementCollapsed] = useState(true);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(min-width: 1440px)");
+    // Match the .conv-action-rail breakpoint (also lowered to 1200).
+    // When the rail is showing, the deal panel docks in it expanded.
+    // Below that, default-collapsed so it doesn't cover the input.
+    const mq = window.matchMedia("(min-width: 1200px)");
     const apply = () => setAgreementCollapsed(!mq.matches);
     apply();
     // Re-evaluate on resize so dragging the browser between widths
@@ -1320,12 +1323,16 @@ export function ChatUI({
             max-width: min(672px, calc(100vw - 380px - 24px));
           }
         }
-        @media (min-width: 1440px) {
+        @media (min-width: 1200px) {
           .conv-main {
-            /* When the right rail is active, also reserve room on
-               the right (rail is right:28 width:330 = 358px from
-               edge). Cap chat width tighter so it stays in its lane. */
-            max-width: min(672px, calc(100vw - 380px - 380px));
+            /* When the right rail is active (≥1200 per the
+               .conv-action-rail rules below — dropped from 1440 so the
+               rail kicks in on standard 13-14" laptop widths instead
+               of stranding the outcome / deal panels under the chat),
+               reserve room on the right too. Rail is 300px + 28px
+               offset + 8px gap = 336px on this side. Subtract that +
+               the 380px left chrome. */
+            max-width: min(672px, calc(100vw - 380px - 336px));
           }
         }
         /* Mobile-only chrome reductions (Jack: "There's really no
@@ -1831,18 +1838,19 @@ export function ChatUI({
              into a viewport that doesn't have room for it. */
           .conv-action-rail { display: block; }
 
-          /* True desktop (≥1440px) — fixed right rail. Bumped up from
-             1100px after Jack flagged the chat looking cramped: at
-             1100-1380px the centered max-w-2xl chat (672px) + left
-             sidebar (220px) + conv rail (~64px) + right rail (330px)
-             leaves no breathing room. 1440 gives ~150px of margin on
-             each side of the chat. */
-          @media (min-width: 1440px) {
+          /* Right rail engages at ≥1200px now (was 1440). Jack:
+             "when I make the thing a bit smaller, it puts it on the
+             bottom when it doesn't need to." 13-14" laptop widths
+             (1280-1366) now show the rail inline next to the chat
+             instead of dumping outcome + deal below the input.
+             Width trimmed 330 → 300 so the chat column has more
+             breathing room on the narrower end of that range. */
+          @media (min-width: 1200px) {
             .conv-action-rail {
               position: fixed;
               top: 96px;
               right: 28px;
-              width: 330px;
+              width: 300px;
               max-height: calc(100dvh - 120px);
               overflow-y: auto;
               z-index: 6;

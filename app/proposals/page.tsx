@@ -54,7 +54,7 @@ export default async function ProposalsPage({
   const { data: convs } = await service
     .from("conversations")
     .select(
-      "id, participant_a, participant_b, summary, status, created_at"
+      "id, participant_a, participant_b, summary, counterpart_summary, status, created_at"
     )
     .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
     .not("summary", "is", null)
@@ -72,6 +72,7 @@ export default async function ProposalsPage({
     participant_a: string;
     participant_b: string;
     summary: string | null;
+    counterpart_summary: string | null;
     status: string | null;
     created_at: string;
   }>).filter((c) => !c.summary || !VACUOUS_RE.test(c.summary));
@@ -91,6 +92,13 @@ export default async function ProposalsPage({
       display_name: string | null;
       email: string | null;
       avatar_url: string | null;
+      // Jack: "if we click their profile photo, we should take it to
+      // their personal portfolio page." Need handle to build /u/<handle>.
+      handle?: string | null;
+      // Jack: "missing the 'active' status for some people." Pull
+      // last_active_at so the proposals page can render the same
+      // 'active Xh ago' pill the dashboard does.
+      last_active_at?: string | null;
       linkedin_url?: string | null;
       x_url?: string | null;
       instagram_url?: string | null;
@@ -99,14 +107,15 @@ export default async function ProposalsPage({
     }
   >();
   if (otherIds.length > 0) {
-    // Try with social columns; fall back to core columns if any are
-    // missing on this DB — proposals page must not 500.
+    // Try with social + handle + last_active columns; fall back to
+    // core columns if any are missing on this DB — proposals page must
+    // not 500.
     let profs: any[] = [];
     try {
       const { data } = await service
         .from("profiles")
         .select(
-          "id, display_name, email, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+          "id, display_name, email, avatar_url, handle, last_active_at, linkedin_url, x_url, instagram_url, facebook_url, website_url"
         )
         .in("id", otherIds);
       profs = data ?? [];
@@ -204,6 +213,38 @@ export default async function ProposalsPage({
         fullTextByConv.set(c.id, c.summary);
       }
     }
+  }
+
+  // Same shape as ConversationsList.formatLastActive on the dashboard
+  // (Jack: "missing the 'active' status for some people. If we have
+  // the 'waiting on' status, we should have that for everyone").
+  function formatLastActive(iso: string | null | undefined): {
+    label: string;
+    color: string;
+  } | null {
+    if (!iso) return null;
+    const t = new Date(iso).getTime();
+    if (!Number.isFinite(t)) return null;
+    const diff = Date.now() - t;
+    if (diff < 2 * 60_000) return { label: "active now", color: "var(--green)" };
+    if (diff < 60 * 60_000) {
+      const m = Math.max(1, Math.round(diff / 60_000));
+      return { label: `active ${m}m ago`, color: "var(--green)" };
+    }
+    if (diff < 24 * 60 * 60_000) {
+      const h = Math.max(1, Math.round(diff / (60 * 60_000)));
+      return { label: `active ${h}h ago`, color: "var(--amber-bright)" };
+    }
+    if (diff < 7 * 24 * 60 * 60_000) {
+      const d = Math.max(1, Math.round(diff / (24 * 60 * 60_000)));
+      return { label: `active ${d}d ago`, color: "var(--text-dim)" };
+    }
+    if (diff < 30 * 24 * 60 * 60_000) {
+      const w = Math.max(1, Math.round(diff / (7 * 24 * 60 * 60_000)));
+      return { label: `active ${w}w ago`, color: "var(--text-dim)" };
+    }
+    const mo = Math.max(1, Math.round(diff / (30 * 24 * 60 * 60_000)));
+    return { label: `active ${mo}mo ago`, color: "var(--text-dim)" };
   }
 
   function relativeAge(iso: string | null): string {
@@ -322,12 +363,33 @@ export default async function ProposalsPage({
                   alignItems: "flex-start"
                 }}
               >
-                <Avatar
-                  id={otherId}
-                  name={otherName}
-                  avatarUrl={other?.avatar_url ?? null}
-                  size={42}
-                />
+                {/* Jack: "if we click their profile photo, we should
+                    take it to their personal portfolio page." */}
+                {other?.handle ? (
+                  <Link
+                    href={`/u/${other.handle}`}
+                    style={{
+                      flexShrink: 0,
+                      display: "block",
+                      textDecoration: "none"
+                    }}
+                    title={`Open ${otherName}'s portfolio`}
+                  >
+                    <Avatar
+                      id={otherId}
+                      name={otherName}
+                      avatarUrl={other?.avatar_url ?? null}
+                      size={42}
+                    />
+                  </Link>
+                ) : (
+                  <Avatar
+                    id={otherId}
+                    name={otherName}
+                    avatarUrl={other?.avatar_url ?? null}
+                    size={42}
+                  />
+                )}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div
                     style={{
@@ -362,6 +424,37 @@ export default async function ProposalsPage({
                     >
                       {relativeAge(c.created_at)}
                     </span>
+                    {(() => {
+                      // Active-status pill — parity with dashboard
+                      // (Jack: "missing the active status for some
+                      // people. If we have the waiting-on status, we
+                      // should have that for everyone.")
+                      const la = formatLastActive(other?.last_active_at);
+                      if (!la) return null;
+                      return (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            color: la.color,
+                            border: `1px solid ${la.color}`,
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            background: "transparent"
+                          }}
+                          title={
+                            other?.last_active_at
+                              ? `Last seen ${new Date(
+                                  other.last_active_at
+                                ).toLocaleString()}`
+                              : undefined
+                          }
+                        >
+                          {la.label}
+                        </span>
+                      );
+                    })()}
                     {sealed && (
                       <span
                         style={{
@@ -406,6 +499,31 @@ export default async function ProposalsPage({
                       </span>
                     )}
                   </div>
+                  {/* Counterpart summary — Jack: "missing the same info
+                      we have on the dashboard, saying who this person
+                      is — some good info." Pulled from
+                      conversations.counterpart_summary (same field the
+                      dashboard reads). Renders just above the proposal
+                      so the user knows who they're saying yes/no to. */}
+                  {(() => {
+                    const cs = (c as any).counterpart_summary as
+                      | string
+                      | null
+                      | undefined;
+                    if (!cs || !cs.trim()) return null;
+                    return (
+                      <div
+                        style={{
+                          marginTop: 6,
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                          color: "var(--text-dim)"
+                        }}
+                      >
+                        {cs}
+                      </div>
+                    );
+                  })()}
                   {/* Client wrapper — owns local proposal state so
                       "Change proposal" updates the displayed summary
                       + expand panel inline (no router.refresh that

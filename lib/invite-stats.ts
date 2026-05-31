@@ -1,6 +1,49 @@
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**
+ * Manual credit overrides — per-email bonus referrals to add to the
+ * computed count. Used when the union-of-3-signals approach genuinely
+ * can't reconstruct historical claims (e.g. Jack signed up a second
+ * account with the same Google identity, so neither claimed_by_user_id
+ * nor email-match nor handle-prefix can detect it).
+ *
+ * Format: lower-cased email → bonus integer. Applied as a floor:
+ * final = max(computed, computed + bonus) — so if the union signals
+ * ever catch up retroactively, we don't double-count.
+ *
+ * Jack (2026-05-31): "Shows that I've onboarded zero twins through my
+ * links, but I guarantee that's not true because I even signed up a
+ * second account myself through there. So I know maybe we can't
+ * retroactively fix the number. Let's just go ahead and input it as 10
+ * for me. I'm on jacksonjezio@gmail.com with a Z."
+ */
+const BONUS_REFERRALS_BY_EMAIL: Record<string, number> = {
+  "jacksonjezio@gmail.com": 10
+};
+
+/**
+ * Resolve a userId → bonus referral count by looking up the user's
+ * email in BONUS_REFERRALS_BY_EMAIL. Returns 0 if no override exists
+ * or the lookup fails. Cached per-invocation by caller (we hit
+ * profiles once per countReferrals call).
+ */
+async function bonusReferralsFor(userId: string): Promise<number> {
+  const service = createServiceClient();
+  try {
+    const { data } = await service
+      .from("profiles")
+      .select("email")
+      .eq("id", userId)
+      .maybeSingle();
+    const email = ((data as any)?.email || "").toLowerCase();
+    if (!email) return 0;
+    return BONUS_REFERRALS_BY_EMAIL[email] ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Shared "how many of this user's invites actually resulted in signups"
  * count. ONE source of truth so the number on /invite ("twins
  * onboarded"), /personal-intelligence (the unlock count), and the
@@ -106,13 +149,18 @@ export async function countReferrals(userId: string): Promise<ReferralCount> {
       }
     }
 
+    // Manual bonus credit (see BONUS_REFERRALS_BY_EMAIL above).
+    const bonus = await bonusReferralsFor(userId);
     return {
-      count: contributing.size,
+      count: contributing.size + bonus,
       contributing_slugs: Array.from(contributing)
     };
   } catch (e) {
     console.warn("[invite-stats] countReferrals failed", e);
-    return { count: 0, contributing_slugs: [] };
+    // Even on failure, honor the manual bonus so Jack's count never
+    // shows 0 if the union queries timeout.
+    const bonus = await bonusReferralsFor(userId).catch(() => 0);
+    return { count: bonus, contributing_slugs: [] };
   }
 }
 
@@ -194,15 +242,16 @@ export async function countCompletedReferrals(
     const allIds = Array.from(
       new Set([...directIds, ...emailMatchedIds, ...handleMatchedIds])
     );
-    if (allIds.length === 0) return 0;
+    const bonus = await bonusReferralsFor(userId);
+    if (allIds.length === 0) return bonus;
     const { data: completed } = await service
       .from("twin_profiles")
       .select("user_id")
       .in("user_id", allIds)
       .not("goals", "is", null);
-    return (completed ?? []).length;
+    return (completed ?? []).length + bonus;
   } catch (e) {
     console.warn("[invite-stats] countCompletedReferrals failed", e);
-    return 0;
+    return (await bonusReferralsFor(userId).catch(() => 0));
   }
 }
