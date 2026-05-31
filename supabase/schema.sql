@@ -746,6 +746,30 @@ create policy "dm_messages_creator_read" on public.dm_messages
     )
   );
 
+-- Creator's existing offer links — populated by Link.me import (#280)
+-- or manual entry. Read by the DM twin prompt so the AI can ROUTE
+-- visitors to the right existing link instead of inventing answers.
+-- intent = semantic label the twin uses ("course" / "advisory" /
+-- "booking" / "merch" / "newsletter" / "free") — twin matches visitor
+-- ask to intent.
+create table if not exists public.dm_links (
+  id uuid primary key default uuid_generate_v4(),
+  creator_user_id uuid not null references public.profiles(id) on delete cascade,
+  label text not null,
+  url text not null,
+  intent text,
+  position integer not null default 0,
+  source text, -- 'linkme_import' | 'manual' | 'linktree_import' (future)
+  created_at timestamptz not null default now()
+);
+create index if not exists dm_links_creator_idx
+  on public.dm_links (creator_user_id, position);
+alter table public.dm_links enable row level security;
+drop policy if exists "dm_links_creator_all" on public.dm_links;
+create policy "dm_links_creator_all" on public.dm_links
+  for all using (auth.uid() = creator_user_id)
+  with check (auth.uid() = creator_user_id);
+
 -- Perf indexes (#271). These cover the hottest queries that were doing
 -- full sequential scans:
 --   - messages by sender (dashboard "completed convs" count, conv page
