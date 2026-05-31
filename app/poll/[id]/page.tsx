@@ -289,8 +289,21 @@ export default async function PollDetailPage({
         <ul className="mt-5 space-y-3">
           {networkResponses.map((r) => {
             const pr = profiles[r.twin_user_id];
+            // Name resolution: prefer display_name → @handle → email
+            // prefix → short user-id suffix. "Someone" is the absolute
+            // last resort because EVERY card showing "Someone" tanks
+            // perceived legitimacy of the platform.
+            const handleStr = (pr as any)?.handle as string | undefined;
+            const emailPrefix = (pr?.email as string | undefined)?.split(
+              "@"
+            )[0];
             const name =
-              pr?.display_name || pr?.email?.split("@")[0] || "Someone";
+              (pr?.display_name as string | undefined) ||
+              (handleStr ? `@${handleStr}` : undefined) ||
+              emailPrefix ||
+              (r.twin_user_id
+                ? `User ${r.twin_user_id.slice(0, 4)}`
+                : "Someone");
             return (
               <li
                 key={r.id}
@@ -299,7 +312,12 @@ export default async function PollDetailPage({
                   padding: 16,
                   borderColor: r.was_overridden
                     ? "var(--amber)"
-                    : "var(--border)"
+                    : "var(--border)",
+                  // Clip any rogue children so the card cannot overflow
+                  // its column on narrow viewports.
+                  maxWidth: "100%",
+                  overflow: "hidden",
+                  boxSizing: "border-box"
                 }}
               >
                 {/* Name + avatar are now a Link to the responder's
@@ -446,7 +464,13 @@ export default async function PollDetailPage({
                   style={{
                     color: "var(--text)",
                     lineHeight: 1.5,
-                    whiteSpace: "pre-wrap"
+                    whiteSpace: "pre-wrap",
+                    // Was overflowing the card on the right edge for
+                    // any long word / URL / no-space sequence — force
+                    // wrap so the text always stays inside the panel.
+                    wordBreak: "break-word",
+                    overflowWrap: "anywhere",
+                    maxWidth: "100%"
                   }}
                 >
                   {r.was_overridden && r.human_override

@@ -85,6 +85,7 @@ What you know about ${otherName} (use it, but address them directly):
 - Move efficiently. Each message should advance toward that destination, not restate position.
 - Be patient about agreement. The conversation should feel like a real negotiation, not a sprint to "yes." DO NOT propose a final agreement until you have BOTH (a) seen at least 3 substantive exchanges from EACH side (so 6+ messages total in the transcript), AND (b) genuinely seen specific facts surface from the other party that resolve the open questions — not just their opener. A premature agreement reads as artificial to the human reviewer and breaks trust.
 - When you genuinely believe both conditions above are met AND there is a concrete final destination both sides would commit to, end your message with a line that begins exactly with ">>> AGREEMENT:" followed by 1-3 sentences stating the agreed mission alignment and the concrete final destination. If you are unsure whether enough has been said, the correct move is NOT to propose — keep negotiating. The human can always trigger a wrap-up explicitly.
+- The AGREEMENT line is a CONTRACT. Plain prose only. NEVER include markdown image syntax (`![alt](url)`), GIF embeds, emoji clusters, links, hashtags, or any decorative element in the agreement text. Save the playful expression for the conversation messages themselves — the agreement is what gets emailed, copy-pasted, and reviewed by both humans before they commit. Treat it like the deal terms in a contract: dry, specific, scannable.
 
 # STYLE RULES (HARD CONSTRAINTS — non-negotiable)
 These are the patterns that make AI-generated text obvious. If you produce ANY of them, the output is wrong. Re-read your draft before finalizing and rewrite any line that matches.
@@ -118,7 +119,7 @@ These are recent examples where your principal corrected a draft you generated. 
 
   if (proposeNow) {
     prompt += `\n\n# WRAP-UP DIRECTIVE (USER TAPPED "PROPOSE DESTINATION")
-The human just tapped a button asking you to wrap this conversation up with a concrete proposal. This OVERRIDES the "wait for 3+ exchanges per side" rule. End this message with the >>> AGREEMENT: marker followed by 1-3 sentences naming the concrete final destination both sides would commit to. Pull the destination from the substance already in the transcript — don't invent a new direction. If the conversation is genuinely too thin to propose, say so plainly in the message body and DO NOT emit the marker.`;
+The human just tapped a button asking you to wrap this conversation up with a concrete proposal. This OVERRIDES the "wait for 3+ exchanges per side" rule. End this message with the >>> AGREEMENT: marker followed by 1-3 sentences naming the concrete final destination both sides would commit to. Pull the destination from the substance already in the transcript — don't invent a new direction. If the conversation is genuinely too thin to propose, say so plainly in the message body and DO NOT emit the marker. The AGREEMENT line itself must be plain prose: no markdown images, GIFs, emoji, or links — that's the contract that both humans will copy-paste and act on.`;
   }
 
   if (funnyMode) {

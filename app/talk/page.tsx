@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Wordmark } from "../Wordmark";
 import { TalkChat } from "./TalkChat";
-import { OrbitingPlatformUsers, type OrbitUser } from "../OrbitingPlatformUsers";
+import { type OrbitUser } from "../OrbitingPlatformUsers";
 import { createServiceClient } from "@/lib/supabase/server";
 
 /**
@@ -67,10 +67,15 @@ export default async function TalkLandingPage() {
   return (
     <main
       style={{
-        minHeight: "100vh",
+        // height (not minHeight) is what lets the inner chat scroller
+        // actually scroll. With minHeight the flex child can grow
+        // beyond the viewport and overflow:auto never engages.
+        // 100dvh handles mobile address-bar resizing.
+        height: "100dvh",
         display: "flex",
         flexDirection: "column",
-        background: "var(--bg)"
+        background: "var(--bg)",
+        overflow: "hidden"
       }}
     >
       {/* Top bar — wordmark left, sign-in right. Kept thin so the
@@ -105,28 +110,10 @@ export default async function TalkLandingPage() {
         </Link>
       </header>
 
-      {/* Orbital social proof — only renders when we have ≥5 real
-          users with photos. Otherwise the chat takes the whole
-          viewport and the social proof shows up inside the
-          conversation via the search_users tool. */}
-      {orbitUsers.length >= 5 && (
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "center",
-            padding: "12px 16px 0"
-          }}
-        >
-          <OrbitingPlatformUsers
-            users={orbitUsers}
-            size={300}
-            totalCount={totalCount}
-            caption="syncing right now"
-          />
-        </div>
-      )}
-
-      <TalkChat />
+      {/* TalkChat owns the 3-col layout now: orbit + recent-users list
+          in the left rail, chat in the center, live tool-use feed in
+          the right rail. On mobile it collapses to a single column. */}
+      <TalkChat orbitUsers={orbitUsers} totalCount={totalCount} />
     </main>
   );
 }

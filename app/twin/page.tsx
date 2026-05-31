@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { TwinChatUI } from "./TwinChatUI";
+import { PendingProposalsRail } from "./PendingProposalsRail";
 
 /**
  * Talk to your own twin (#159). A 1:1 chat surface where the user can
@@ -45,9 +46,34 @@ export default async function TwinPage() {
           to send to anyone — this is your home base.
         </p>
 
-        <div className="mt-6">
-          <TwinChatUI selfName={selfName} />
+        {/* Desktop: 2-col grid — chat fills the wide center, pending
+            proposals live in a sticky right rail with Accept/Deny
+            buttons so the user can move on real action without leaving
+            this page. Mobile: stacks (chat first, proposals below). */}
+        <div
+          className="mt-6 grid gap-6 twin-grid"
+          style={{
+            gridTemplateColumns: "minmax(0, 1fr)"
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            <TwinChatUI selfName={selfName} />
+          </div>
+          <div className="twin-rail" style={{ minWidth: 0 }}>
+            <PendingProposalsRail />
+          </div>
         </div>
+
+        <style>{`
+          @media (min-width: 1024px) {
+            .twin-grid {
+              grid-template-columns: minmax(0, 1fr) 320px !important;
+            }
+          }
+          @media (max-width: 1023px) {
+            .twin-rail { display: none; }
+          }
+        `}</style>
       </section>
     </AppShell>
   );

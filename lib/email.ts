@@ -212,19 +212,47 @@ export function renderEmailHtml(opts: {
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
 
-  // Avatar pair — only renders if BOTH urls exist (asymmetric one-side
-  // looks weird). Inline `img` with table-cell layout for max client
-  // compatibility. The connecting arc is a small inline-SVG that
-  // degrades gracefully (turns into empty space) in clients that strip
-  // SVG — the two avatars still read as "the pair."
-  const hasAvatarPair =
-    !!(heroAvatars?.mine && heroAvatars?.theirs);
-  const avatarPairHtml = hasAvatarPair
+  // Avatar pair — renders whenever we have AT LEAST one avatar OR the
+  // initials needed for the missing side. Previously this hid the
+  // whole pair if either side was missing, which meant new users (no
+  // uploaded photo yet) got naked text emails. Now the missing side
+  // falls back to a gradient initials circle so the visual still
+  // lands.
+  const initialsMine = (heroAvatars as any)?.mineInitials as
+    | string
+    | undefined;
+  const initialsTheirs = (heroAvatars as any)?.theirsInitials as
+    | string
+    | undefined;
+  const haveAnyAvatar =
+    !!(heroAvatars?.mine || heroAvatars?.theirs);
+  const renderAvatarCell = (
+    url: string | null | undefined,
+    initials: string | undefined,
+    alt: string
+  ) => {
+    if (url) {
+      return `<img src="${escaped(
+        url
+      )}" width="56" height="56" alt="${escaped(
+        alt
+      )}" style="display:block;width:56px;height:56px;border-radius:28px;border:2px solid #ffffff;object-fit:cover;background:#ffffff;" />`;
+    }
+    const safeInitials = escaped(
+      ((initials || alt) ?? "?").trim().slice(0, 2).toUpperCase()
+    );
+    return `<div style="display:flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:28px;border:2px solid #ffffff;background:linear-gradient(135deg,#1f8bff 0%,#6b2dc9 60%,#d83bff 100%);color:#ffffff;font-weight:800;font-size:20px;line-height:56px;text-align:center;letter-spacing:-0.5px;">${safeInitials}</div>`;
+  };
+  const avatarPairHtml = haveAnyAvatar || initialsMine || initialsTheirs
     ? `
     <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 18px auto;">
       <tr>
         <td style="padding:0 4px;">
-          <img src="${escaped(heroAvatars!.mine!)}" width="56" height="56" alt="you" style="display:block;width:56px;height:56px;border-radius:28px;border:2px solid #ffffff;object-fit:cover;background:#ffffff;" />
+          ${renderAvatarCell(
+            heroAvatars?.mine ?? null,
+            initialsMine,
+            "you"
+          )}
         </td>
         <td style="padding:0;vertical-align:middle;">
           <!--[if !mso]><!-->
@@ -242,7 +270,11 @@ export function renderEmailHtml(opts: {
           <!--<![endif]-->
         </td>
         <td style="padding:0 4px;">
-          <img src="${escaped(heroAvatars!.theirs!)}" width="56" height="56" alt="them" style="display:block;width:56px;height:56px;border-radius:28px;border:2px solid #ffffff;object-fit:cover;background:#ffffff;" />
+          ${renderAvatarCell(
+            heroAvatars?.theirs ?? null,
+            initialsTheirs,
+            "them"
+          )}
         </td>
       </tr>
     </table>`

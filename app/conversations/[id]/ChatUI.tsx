@@ -699,6 +699,24 @@ function splitAgreement(text: string): { body: string; agreement: string | null 
   };
 }
 
+/**
+ * Render proposal body — STRIPS any GIF / markdown image syntax that
+ * leaked through from playful in-conversation messages. The agreement
+ * is a contract; emoji-level expression belongs in the chat itself,
+ * not in the final destination card. The generation prompt also tells
+ * the model not to include images in AGREEMENTs — this is defensive
+ * cleanup for the historical cases that already exist.
+ */
+function renderProposalBody(text: string | null | undefined): string {
+  if (!text) return "";
+  // Strip markdown image syntax ![alt](url) — collapse multiple spaces
+  // afterward so the surrounding sentence still reads cleanly.
+  return text
+    .replace(/!\[[^\]]*\]\(https?:\/\/[^\s)]+\)/g, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 const MSG_FONT =
   '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif';
 
@@ -1176,7 +1194,27 @@ export function ChatUI({
           reason: reason ?? undefined
         })
       });
-      if (!res.ok) throw new Error(await readError(res));
+      if (!res.ok) {
+        // Stale-id path: server couldn't find the message_id, almost
+        // always because a concurrent regenerate / change-proposal
+        // replaced the row. Reset edit state + reload the page so the
+        // user gets fresh messages with valid ids — beats leaving them
+        // stuck on an unsaveable form. The server's `detail` field
+        // explains it in human language.
+        const msg = await readError(res);
+        if (res.status === 404) {
+          setEditingId(null);
+          setEditText("");
+          setError(msg);
+          setRunning(false);
+          // Brief delay so the user reads the hint, then refresh.
+          setTimeout(() => {
+            window.location.assign(window.location.pathname);
+          }, 1800);
+          return;
+        }
+        throw new Error(msg);
+      }
       // Locally: keep messages up to & including the edited one, drop the rest.
       setMessages((prev) => {
         const idx = prev.findIndex((m) => m.id === id);
@@ -2162,9 +2200,17 @@ export function ChatUI({
           </div>
           <div
             className="mt-1.5 text-sm"
-            style={{ fontFamily: MSG_FONT, color: "var(--text)" }}
+            style={{
+              fontFamily: MSG_FONT,
+              color: "var(--text)",
+              // Long URLs / no-space sequences (esp. giphy URLs) were
+              // blowing past the card edge. Force wrap.
+              wordBreak: "break-word",
+              overflowWrap: "anywhere",
+              maxWidth: "100%"
+            }}
           >
-            {lastAgreement}
+            {renderProposalBody(lastAgreement)}
           </div>
 
           {/* counterpart status */}
@@ -2231,6 +2277,13 @@ export function ChatUI({
             <div
               className="flex gap-2 mt-3"
               onClick={(e) => e.stopPropagation()}
+              style={{
+                // Wrap so Counter doesn't clip on narrow cards (mobile
+                // + desktop right-rail). Accept stays primary and
+                // takes the first row; Reject + Counter drop to row 2
+                // when there isn't horizontal room.
+                flexWrap: "wrap"
+              }}
             >
               <button
                 onClick={(e) => {
@@ -2238,7 +2291,7 @@ export function ChatUI({
                   acceptAgreement();
                 }}
                 disabled={running}
-                className="retro-btn retro-btn-primary flex-1 text-sm"
+                className="retro-btn retro-btn-primary text-sm"
                 style={{
                   // Primary CTA styling — filled background, white text,
                   // green-tinted glow so it reads as THE button to press.
@@ -2248,7 +2301,11 @@ export function ChatUI({
                   color: "#ffffff",
                   fontWeight: 700,
                   padding: "10px 14px",
-                  boxShadow: "0 4px 14px -4px rgba(60, 216, 112, 0.55)"
+                  boxShadow: "0 4px 14px -4px rgba(60, 216, 112, 0.55)",
+                  // Stretch to fill remaining width but allow shrinking
+                  // so other buttons fit too.
+                  flex: "1 1 140px",
+                  minWidth: 0
                 }}
               >
                 ✓ Accept this deal
@@ -2263,7 +2320,8 @@ export function ChatUI({
                 style={{
                   borderColor: "var(--red)",
                   color: "var(--red)",
-                  flex: "0 0 auto",
+                  flex: "1 1 90px",
+                  minWidth: 0,
                   padding: "10px 14px"
                 }}
               >
@@ -2282,7 +2340,8 @@ export function ChatUI({
                 style={{
                   borderColor: "var(--amber)",
                   color: "var(--amber-bright)",
-                  flex: "0 0 auto",
+                  flex: "1 1 90px",
+                  minWidth: 0,
                   padding: "10px 14px"
                 }}
                 title="Edit the deal terms — both sides' accept/reject clears so the counterpart sees your counter fresh."

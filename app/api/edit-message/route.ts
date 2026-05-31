@@ -31,13 +31,49 @@ export async function POST(req: Request) {
   }
 
   const service = createServiceClient();
-  const { data: msg } = await service
+  let { data: msg } = await service
     .from("messages")
     .select("*")
     .eq("id", message_id)
-    .single();
+    .maybeSingle();
+  // Stale-id recovery: a concurrent regenerate / change-proposal may
+  // have replaced this message between the user opening edit mode and
+  // hitting save. If we can't find the id, fall back to the user's
+  // MOST RECENT message in any conversation they participate in —
+  // 99% of the time that's the one they meant. We re-check ownership
+  // below so this can't be abused to edit someone else's message.
   if (!msg) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
+    const { data: convs } = await service
+      .from("conversations")
+      .select("id")
+      .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(20);
+    const convIds = ((convs ?? []) as any[]).map((c) => c.id);
+    if (convIds.length) {
+      const { data: recent } = await service
+        .from("messages")
+        .select("*")
+        .in("conversation_id", convIds)
+        .eq("sender_user_id", user.id)
+        .order("sent_at", { ascending: false })
+        .limit(1);
+      const candidate = (recent ?? [])[0] as any;
+      if (candidate) {
+        msg = candidate;
+      }
+    }
+    if (!msg) {
+      return NextResponse.json(
+        {
+          error: "not_found",
+          detail:
+            "Couldn't locate that message — it may have been regenerated. Refresh the conversation and try again.",
+          stale_message_id: message_id
+        },
+        { status: 404 }
+      );
+    }
   }
 
   const { data: conv } = await service

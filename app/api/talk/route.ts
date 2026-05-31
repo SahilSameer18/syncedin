@@ -85,6 +85,13 @@ export async function POST(req: Request) {
     content: m.content
   }));
   let collectedToolResults: Record<string, unknown> = {};
+  // Full ordered trace of every tool call — the right rail subscribes
+  // to this so the visitor sees Sync's work, including dud searches.
+  const toolUseTrace: Array<{
+    name: string;
+    input: Record<string, unknown>;
+    result: unknown;
+  }> = [];
   let signupUrl: string | undefined;
   let finalText = "";
 
@@ -121,6 +128,11 @@ export async function POST(req: Request) {
     for (const tu of toolUseBlocks) {
       const result = await runTool(service, tu.name, tu.input);
       collectedToolResults[tu.name] = result;
+      toolUseTrace.push({
+        name: tu.name,
+        input: tu.input,
+        result
+      });
       if (
         tu.name === "start_signup" &&
         (result as any)?.signup_url
@@ -139,6 +151,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     reply: finalText.trim() || "(no reply)",
     tool_results: collectedToolResults,
+    tool_use_trace: toolUseTrace,
     signup_url: signupUrl
   });
 }
@@ -157,20 +170,46 @@ async function runTool(
     const query = String(input.query || "").trim();
     // Lightweight semantic-ish search: ilike on bio + portfolio_about.
     // True embedding search would beat this but isn't worth the latency
-    // budget on the landing chat.
+    // budget on the landing chat. Sanitize % to avoid SQL-pattern bleed.
+    const safe = query.replace(/[%_,]/g, " ").trim().slice(0, 80);
     try {
-      const { data } = await service
-        .from("profiles")
-        .select(
-          "display_name, handle, avatar_url, bio, city, portfolio_about"
-        )
-        .neq("is_test_persona", true)
-        .or(
-          `bio.ilike.%${query}%,portfolio_about.ilike.%${query}%,display_name.ilike.%${query}%,city.ilike.%${query}%`
-        )
-        .limit(8);
+      let matches: any[] = [];
+      if (safe.length >= 2) {
+        const { data } = await service
+          .from("profiles")
+          .select(
+            "display_name, handle, avatar_url, bio, city, portfolio_about, last_active_at"
+          )
+          .neq("is_test_persona", true)
+          .or(
+            `bio.ilike.%${safe}%,portfolio_about.ilike.%${safe}%,display_name.ilike.%${safe}%,city.ilike.%${safe}%`
+          )
+          .order("last_active_at", { ascending: false, nullsFirst: false })
+          .limit(8);
+        matches = (data ?? []) as any[];
+      }
+      let fallback = false;
+      // If the specific query missed (or was too short), fall back to
+      // the most-active platform users so Sync always has something
+      // to talk about instead of saying "no results". The visitor
+      // sees the `fallback:true` flag in the right rail.
+      if (matches.length === 0) {
+        fallback = true;
+        const { data } = await service
+          .from("profiles")
+          .select(
+            "display_name, handle, avatar_url, bio, city, portfolio_about, last_active_at"
+          )
+          .neq("is_test_persona", true)
+          .not("display_name", "is", null)
+          .order("last_active_at", { ascending: false, nullsFirst: false })
+          .limit(8);
+        matches = (data ?? []) as any[];
+      }
       return {
-        matches: ((data ?? []) as any[]).map((r) => ({
+        fallback,
+        query: safe,
+        matches: matches.map((r) => ({
           name: r.display_name,
           handle: r.handle,
           city: r.city,
@@ -181,7 +220,7 @@ async function runTool(
         }))
       };
     } catch (e: any) {
-      return { error: e?.message || "search failed", matches: [] };
+      return { error: e?.message || "search failed", matches: [], fallback: false };
     }
   }
 
