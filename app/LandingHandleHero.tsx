@@ -107,7 +107,22 @@ function parseInput(
   return { handle: s, detectedPlatform: detected };
 }
 
-export function LandingHandleHero() {
+export function LandingHandleHero({
+  realFaces = []
+}: {
+  /** Real platform users with uploaded avatars. Server-fetched in
+   *  app/page.tsx and passed in so the social-proof avatar strip
+   *  shows actual people, not DiceBear placeholders. Jack: "use real
+   *  photos also on the homepage rather than these weird ones next
+   *  to the 40+ founders syncing thing." Empty array falls back to
+   *  the previous DiceBear avatars below. */
+  realFaces?: Array<{
+    id: string;
+    name: string;
+    avatar_url: string;
+    handle: string | null;
+  }>;
+} = {}) {
   const router = useRouter();
   const [platform, setPlatform] = useState<Platform>(PLATFORMS[2]); // LinkedIn default
   const [handle, setHandle] = useState("");
@@ -317,21 +332,42 @@ export function LandingHandleHero() {
         }
       `}</style>
 
-      {/* Social proof */}
+      {/* Social proof — real platform users when we have them, dicebear
+          placeholders otherwise. The pile reads as authentic when these
+          are recognizable faces (founders, builders, advisors), so the
+          server-side fetch in app/page.tsx prioritizes most-active users
+          with uploaded avatars over the auto-generated identicons. */}
       <div className="lh-proof">
         <div className="lh-avatars" aria-hidden="true">
-          <img
-            src="https://api.dicebear.com/9.x/notionists/svg?seed=marina"
-            alt=""
-          />
-          <img
-            src="https://api.dicebear.com/9.x/notionists/svg?seed=darius"
-            alt=""
-          />
-          <img
-            src="https://api.dicebear.com/9.x/notionists/svg?seed=ari"
-            alt=""
-          />
+          {realFaces.length >= 3 ? (
+            // Top 3 real users, eagerly loaded so they render with the
+            // hero (no lazy flicker).
+            realFaces.slice(0, 3).map((f) => (
+              <img
+                key={f.id}
+                src={f.avatar_url}
+                alt={f.name}
+                title={f.name}
+                loading="eager"
+                referrerPolicy="no-referrer"
+              />
+            ))
+          ) : (
+            <>
+              <img
+                src="https://api.dicebear.com/9.x/notionists/svg?seed=marina"
+                alt=""
+              />
+              <img
+                src="https://api.dicebear.com/9.x/notionists/svg?seed=darius"
+                alt=""
+              />
+              <img
+                src="https://api.dicebear.com/9.x/notionists/svg?seed=ari"
+                alt=""
+              />
+            </>
+          )}
         </div>
         <div className="lh-proof-text">
           <span className="lh-proof-headline">

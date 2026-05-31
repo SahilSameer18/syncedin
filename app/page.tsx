@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "./Wordmark";
 import { LandingHandleHero } from "./LandingHandleHero";
 
@@ -20,6 +20,45 @@ export default async function HomePage() {
     data: { user }
   } = await supabase.auth.getUser();
   if (user) redirect("/dashboard");
+
+  // Jack: "use real photos also on the homepage rather than these weird
+  // ones next to the 40+ founders syncing thing. Use real photos of
+  // people on the platform." Pull a handful of real users with an
+  // actual uploaded avatar (filter out the DiceBear-default ones) so
+  // the social-proof strip is genuine. Falls back to the prior dicebear
+  // SVGs if the query 500s or returns nothing.
+  let realFaces: Array<{
+    id: string;
+    name: string;
+    avatar_url: string;
+    handle: string | null;
+  }> = [];
+  try {
+    const service = createServiceClient();
+    const { data: rows } = await service
+      .from("profiles")
+      .select("id, display_name, email, avatar_url, handle, last_active_at")
+      .not("avatar_url", "is", null)
+      // DiceBear / robohash / gravatar identicon fallbacks aren't "real"
+      // — filter to actual uploaded photos. The pattern catches every
+      // generated-avatar URL host we know of.
+      .not("avatar_url", "ilike", "%dicebear%")
+      .not("avatar_url", "ilike", "%robohash%")
+      .not("avatar_url", "ilike", "%gravatar%")
+      .order("last_active_at", { ascending: false, nullsFirst: false })
+      .limit(8);
+    realFaces = ((rows ?? []) as any[])
+      .filter((r) => (r.display_name || r.email))
+      .slice(0, 5)
+      .map((r) => ({
+        id: r.id as string,
+        name: (r.display_name as string) || (r.email as string).split("@")[0],
+        avatar_url: r.avatar_url as string,
+        handle: (r.handle as string) ?? null
+      }));
+  } catch {
+    /* fall back to placeholder avatars in the hero */
+  }
 
   return (
     <main>
@@ -140,8 +179,11 @@ export default async function HomePage() {
           }
         `}</style>
 
-        {/* Hero — handle picker, the only conversion surface above the fold */}
-        <LandingHandleHero />
+        {/* Hero — handle picker, the only conversion surface above the fold.
+            realFaces fetched above so the 40+ founders social proof strip
+            shows actual platform users (Jack: "use real photos also on
+            the homepage rather than these weird ones"). */}
+        <LandingHandleHero realFaces={realFaces} />
 
         {/* Manifesto line — the soul of the project. Jack: "under
             this lets put the prior copy we made about what if the real
