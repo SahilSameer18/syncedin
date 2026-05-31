@@ -14,36 +14,33 @@ export default async function NewConferencePage() {
 
   return (
     <AppShell>
-      {/* MANIFESTO HERO — shrunk so the NetworkDensity animation lands
-          above-the-fold. Jack: "we can make this element a bit smaller
-          so that that whole part is viewable without scrolling." Hero
-          headline reduced from text-4xl/5xl → text-2xl/3xl, gaps + body
-          copy trimmed, single-paragraph collapse. */}
-      <section className="mt-2">
-        <div className="retro-label">sync a conference</div>
-        <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
-          Build the strongest inner-network of your life.
-        </h1>
-        <p
-          className="mt-2 text-sm sm:text-base leading-relaxed"
-          style={{ color: "var(--text-dim)" }}
-        >
-          Conferences, cohorts, residencies are loose collections of brilliant
-          people who mostly never talk to the right counterpart in the room.
-          Every attendee builds a twin, every twin talks to every other twin
-          in parallel, and each human walks in with a ranked shortlist of who
-          to sit next to.
-        </p>
+      {/* Side-by-side hero — text left, NetworkDensity right (Jack:
+          'shrunk and text can go to the left of it') so neither dominates
+          the viewport. Stacks on mobile. */}
+      <section className="mt-2 grid lg:grid-cols-[5fr_4fr] gap-6 items-center">
+        <div>
+          <div className="retro-label">sync a conference</div>
+          <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
+            Build the strongest inner-network of your life.
+          </h1>
+          <p
+            className="mt-2 text-sm sm:text-base leading-relaxed"
+            style={{ color: "var(--text-dim)" }}
+          >
+            Conferences, cohorts, residencies are loose collections of
+            brilliant people who mostly never talk to the right
+            counterpart in the room. Every attendee builds a twin, every
+            twin talks to every other twin in parallel, and each human
+            walks in with a ranked shortlist of who to sit next to.
+          </p>
+        </div>
 
-        {/* Same animated walking-vs-light-speed comparison as the community
-            manifesto, but framed for a one-time event. Replaces the older
-            static SVG NetworkComparison. */}
-        <div className="mt-4">
+        <div>
           <NetworkDensity
-            slowLabel="Today · speed of walking & small talk"
+            slowLabel="Today · walking & small talk"
             fastLabel="On SyncedIn · speed of light"
-            slowCaption="One hallway conversation at a time. Most attendees never find the counterpart they should have spent an hour with."
-            fastCaption="Twins find the high-leverage pairings before anyone arrives. Each human walks in with a ranked shortlist of who to talk to."
+            slowCaption="One hallway conversation at a time."
+            fastCaption="Twins find the high-leverage pairings before anyone arrives."
             tagline={
               <>
                 Deeper connections,{" "}
@@ -52,25 +49,25 @@ export default async function NewConferencePage() {
             }
           />
         </div>
+      </section>
 
-        {/* Three concrete pillars */}
-        <div className="mt-16 grid sm:grid-cols-3 gap-5">
-          <Pillar
-            k="01"
-            t="Every attendee onboards a twin"
-            d="A 5-minute self-portrait — goals, voice, deal preferences. Their clone is ready before the venue doors open."
-          />
-          <Pillar
-            k="02"
-            t="Twins meet in parallel"
-            d="N² conversations run silently. The platform surfaces the matches your attendees would have spent the whole event hunting for."
-          />
-          <Pillar
-            k="03"
-            t="Humans only see what matters"
-            d="A short list of pre-vetted win-wins per person. Hallway-track signal without the hallway-track tax."
-          />
-        </div>
+      {/* Three concrete pillars */}
+      <section className="mt-10 grid sm:grid-cols-3 gap-5">
+        <Pillar
+          k="01"
+          t="Every attendee onboards a twin"
+          d="A 5-minute self-portrait — goals, voice, deal preferences. Their clone is ready before the venue doors open."
+        />
+        <Pillar
+          k="02"
+          t="Twins meet in parallel"
+          d="N² conversations run silently. The platform surfaces the matches your attendees would have spent the whole event hunting for."
+        />
+        <Pillar
+          k="03"
+          t="Humans only see what matters"
+          d="A short list of pre-vetted win-wins per person. Hallway-track signal without the hallway-track tax."
+        />
       </section>
 
       {/* FORM */}

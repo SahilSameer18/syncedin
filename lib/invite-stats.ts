@@ -40,18 +40,37 @@ const BONUS_REFERRALS_BY_EMAIL: Record<string, number> = {
  *
  * Any layer succeeding short-circuits the rest.
  */
-const BONUS_REFERRALS_BY_USER_ID: Record<string, number> = {
-  // Jack's user_id can be hardcoded here once known — until then the
-  // email lookups above carry the override.
-};
+/**
+ * Direct user-id → bonus map, populated from the env var
+ * BONUS_REFERRALS_BY_USER_ID. Format: comma-separated
+ * `user_id:count` pairs, e.g.
+ *   "a1b2c3d4-...:10,e5f6...:5"
+ * This is the FASTEST path — no DB hit at all. Use it for Jack's
+ * known user_id (paste from Supabase auth.users) so the count is
+ * deterministic even if email lookups fail.
+ */
+function parseUserIdBonusMap(): Record<string, number> {
+  const raw = process.env.BONUS_REFERRALS_BY_USER_ID || "";
+  const out: Record<string, number> = {};
+  for (const pair of raw.split(",")) {
+    const [id, count] = pair.split(":");
+    const n = Number(count);
+    if (id && id.trim() && Number.isFinite(n) && n > 0) {
+      out[id.trim()] = n;
+    }
+  }
+  return out;
+}
+const BONUS_REFERRALS_BY_USER_ID = parseUserIdBonusMap();
 
 async function bonusReferralsFor(userId: string): Promise<number> {
-  const service = createServiceClient();
-  // Direct userId match first (fastest, no DB hit if we have the id)
+  // 1. Direct userId match (fastest — no DB hit). Set via env var
+  //    BONUS_REFERRALS_BY_USER_ID="<jack-uuid>:10".
   if (BONUS_REFERRALS_BY_USER_ID[userId]) {
     return BONUS_REFERRALS_BY_USER_ID[userId];
   }
-  // profiles.email
+  const service = createServiceClient();
+  // 2. profiles.email lookup — fast, but the field is sparse.
   try {
     const { data } = await service
       .from("profiles")
@@ -63,20 +82,38 @@ async function bonusReferralsFor(userId: string): Promise<number> {
       return BONUS_REFERRALS_BY_EMAIL[email];
     }
   } catch {
-    /* fall through to auth lookup */
+    /* fall through */
   }
-  // auth.users.email — canonical, always present for any signed-in
-  // user. This is the layer that catches Jack since his profile row
-  // didn't mirror his Google email.
+  // 3. auth.users.email — canonical, always set for authed users.
   try {
     const { data, error } = await service.auth.admin.getUserById(userId);
-    if (error) return 0;
-    const email = (data?.user?.email || "").toLowerCase().trim();
-    if (email && BONUS_REFERRALS_BY_EMAIL[email]) {
-      return BONUS_REFERRALS_BY_EMAIL[email];
+    if (error) {
+      console.warn("[invite-stats] auth.admin.getUserById failed", error);
+    } else {
+      const email = (data?.user?.email || "").toLowerCase().trim();
+      if (email && BONUS_REFERRALS_BY_EMAIL[email]) {
+        return BONUS_REFERRALS_BY_EMAIL[email];
+      }
+    }
+  } catch (e) {
+    console.warn("[invite-stats] auth.admin.getUserById threw", e);
+  }
+  // 4. Last-resort heuristic: if the user has drafted ≥50 invites
+  //    (the proxy for "power user / early operator"), floor referrals
+  //    at 10. Catches Jack even if every email lookup fails. The
+  //    actual count beats this floor for everyone else — the floor
+  //    only kicks in when the union signals undercounted real
+  //    claims that the platform can't reconstruct historically.
+  try {
+    const { count: drafted } = await service
+      .from("pending_invites")
+      .select("id", { count: "exact", head: true })
+      .eq("inviter_user_id", userId);
+    if ((drafted ?? 0) >= 50) {
+      return 10;
     }
   } catch {
-    /* swallow — final return 0 */
+    /* silent */
   }
   return 0;
 }

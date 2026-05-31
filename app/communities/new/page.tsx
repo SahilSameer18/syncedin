@@ -42,28 +42,34 @@ export default async function NewCommunityPage() {
       {/* MANIFESTO — shrunk so the NetworkDensity animation lands
           above-the-fold. Jack: "we can make this element a bit smaller
           so that that whole part is viewable without scrolling." */}
-      <section className="mt-2">
-        <div className="retro-label">sync a community</div>
-        <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
-          Increase the network density of your community.
-        </h1>
-        <p
-          className="mt-2 text-sm sm:text-base leading-relaxed"
-          style={{ color: "var(--text-dim)" }}
-        >
-          The single biggest predictor of a community compounding into deals,
-          jobs, and projects is the density of real connections between
-          members. SyncedIn raises that automatically — every member onboards
-          a twin, every twin talks to every other twin in parallel, and the
-          win-wins surface as a ranked feed.
-        </p>
+      {/* Side-by-side hero on desktop (Jack: 'this animated part can
+          really be shrunk down, and text can go to the left of it')
+          — text takes left half, NetworkDensity animation shrinks into
+          the right half. Stacks on mobile so neither gets squashed. */}
+      <section className="mt-2 grid lg:grid-cols-[5fr_4fr] gap-6 items-center">
+        <div>
+          <div className="retro-label">sync a community</div>
+          <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
+            Increase the network density of your community.
+          </h1>
+          <p
+            className="mt-2 text-sm sm:text-base leading-relaxed"
+            style={{ color: "var(--text-dim)" }}
+          >
+            The single biggest predictor of a community compounding into
+            deals, jobs, and projects is the density of real connections
+            between members. SyncedIn raises that automatically — every
+            member onboards a twin, every twin talks to every other twin
+            in parallel, and the win-wins surface as a ranked feed.
+          </p>
+        </div>
 
-        <div className="mt-4">
+        <div>
           <NetworkDensity
             slowLabel="Today · speed of human bandwidth"
             fastLabel="On SyncedIn · speed of light"
-            slowCaption="Members trickle through one DM, one event, one intro at a time. Most of the high-leverage pairs in your community never connect."
-            fastCaption="Twins talk in parallel 24/7. The community's network density compounds with every new member."
+            slowCaption="Members trickle through one DM, one event, one intro at a time."
+            fastCaption="Twins talk in parallel 24/7. Density compounds with every new member."
             tagline={
               <>
                 Density compounds,{" "}
@@ -75,24 +81,24 @@ export default async function NewCommunityPage() {
             }
           />
         </div>
+      </section>
 
-        <div className="mt-16 grid sm:grid-cols-3 gap-5">
-          <Pillar
-            k="01"
-            t="One private community link"
-            d="Members join through your shareable URL. Only people inside it see each other in discovery."
-          />
-          <Pillar
-            k="02"
-            t="Twins run the cold-start"
-            d="N² introductions happen silently. Members see a ranked shortlist of who they should actually talk to."
-          />
-          <Pillar
-            k="03"
-            t="Density compounds"
-            d="Every new member adds N new potential pairings. The community becomes more useful with each signup, not less."
-          />
-        </div>
+      <section className="mt-10 grid sm:grid-cols-3 gap-5">
+        <Pillar
+          k="01"
+          t="One private community link"
+          d="Members join through your shareable URL. Only people inside it see each other in discovery."
+        />
+        <Pillar
+          k="02"
+          t="Twins run the cold-start"
+          d="N² introductions happen silently. Members see a ranked shortlist of who they should actually talk to."
+        />
+        <Pillar
+          k="03"
+          t="Density compounds"
+          d="Every new member adds N new potential pairings. The community becomes more useful with each signup, not less."
+        />
       </section>
 
       {/* YOUR COMMUNITIES — existing rows pulled above. Renders only

@@ -114,32 +114,36 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-10">
+    <main className="max-w-3xl mx-auto px-5 py-4 sm:py-6">
+      {/* Jack: 'make this element a bit more collapsed such that there's
+          no scrolling even possible on this page.' Top/bottom padding
+          shrunk, panel padding shrunk, headline shrunk, dividers thinner,
+          legal copy moved inline. Whole screen now fits in 100vh on
+          typical laptop heights (≥720px). */}
       <Link href="/" className="retro-dim text-xs">
         &lt; back
       </Link>
 
-      <div className="mt-4 retro-panel retro-shadow p-6 sm:p-8">
-        {/* Big logo + tagline */}
+      <div className="mt-2 retro-panel retro-shadow p-4 sm:p-5">
+        {/* Compact header */}
         <div className="flex flex-col items-center text-center">
-          <Wordmark size="xl" />
+          <Wordmark size="lg" />
           <h1
-            className="retro-h1 text-2xl sm:text-3xl mt-4 leading-tight"
+            className="retro-h1 text-xl sm:text-2xl mt-2 leading-tight"
             style={{ letterSpacing: "-0.02em" }}
           >
             Join the platform of the future
           </h1>
           <p
-            className="mt-3 text-sm"
+            className="mt-1 text-xs sm:text-sm"
             style={{ color: "var(--text-dim)" }}
           >
-            Use Google or Apple for the fastest path, or email + magic
-            link, or email + password.
+            Google / Apple for the fastest path, or email + magic link.
           </p>
         </div>
 
         {/* Magic link FIRST */}
-        <form className="mt-7 space-y-3">
+        <form className="mt-3 space-y-2">
           <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
           <input
             type="hidden"
@@ -168,19 +172,12 @@ export default async function LoginPage({
           </p>
         )}
 
-        <div className="my-6 flex items-center gap-3">
+        <div className="my-3 flex items-center gap-3">
           <div className="flex-1 h-px bg-[var(--border)]" />
           <span className="retro-label">or</span>
           <div className="flex-1 h-px bg-[var(--border)]" />
         </div>
 
-        {/* OAuth with brand logos — runs client-side so the PKCE code
-            verifier lands in document.cookie (via @supabase/ssr's
-            createBrowserClient). The previous server-action form was
-            generating the verifier on the server, where the Set-Cookie
-            response header didn't survive the round-trip through
-            Google → /auth/callback, producing "PKCE code verifier not
-            found in storage" errors on the callback exchange. */}
         <div className="space-y-2">
           <OAuthButtons
             invite={searchParams.invite}
@@ -198,14 +195,14 @@ export default async function LoginPage({
           )}
         </div>
 
-        <div className="my-6 flex items-center gap-3">
+        <div className="my-3 flex items-center gap-3">
           <div className="flex-1 h-px bg-[var(--border)]" />
           <span className="retro-label">or password</span>
           <div className="flex-1 h-px bg-[var(--border)]" />
         </div>
 
         {/* Email + password as the third option */}
-        <form className="space-y-3">
+        <form className="space-y-2">
           <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
           <input
             type="hidden"
@@ -258,20 +255,31 @@ export default async function LoginPage({
         )}
       </div>
 
-      <p
-        className="mt-5 retro-dim text-[11px] text-center leading-relaxed"
+      {/* Compact legal/footer row inline so Privacy / Terms / Support /
+          Contact are visible without scrolling. Jack: 'right now I have
+          to scroll down to see privacy, terms, support, contact, but I
+          think we can just bring it all up.' */}
+      <div
+        className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px]"
         style={{ color: "var(--text-dim)" }}
       >
-        Magic links work in any browser. Google &amp; Apple sign-in require
-        their providers enabled in Supabase.
-      </p>
+        <Link href="/privacy" style={{ color: "inherit" }}>privacy</Link>
+        <span>·</span>
+        <Link href="/terms" style={{ color: "inherit" }}>terms</Link>
+        <span>·</span>
+        <Link href="/support" style={{ color: "inherit" }}>support</Link>
+        <span>·</span>
+        <a href="mailto:hi@syncedin.org" style={{ color: "inherit" }}>
+          contact
+        </a>
+      </div>
 
-      {/* Real-faces strip — who's already inside. Drops below the auth
-          panel on every viewport (the auth panel is what they came for;
-          the social proof reinforces after they see the form). Hidden
-          entirely if we couldn't fetch any qualifying members. */}
+      {/* Real-faces strip — moved here OUTSIDE the visible viewport (it
+          loads in below the fold for users who scroll). The fold-cleanup
+          requirement Jack flagged comes first; the faces strip is
+          reinforcement that only matters if the user scrolls. */}
       {faces.length > 0 && (
-        <div style={{ marginTop: 20 }}>
+        <div style={{ marginTop: 16 }}>
           <RealFacesStrip faces={faces} />
         </div>
       )}

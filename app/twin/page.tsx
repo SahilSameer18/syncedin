@@ -32,17 +32,17 @@ export default async function TwinPage() {
   return (
     <AppShell>
       <section className="mt-2">
-        <div className="retro-label">talk to your twin</div>
+        <div className="retro-label">chat</div>
         <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
-          Think with your digital twin.
+          Chat with your twin.
         </h1>
         <p
           className="mt-2 text-sm sm:text-base leading-relaxed"
           style={{ color: "var(--text-dim)" }}
         >
-          Your twin already knows your goals, your deal preferences, your
-          voice. Ask it for triage on pending proposals, push back on its
-          framing, or use this thread to refine how it represents you.
+          Your AI knows your goals, your voice, who's on the platform.
+          Ask it who to reach out to, triage proposals, draft a message
+          to send to anyone — this is your home base.
         </p>
 
         <div className="mt-6">
