@@ -220,13 +220,22 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
     };
   }, []);
 
-  // Auto-scroll on new message / typing indicator.
+  // Auto-scroll on new message / typing indicator. On the very first
+  // post-load paint we jump instantly (no smooth animation) so the
+  // user lands at the bottom — Jack: "start me at the bottom of that
+  // chat." After that, new messages animate in smoothly.
+  const didInitialScrollRef = useRef(false);
   useEffect(() => {
-    scrollerRef.current?.scrollTo({
-      top: scrollerRef.current.scrollHeight,
-      behavior: "smooth"
-    });
-  }, [messages.length, sending]);
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (!didInitialScrollRef.current && loaded) {
+      // First scroll after history hydrated — go instantly to bottom.
+      el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+      didInitialScrollRef.current = true;
+      return;
+    }
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages.length, sending, loaded]);
 
   async function send() {
     const t = text.trim();
@@ -317,17 +326,40 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
 
   return (
     <>
-      {/* SCROLLER — fills the viewport from below the page intro to
-          just above the fixed composer. Padding-bottom equal to the
-          composer height keeps the last message visible.*/}
+      {/* SCROLLER — Jack: "The chat page should be separated from the
+          menu page in a different scroll, and start me at the bottom
+          of that chat." Was using body scroll (the whole page scrolled
+          as one). Now an independent overflow-y container with its
+          own height budget, so the intro header above + sidebar stay
+          locked while only this panel pans.
+
+          Height math:
+            100dvh - 64px (top bar) - ~210px (page intro h1+blurb+spacing)
+                   - COMPOSER_HEIGHT - safe-area-inset-bottom.
+          Mobile clamp at min-300px so the chat never collapses to
+          nothing on tiny viewports.
+
+          On mount the post-load effect scrolls this element to the
+          bottom (newest messages visible) since the scroll target is
+          now THIS div, not the page body. */}
       <div
         ref={scrollerRef}
+        className="twin-scroller"
         style={{
           display: "flex",
           flexDirection: "column",
           gap: 10,
-          paddingBottom: COMPOSER_HEIGHT + 24,
-          minHeight: `calc(100dvh - 320px)`
+          padding: "4px 4px 12px",
+          // Independent scroll context.
+          overflowY: "auto",
+          overscrollBehavior: "contain",
+          // Height: viewport minus topbar minus intro minus composer.
+          // Tuned to leave the chat as the dominant surface on the page.
+          height: `calc(100dvh - 64px - 210px - ${COMPOSER_HEIGHT}px - env(safe-area-inset-bottom, 0px))`,
+          minHeight: 300,
+          // Solid background so messages don't render over the page
+          // bg when the scroller has its own bounds.
+          background: "transparent"
         }}
       >
         {!loaded && (

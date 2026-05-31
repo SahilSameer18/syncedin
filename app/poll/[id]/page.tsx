@@ -7,6 +7,8 @@ import { OverrideRow } from "./OverrideRow";
 import { ReSynthesizeButton } from "./ReSynthesizeButton";
 import { PollMissingTwinsButton } from "./PollMissingTwinsButton";
 import { startConversationByUserId } from "../../conversations/new/actions";
+import { SocialIconRow } from "../../SocialIconRow";
+import { socialsFromBlob } from "@/lib/social-from-blob";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,19 @@ type ProfileRow = {
   display_name: string | null;
   email: string | null;
   avatar_url: string | null;
+  handle?: string | null;
+  // Jack: "on this page where we're showing the twins' answers, we
+  // might as well display information about that person and those
+  // links to them and make their profile button clickable." Extended
+  // with bio + city + social URLs so each row carries the same info
+  // the dashboard cards already do.
+  bio?: string | null;
+  city?: string | null;
+  linkedin_url?: string | null;
+  x_url?: string | null;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+  website_url?: string | null;
 };
 
 export default async function PollDetailPage({
@@ -71,18 +86,60 @@ export default async function PollDetailPage({
   const responses = (responsesData ?? []) as ResponseRow[];
 
   const userIds = responses.map((r) => r.twin_user_id);
-  const { data: profilesData } = userIds.length
-    ? await service
+  // Pull the full profile shape (social URLs + bio + city) so each
+  // poll row can render the same context the dashboard cards do.
+  // Falls back to the lean shape if any column is missing on this DB.
+  let profilesData: ProfileRow[] = [];
+  if (userIds.length) {
+    try {
+      const { data } = await service
+        .from("profiles")
+        .select(
+          "id, display_name, email, avatar_url, handle, bio, city, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+        )
+        .in("id", userIds);
+      profilesData = (data ?? []) as ProfileRow[];
+    } catch {
+      const { data } = await service
         .from("profiles")
         .select("id, display_name, email, avatar_url, handle")
-        .in("id", userIds)
-    : { data: [] as ProfileRow[] };
-  const profiles = ((profilesData ?? []) as ProfileRow[]).reduce<
-    Record<string, ProfileRow>
-  >((acc, pr) => {
-    acc[pr.id] = pr;
-    return acc;
-  }, {});
+        .in("id", userIds);
+      profilesData = (data ?? []) as ProfileRow[];
+    }
+  }
+  const profiles = profilesData.reduce<Record<string, ProfileRow>>(
+    (acc, pr) => {
+      acc[pr.id] = pr;
+      return acc;
+    },
+    {}
+  );
+
+  // Also pull each twin's ai_export_blob so socialsFromBlob can infer
+  // LinkedIn / X / IG / FB URLs that the user added via Sources (which
+  // land in the blob, not the explicit *_url columns). Mirrors the
+  // pattern on proposals/page.tsx + dashboard cards.
+  const twinByUserId = new Map<
+    string,
+    { ai_export_blob: string | null; goals: string | null; deal_preferences: string | null }
+  >();
+  if (userIds.length) {
+    try {
+      const { data: twins } = await service
+        .from("twin_profiles")
+        .select("user_id, ai_export_blob, goals, deal_preferences")
+        .in("user_id", userIds);
+      for (const t of ((twins ?? []) as any[])) {
+        twinByUserId.set(t.user_id, {
+          ai_export_blob: t.ai_export_blob ?? null,
+          goals: t.goals ?? null,
+          deal_preferences: t.deal_preferences ?? null
+        });
+      }
+    } catch {
+      /* silent — social icons fall back to explicit columns only */
+    }
+  }
 
   const myResponse = responses.find((r) => r.twin_user_id === user.id) ?? null;
   const networkResponses = responses
@@ -296,17 +353,65 @@ export default async function PollDetailPage({
                       {pr?.avatar_url ? "" : name.slice(0, 1).toUpperCase()}
                     </div>
                     <div
-                      className="font-semibold text-sm"
-                      style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+                      style={{
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        minWidth: 0,
+                        flex: 1
+                      }}
                     >
-                      <span className="group-hover:underline">{name}</span>
-                      {r.was_overridden && (
-                        <span
-                          className="ml-2 text-xs"
-                          style={{ color: "var(--amber-bright)" }}
+                      <div
+                        className="font-semibold text-sm"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          flexWrap: "wrap"
+                        }}
+                      >
+                        <span className="group-hover:underline">{name}</span>
+                        {/* Social icons — LinkedIn / X / IG / FB / web.
+                            Inferred from explicit columns + the
+                            ai_export_blob fallback so users who only
+                            added socials via Sources still light up. */}
+                        <SocialIconRow
+                          urls={
+                            pr
+                              ? socialsFromBlob(
+                                  pr,
+                                  twinByUserId.get(r.twin_user_id)
+                                )
+                              : null
+                          }
+                          size={13}
+                        />
+                        {r.was_overridden && (
+                          <span
+                            className="text-xs"
+                            style={{ color: "var(--amber-bright)" }}
+                          >
+                            ✓ human-corrected
+                          </span>
+                        )}
+                      </div>
+                      {/* One-line context — bio fallback to city.
+                          Jack: "we might as well display information
+                          about that person." */}
+                      {(pr?.bio || pr?.city) && (
+                        <div
+                          className="retro-dim text-xs"
+                          style={{
+                            marginTop: 2,
+                            lineHeight: 1.4,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 1,
+                            WebkitBoxOrient: "vertical"
+                          }}
                         >
-                          ✓ human-corrected
-                        </span>
+                          {pr.bio ?? pr.city}
+                        </div>
                       )}
                     </div>
                   </Link>

@@ -233,15 +233,15 @@ export default async function PortfolioPage({
     );
   }
 
-  // Pull one or two "recent context" snippets from ai_export_blob — these
-  // are the markdown-headered chunks added via Sources + Life Update. Most
-  // recent first.
-  const blob = ((twin as any)?.ai_export_blob || "") as string;
-  const blocks = blob
-    .split(/\n(?=#\s+)/)
-    .map((b) => b.trim())
-    .filter((b) => b.length > 30)
-    .slice(0, 4);
+  // "Recent context" raw-scrape section removed (Jack: "on people's
+  // profiles, we don't need to show recent context like the actual
+  // scrape. That doesn't look good"). The ai_export_blob is still
+  // used to BUILD portfolio_page via Claude — we just don't dump
+  // the raw markdown chunks onto the public page anymore. The blob
+  // is internal twin-context, not user-facing copy. Holding the
+  // empty array so the conditional render below evaluates to nothing
+  // without restructuring the JSX.
+  const blocks: string[] = [];
 
   return (
     <main

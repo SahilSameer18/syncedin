@@ -35,20 +35,40 @@ export function ReSynthesizeButton({ pollId }: { pollId: string }) {
   }
 
   return (
-    <div className="mt-5 flex items-center gap-3">
-      <button
-        type="button"
-        onClick={run}
-        disabled={running}
-        className="retro-btn text-xs"
+    <div
+      className="mt-5"
+      style={{ display: "flex", flexDirection: "column", gap: 6 }}
+    >
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={run}
+          disabled={running}
+          className="retro-btn text-xs"
+          title="Re-read every twin's answer (plus your manual corrections) and write a fresh top-level synthesis."
+        >
+          {running
+            ? "re-synthesizing…"
+            : "↻ re-synthesize with corrections"}
+        </button>
+        {error && (
+          <span className="text-xs" style={{ color: "var(--red, #ef4444)" }}>
+            {error}
+          </span>
+        )}
+      </div>
+      {/* Jack: "I don't really know what it means when it's
+          re-synthesized with overrides." Spell it out inline so the
+          button isn't a mystery. */}
+      <p
+        className="retro-dim text-xs"
+        style={{ maxWidth: 560, lineHeight: 1.5, margin: 0 }}
       >
-        {running ? "re-synthesizing…" : "↻ re-synthesize with overrides"}
-      </button>
-      {error && (
-        <span className="text-xs" style={{ color: "var(--red, #ef4444)" }}>
-          {error}
-        </span>
-      )}
+        Re-reads every twin's answer below — including any you've
+        manually corrected — and writes a fresh top-level synthesis at
+        the top of the page. Use this after you fix an answer that the
+        twin got wrong, or after new people answer the poll.
+      </p>
     </div>
   );
 }

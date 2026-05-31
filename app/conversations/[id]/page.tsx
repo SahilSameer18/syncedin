@@ -12,6 +12,7 @@ import { TopBar } from "../../TopBar";
 import { SyncMeter } from "../../SyncMeter";
 import Link from "next/link";
 import type { Message, AgreementResponse } from "@/lib/types";
+import { socialsFromBlob } from "@/lib/social-from-blob";
 
 export default async function ConversationPage({
   params,
@@ -52,23 +53,37 @@ export default async function ConversationPage({
     conv.participant_a === user.id ? conv.participant_b : conv.participant_a;
 
   const service = createServiceClient();
-  const [{ data: otherProfile }, { data: selfProfile }] = await Promise.all([
-    service
-      .from("profiles")
-      // Pull the public social URLs alongside the basics so the
-      // conversation header can render the clickable LinkedIn / X / IG /
-      // Facebook / website pills next to the counterpart's name.
-      .select(
-        "id, display_name, email, is_test_persona, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url"
-      )
-      .eq("id", otherId)
-      .single(),
-    service
-      .from("profiles")
-      .select("id, display_name, email, avatar_url")
-      .eq("id", user.id)
-      .single()
-  ]);
+  const [{ data: otherProfile }, { data: selfProfile }, { data: otherTwin }] =
+    await Promise.all([
+      service
+        .from("profiles")
+        // Pull the public social URLs + handle alongside the basics so
+        // the conversation header can render the clickable LinkedIn / X /
+        // IG / Facebook / website pills next to the counterpart's name
+        // AND wrap their avatar in a Link to /u/[handle]. Jack: "we need
+        // to show someone any social links they have in that header.
+        // Also let's make their profile page clickable if I click on the
+        // icon of their photo."
+        .select(
+          "id, display_name, email, handle, is_test_persona, avatar_url, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+        )
+        .eq("id", otherId)
+        .single(),
+      service
+        .from("profiles")
+        .select("id, display_name, email, avatar_url")
+        .eq("id", user.id)
+        .single(),
+      // Counterpart's twin_profile — used as a fallback when the social
+      // URLs aren't in the explicit *_url columns but ARE in the
+      // ai_export_blob (added via Sources). socialsFromBlob unifies both
+      // paths so users who only added socials via blob still light up.
+      service
+        .from("twin_profiles")
+        .select("ai_export_blob, goals, deal_preferences")
+        .eq("user_id", otherId)
+        .maybeSingle()
+    ]);
 
   const { data: messages } = await supabase
     .from("messages")
@@ -440,15 +455,19 @@ export default async function ConversationPage({
         id: otherProfile!.id,
         name: otherProfile!.display_name ?? otherProfile!.email,
         email: otherProfile!.email ?? null,
+        // Handle drives the avatar → /u/<handle> link in TwinLink.
+        handle: (otherProfile as any)?.handle ?? null,
         isTestPersona: otherProfile!.is_test_persona,
         avatarUrl: (otherProfile as any)?.avatar_url ?? null,
-        socials: {
-          linkedin_url: (otherProfile as any)?.linkedin_url ?? null,
-          x_url: (otherProfile as any)?.x_url ?? null,
-          instagram_url: (otherProfile as any)?.instagram_url ?? null,
-          facebook_url: (otherProfile as any)?.facebook_url ?? null,
-          website_url: (otherProfile as any)?.website_url ?? null
-        }
+        // socialsFromBlob unifies explicit *_url columns + URLs the
+        // user added via Sources (which land in ai_export_blob, not
+        // the explicit columns). Without this fallback Jack was
+        // seeing no social icons in the conversation header even
+        // when the counterpart clearly had LinkedIn / X linked.
+        socials: socialsFromBlob(
+          otherProfile as any,
+          otherTwin as any
+        )
       }}
       initialMessages={msgs}
       initialDone={done}
