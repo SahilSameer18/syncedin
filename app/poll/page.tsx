@@ -57,183 +57,172 @@ export default async function PollListPage() {
 
   return (
     <AppShell>
-      {/* MANIFESTO */}
-      <section className="mt-4">
-        <div className="retro-label">poll the network</div>
-        <h1 className="retro-h1 text-4xl sm:text-5xl mt-3 leading-tight">
-          Ask every twin on SyncedIn a question.
-        </h1>
-        <p
-          className="mt-5 text-base sm:text-lg leading-relaxed"
-          style={{ color: "var(--text-dim)", maxWidth: 760 }}
+      {/* 2-col layout like /messages — Jack: 'maybe we make polls more
+          like messages tab where there's a second menu of what the
+          polls are next to the left of the actual ask a question.'
+          Right: create form + tight pillars. Left: existing polls
+          rail, sticky on desktop. Stacks on mobile. */}
+      <div className="mt-4 grid lg:grid-cols-[280px_1fr] gap-6 items-start">
+        {/* LEFT — existing polls rail */}
+        <aside
+          className="lg:sticky"
+          style={{ top: 16 }}
         >
-          A poll on SyncedIn isn&apos;t a Twitter survey or a Google Form.
-          You write one question, every twin on the platform answers it in
-          their own voice based on their stored context, and the network
-          synthesizes a single paragraph of what we collectively believe.
-          Then you can see how your own twin responded and override it for
-          higher fidelity next time.
-        </p>
+          <div className="retro-label">recent polls</div>
+          {schemaMissing ? (
+            <p
+              className="mt-3 text-xs"
+              style={{ color: "var(--text-dim)" }}
+            >
+              Schema migration pending — recent polls hidden until then.
+            </p>
+          ) : polls.length === 0 ? (
+            <p
+              className="mt-3 text-xs"
+              style={{ color: "var(--text-dim)" }}
+            >
+              No polls yet. Be the first.
+            </p>
+          ) : (
+            <ul
+              className="mt-3"
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 6,
+                maxHeight: "calc(100dvh - 110px)",
+                overflowY: "auto",
+                paddingRight: 4
+              }}
+            >
+              {polls.map((p) => (
+                <li key={p.id}>
+                  <Link
+                    href={`/poll/${p.id}`}
+                    className="retro-panel retro-panel-hover block"
+                    style={{
+                      padding: "10px 12px",
+                      cursor: "pointer",
+                      borderColor:
+                        p.status === "running"
+                          ? "var(--amber)"
+                          : "var(--border-bright)"
+                    }}
+                    title={p.question}
+                  >
+                    <div
+                      style={{
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        color:
+                          p.status === "running"
+                            ? "var(--amber-bright)"
+                            : "var(--text-dim)"
+                      }}
+                    >
+                      {p.status === "running"
+                        ? "synthesizing…"
+                        : `${p.responses_count} ans${
+                            p.overrides_count > 0
+                              ? ` · ${p.overrides_count}✎`
+                              : ""
+                          }`}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 3,
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--text)",
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        lineHeight: 1.35
+                      }}
+                    >
+                      {p.question}
+                    </div>
+                    {p.synthesis_one_liner && (
+                      <div
+                        className="retro-dim"
+                        style={{
+                          marginTop: 4,
+                          fontSize: 11,
+                          lineHeight: 1.4,
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden"
+                        }}
+                      >
+                        → {p.synthesis_one_liner}
+                      </div>
+                    )}
+                    <div
+                      className="retro-dim"
+                      style={{ marginTop: 4, fontSize: 10 }}
+                    >
+                      <ClientDate value={p.created_at} />
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </aside>
 
-        <div className="mt-6 grid sm:grid-cols-3 gap-5">
-          <Pillar
-            k="01"
-            t="One question, every twin answers"
-            d="Every active twin on the platform generates a short first-person response shaped by their goals, voice, and context."
-          />
-          <Pillar
-            k="02"
-            t="Network-level synthesis"
-            d="A second pass distills all responses into one paragraph plus a one-line headline. Outlier views surface, majority leans get quantified."
-          />
-          <Pillar
-            k="03"
-            t="Correctable by humans"
-            d="See how your twin answered. If it got you wrong, edit your answer — your override carries extra weight in future synthesis."
-          />
-        </div>
-      </section>
-
-      {/* CREATE */}
-      <section className="mt-12">
-        <div className="retro-label">ask a new question</div>
-        <h2 className="retro-h1 text-2xl mt-2">
-          Run a poll right now.
-        </h2>
-        <p
-          className="mt-3 text-sm leading-relaxed"
-          style={{ color: "var(--text-dim)", maxWidth: 680 }}
-        >
-          Fan-out runs in parallel and usually finishes in 10-30 seconds
-          depending on network size. You&apos;ll land on the result page when
-          synthesis is complete.
-        </p>
-        <div className="mt-5">
-          <PollCreateForm />
-        </div>
-      </section>
-
-      {/* RECENT POLLS — skip this section entirely when the schema isn't
-          provisioned yet; the API error surfaces inline on the create form
-          and a separate "no recent polls" message would just be noise. */}
-      {!schemaMissing && (
-      <section className="mt-14 mb-8">
-        <div className="retro-label">recent polls</div>
-        <h2 className="retro-h1 text-2xl mt-2">
-          What the network has been asked.
-        </h2>
-        {polls.length === 0 ? (
+        {/* RIGHT — compact header + create form */}
+        <div>
+          <div className="retro-label">poll the network</div>
+          <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
+            Ask every twin on SyncedIn a question.
+          </h1>
           <p
-            className="mt-4 text-sm"
+            className="mt-2 text-sm leading-relaxed"
             style={{ color: "var(--text-dim)" }}
           >
-            No polls yet. Be the first to ask the network something real.
+            Every active twin answers in their own voice. The network
+            synthesizes a single paragraph of what we collectively believe.
+            See how your twin answered + correct it for next time.
           </p>
-        ) : (
-          <ul className="mt-4 space-y-3">
-            {polls.map((p) => (
-              <li key={p.id}>
-                <Link
-                  href={`/poll/${p.id}`}
-                  className="retro-panel retro-panel-hover block group"
-                  style={{
-                    padding: "16px 18px",
-                    paddingRight: 44,
-                    position: "relative",
-                    cursor: "pointer",
-                    borderColor:
-                      p.status === "running"
-                        ? "var(--amber)"
-                        : "var(--border-bright)"
-                  }}
-                >
-                  {/* Right-edge chevron — visible at rest so it's obvious
-                      this card is tappable, not a static label. Saturates
-                      on hover via the group class. */}
-                  {/* Chevron sits visually inside the card; the whole
-                      card is already a Link, so this is decorative. */}
-                  <span
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      right: 14,
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      width: 28,
-                      height: 28,
-                      borderRadius: 14,
-                      border: "1px solid var(--border-bright)",
-                      background: "var(--panel-2)",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "var(--text-dim)",
-                      fontSize: 13,
-                      fontWeight: 700,
-                      transition: "color 120ms, border-color 120ms",
-                      pointerEvents: "none"
-                    }}
-                  >
-                    →
-                  </span>
-                  <div
-                    className="text-xs"
-                    style={{
-                      color:
-                        p.status === "running"
-                          ? "var(--amber-bright)"
-                          : "var(--text-dim)",
-                      letterSpacing: "0.08em",
-                      textTransform: "uppercase",
-                      fontWeight: 700
-                    }}
-                  >
-                    {p.status === "running"
-                      ? "Synthesizing…"
-                      : p.status === "ready"
-                      ? `${p.responses_count} responses${
-                          p.overrides_count > 0
-                            ? ` · ${p.overrides_count} human-corrected`
-                            : ""
-                        }`
-                      : p.status}
-                  </div>
-                  <div
-                    className="mt-1 font-semibold"
-                    style={{ color: "var(--text)", fontSize: 16 }}
-                  >
-                    {p.question}
-                  </div>
-                  {p.synthesis_one_liner && (
-                    <div
-                      className="mt-2 text-sm"
-                      style={{ color: "var(--text-dim)", lineHeight: 1.5 }}
-                    >
-                      → {p.synthesis_one_liner}
-                    </div>
-                  )}
-                  <div
-                    className="mt-2 text-xs"
-                    style={{ color: "var(--text-dim)" }}
-                  >
-                    <ClientDate value={p.created_at} />
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-      )}
+
+          <div className="mt-5">
+            <PollCreateForm />
+          </div>
+
+          {/* Pillars — compact 3-up under the form for context, no
+              longer the dominant element. */}
+          <div className="mt-8 grid sm:grid-cols-3 gap-3">
+            <Pillar
+              k="01"
+              t="One question, every twin answers"
+              d="First-person responses shaped by each twin's goals, voice, and context."
+            />
+            <Pillar
+              k="02"
+              t="Network-level synthesis"
+              d="One paragraph + headline. Outliers surface, majority leans quantified."
+            />
+            <Pillar
+              k="03"
+              t="Correctable by humans"
+              d="Edit your twin's answer — your override carries extra weight next time."
+            />
+          </div>
+        </div>
+      </div>
     </AppShell>
   );
 }
 
 function Pillar({ k, t, d }: { k: string; t: string; d: string }) {
   return (
-    <div className="retro-panel" style={{ padding: "20px 22px" }}>
-      <div className="retro-amber text-xs font-bold">{k}</div>
-      <div className="mt-2 font-semibold text-sm">{t}</div>
+    <div className="retro-panel" style={{ padding: "12px 14px" }}>
+      <div className="retro-amber text-[10px] font-bold">{k}</div>
+      <div className="mt-1 font-semibold text-xs">{t}</div>
       <div
         className="mt-2 retro-dim text-xs"
         style={{ lineHeight: 1.6 }}
