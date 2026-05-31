@@ -39,6 +39,25 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   manifest: "/manifest.json",
+  // EXPLICIT icons declaration. Jack (May 2026): "our favicon seems
+  // to be missing" in Google's SERP. The app/icon.tsx Edge function
+  // serves dynamically, but Google's favicon crawler is finicky about
+  // edge-rendered icons — it strongly prefers stable static URLs in
+  // <link rel="icon"> tags it can hit with a normal GET. Pointing at
+  // the static /icons/icon-512.png (shipping from /public/icons/)
+  // guarantees a 200 every crawl. Multiple sizes cover SERP + PWA +
+  // iOS home-screen + Apple touch icon in one declaration.
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
+    ],
+    shortcut: "/icons/icon-192.png",
+    apple: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" }
+    ]
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",

@@ -4,6 +4,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { Message } from "@/lib/types";
 import { Avatar } from "../../Avatar";
+// Jack: "let's make their profile page clickable if I click on the icon
+// of their photo." Wrapping the counterpart Avatar inside TwinLink in a
+// Next Link uses the same router prefetch the rest of the app does.
 import { PerConversationGoal } from "./PerConversationGoal";
 import { ComposeAtEnd } from "./ComposeAtEnd";
 import { SocialIconRow } from "../../SocialIconRow";
@@ -351,7 +354,17 @@ function TwinLink({
   selfReceiptStatus = "none"
 }: {
   self: { id: string; name: string; avatarUrl: string | null };
-  other: { id: string; name: string; avatarUrl: string | null };
+  // `handle` added so the counterpart avatar can wrap in a Link to
+  // /u/<handle>. Optional — if missing, the avatar renders as a plain
+  // (non-clickable) image so we don't dead-link to a nonexistent
+  // portfolio path. Jack: "let's make their profile page clickable if
+  // I click on the icon of their photo."
+  other: {
+    id: string;
+    name: string;
+    avatarUrl: string | null;
+    handle?: string | null;
+  };
   active: boolean;
   selfReceiptStatus?: "read" | "delivered" | "none";
 }) {
@@ -440,13 +453,45 @@ function TwinLink({
           )}
         </svg>
       </div>
-      <Avatar
-        id={other.id}
-        name={other.name}
-        avatarUrl={other.avatarUrl}
-        size={40}
-        ringColor="#3a4dff"
-      />
+      {other.handle ? (
+        <Link
+          href={`/u/${other.handle}`}
+          aria-label={`Open ${other.name}'s portfolio`}
+          title={`Open ${other.name}'s portfolio`}
+          prefetch={true}
+          style={{
+            display: "inline-block",
+            textDecoration: "none",
+            // Subtle scale on hover so the click target reads as
+            // interactive without redesigning the avatar component.
+            transition: "transform 120ms ease",
+            cursor: "pointer"
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.transform =
+              "scale(1.04)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLAnchorElement).style.transform = "";
+          }}
+        >
+          <Avatar
+            id={other.id}
+            name={other.name}
+            avatarUrl={other.avatarUrl}
+            size={40}
+            ringColor="#3a4dff"
+          />
+        </Link>
+      ) : (
+        <Avatar
+          id={other.id}
+          name={other.name}
+          avatarUrl={other.avatarUrl}
+          size={40}
+          ringColor="#3a4dff"
+        />
+      )}
     </div>
   );
 }
@@ -682,6 +727,8 @@ export function ChatUI({
     id: string;
     name: string;
     email?: string | null;
+    // handle drives the avatar → /u/<handle> portfolio Link in TwinLink.
+    handle?: string | null;
     isTestPersona: boolean;
     avatarUrl?: string | null;
     socials?: {
@@ -1406,7 +1453,10 @@ export function ChatUI({
                     other={{
                       id: other.id,
                       name: other.name,
-                      avatarUrl: other.avatarUrl ?? null
+                      avatarUrl: other.avatarUrl ?? null,
+                      // Drives the counterpart-avatar → portfolio
+                      // Link inside TwinLink.
+                      handle: other.handle ?? null
                     }}
                     active={running}
                     selfReceiptStatus={receipt}

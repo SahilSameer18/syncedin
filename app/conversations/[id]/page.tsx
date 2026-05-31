@@ -464,10 +464,22 @@ export default async function ConversationPage({
         // the explicit columns). Without this fallback Jack was
         // seeing no social icons in the conversation header even
         // when the counterpart clearly had LinkedIn / X linked.
-        socials: socialsFromBlob(
-          otherProfile as any,
-          otherTwin as any
-        )
+        // SocialUrls has nullable+optional fields; ChatUI expects
+        // strict null-only — coerce undefined → null inline.
+        socials: (() => {
+          const s = socialsFromBlob(
+            otherProfile as any,
+            otherTwin as any
+          );
+          if (!s) return null;
+          return {
+            linkedin_url: s.linkedin_url ?? null,
+            x_url: s.x_url ?? null,
+            instagram_url: s.instagram_url ?? null,
+            facebook_url: s.facebook_url ?? null,
+            website_url: s.website_url ?? null
+          };
+        })()
       }}
       initialMessages={msgs}
       initialDone={done}
