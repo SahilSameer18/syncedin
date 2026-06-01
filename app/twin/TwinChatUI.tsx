@@ -575,8 +575,9 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           position: "fixed",
           left: 0,
           right: 0,
-          bottom: "calc(68px + env(safe-area-inset-bottom, 0px))",
-          padding: "0 16px 6px",
+          // Tighter offset — sits 4px above the composer instead of 8.
+          bottom: "calc(60px + env(safe-area-inset-bottom, 0px))",
+          padding: "0 14px 4px",
           pointerEvents: "none",
           zIndex: 29
         }}
@@ -584,22 +585,28 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
       >
         <div
           style={{
-            maxWidth: 900,
+            maxWidth: 1100,
             margin: "0 auto",
             display: "flex",
-            gap: 6,
+            gap: 5,
             overflowX: "auto",
-            paddingBottom: 4,
+            // Tail gradient hint so the user knows there's more →
+            paddingRight: 28,
             pointerEvents: "auto",
-            scrollbarWidth: "none"
+            scrollbarWidth: "none",
+            WebkitMaskImage:
+              "linear-gradient(90deg, black 0, black calc(100% - 28px), transparent 100%)"
           }}
+          className="twin-chips-row"
         >
           {[
-            "What proposals should I accept first?",
-            "Who should I reach out to today?",
-            "Draft a follow-up to my most recent counterpart",
-            "What's my top match this week?",
-            "Help me prioritize my inbox"
+            "Accept proposals first",
+            "Who to reach out today",
+            "Draft a follow-up",
+            "My top match this week",
+            "Prioritize my inbox",
+            "Show pending proposals",
+            "Search platform users"
           ].map((q) => (
             <button
               key={q}
@@ -608,8 +615,8 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
               disabled={sending}
               style={{
                 flexShrink: 0,
-                padding: "6px 12px",
-                fontSize: 12,
+                padding: "4px 10px",
+                fontSize: 11.5,
                 fontWeight: 600,
                 borderRadius: 999,
                 border: "1px solid var(--border)",
@@ -617,7 +624,8 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
                 color: "var(--text-dim)",
                 cursor: sending ? "default" : "pointer",
                 whiteSpace: "nowrap",
-                opacity: sending ? 0.5 : 1
+                opacity: sending ? 0.5 : 1,
+                height: 26
               }}
             >
               {q}
@@ -626,9 +634,9 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
         </div>
       </div>
 
-      {/* FIXED COMPOSER — sticks to viewport bottom regardless of scroll
-          position. Offset for AppShell sidebar on desktop via media
-          query in <style>. */}
+      {/* FIXED COMPOSER — matches the /conversations PersistentCompose
+          pattern: unified 40px control heights, single visual strip,
+          no outer panel border. Adds mic dictation for parity. */}
       <div
         style={{
           position: "fixed",
@@ -637,19 +645,19 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           right: 0,
           background: "var(--panel-solid)",
           borderTop: "1px solid var(--border)",
-          padding: "12px 16px",
+          padding: "10px 14px",
           paddingBottom:
-            "calc(12px + env(safe-area-inset-bottom, 0px))",
+            "calc(10px + env(safe-area-inset-bottom, 0px))",
           zIndex: 30
         }}
         className="twin-composer"
       >
         <div
           style={{
-            maxWidth: 900,
+            maxWidth: 1100,
             margin: "0 auto",
             display: "flex",
-            gap: 8,
+            gap: 6,
             alignItems: "flex-end"
           }}
         >
@@ -657,17 +665,17 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Talk to your twin… (Enter to send, Shift+Enter for newline)"
+            placeholder="Talk to your twin…"
             rows={1}
             className="retro-input"
             style={{
               flex: 1,
               fontSize: 14,
-              padding: "10px 14px",
+              padding: "10px 12px",
               resize: "none",
-              minHeight: 44,
+              minHeight: 40,
               maxHeight: 160,
-              borderRadius: 14
+              borderRadius: 12
             }}
           />
           <button
@@ -676,24 +684,28 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
             disabled={sending || !text.trim()}
             className="retro-btn retro-btn-primary"
             style={{
-              padding: "0 18px",
-              minHeight: 44,
+              height: 40,
+              padding: "0 16px",
+              fontSize: 13,
               fontWeight: 700,
-              borderRadius: 14,
+              borderRadius: 10,
               flexShrink: 0
             }}
           >
-            {sending ? "…" : "Send"}
+            {sending ? "…" : "Send →"}
           </button>
         </div>
       </div>
 
-      {/* Desktop offset: leave space for the 220px AppShell sidebar +
-          16px gap. Mobile keeps full width. */}
+      {/* Desktop offset: leave space for the 220px AppShell sidebar.
+          ALSO bump the chip strip and the composer in 200px to align
+          with the AppShell main column. Mobile keeps full width. */}
       <style>{`
         @media (min-width: 768px) {
           .twin-composer { left: 252px; }
+          .twin-chips { left: 252px; }
         }
+        .twin-chips-row::-webkit-scrollbar { display: none; }
       `}</style>
     </>
   );
