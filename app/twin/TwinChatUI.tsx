@@ -2,12 +2,44 @@
 
 import { useEffect, useRef, useState } from "react";
 
+type PendingAction = {
+  id: string;
+  type:
+    | "update_proposal_text"
+    | "accept_proposal"
+    | "deny_proposal"
+    | "send_message_to_conversation";
+  payload: Record<string, any>;
+};
+
 type ChatRow = {
   id: string;
   role: "user" | "assistant";
   body: string;
   created_at?: string | null;
+  /** When the twin staged write actions, render these as inline
+   *  Approve cards under the bubble. */
+  pending_actions?: PendingAction[];
 };
+
+/**
+ * Strip the persisted <!--PENDING_ACTIONS:[...]--> trailer from a
+ * stored assistant message + return both the visible body and the
+ * parsed actions. Lets actions survive a page reload.
+ */
+function splitPendingActions(body: string): {
+  body: string;
+  actions: PendingAction[];
+} {
+  const m = body.match(/\n\n<!--PENDING_ACTIONS:(\[[\s\S]+?\])-->\s*$/);
+  if (!m) return { body, actions: [] };
+  try {
+    const actions = JSON.parse(m[1]) as PendingAction[];
+    return { body: body.slice(0, m.index).trimEnd(), actions };
+  } catch {
+    return { body, actions: [] };
+  }
+}
 
 /**
  * Tiny inline markdown renderer for twin chat bubbles.
@@ -197,14 +229,22 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
   const [savingEdit, setSavingEdit] = useState(false);
   const scrollerRef = useRef<HTMLDivElement | null>(null);
 
-  // Load history once on mount.
+  // Load history once on mount. Parse the trailing PENDING_ACTIONS
+  // marker out of any assistant message so previously-staged actions
+  // re-render as Approve cards.
   useEffect(() => {
     let alive = true;
     fetch("/api/twin/chat", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => {
         if (!alive) return;
-        setMessages((j?.messages ?? []) as ChatRow[]);
+        const raw = (j?.messages ?? []) as ChatRow[];
+        const hydrated = raw.map((m) => {
+          if (m.role !== "assistant") return m;
+          const { body, actions } = splitPendingActions(m.body || "");
+          return { ...m, body, pending_actions: actions };
+        });
+        setMessages(hydrated);
         setLoaded(true);
         if (j?._err === "schema_missing") {
           setErr(
@@ -267,7 +307,13 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
         return;
       }
       if (j.assistant) {
-        setMessages((prev) => [...prev, j.assistant]);
+        setMessages((prev) => [
+          ...prev,
+          {
+            ...j.assistant,
+            pending_actions: (j.pending_actions as PendingAction[]) || []
+          }
+        ]);
       }
     } catch (e: any) {
       setErr(e?.message || "Network error.");
@@ -309,7 +355,8 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           role: "assistant",
           body: j.assistant?.body ?? "(no reply)",
           created_at:
-            j.assistant?.created_at ?? new Date().toISOString()
+            j.assistant?.created_at ?? new Date().toISOString(),
+          pending_actions: (j.pending_actions as PendingAction[]) || []
         }
       ]);
     } catch (e: any) {
@@ -814,6 +861,215 @@ function Bubble({
           >
             ✎
           </span>
+        </div>
+      )}
+
+      {/* Inline ActionCards — render when the twin staged write tools.
+          Each card is an Approve button that POSTs to /api/twin/execute-
+          action. The user's tap is the ONLY thing that writes to the
+          DB; the twin can never mutate without explicit confirmation. */}
+      {!mine &&
+        m.pending_actions &&
+        m.pending_actions.length > 0 && (
+          <div
+            style={{
+              marginTop: 8,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8
+            }}
+          >
+            {m.pending_actions.map((a) => (
+              <ActionCard key={a.id} action={a} />
+            ))}
+          </div>
+        )}
+    </div>
+  );
+}
+
+/**
+ * ActionCard — renders one twin-staged action as an inline Approve
+ * card. On Approve, POSTs to /api/twin/execute-action. On success,
+ * flips to a green "✓ shipped" state so the user has unambiguous
+ * feedback that the DB actually changed.
+ */
+function ActionCard({ action }: { action: PendingAction }) {
+  const [state, setState] = useState<"idle" | "running" | "done" | "error">(
+    "idle"
+  );
+  const [errMsg, setErrMsg] = useState<string | null>(null);
+  const p = action.payload as any;
+
+  const label = (() => {
+    switch (action.type) {
+      case "update_proposal_text":
+        return `Update proposal with ${p.counterpart_name ?? "counterpart"}`;
+      case "accept_proposal":
+        return `Accept ${p.counterpart_name ?? "counterpart"}'s proposal`;
+      case "deny_proposal":
+        return `Deny ${p.counterpart_name ?? "counterpart"}'s proposal`;
+      case "send_message_to_conversation":
+        return `Send message to ${p.counterpart_name ?? "counterpart"}`;
+      default:
+        return action.type;
+    }
+  })();
+
+  const previewText = (() => {
+    if (action.type === "update_proposal_text") return p.new_text as string;
+    if (action.type === "deny_proposal") return p.reason as string;
+    if (action.type === "send_message_to_conversation")
+      return p.text as string;
+    return null;
+  })();
+
+  async function approve() {
+    if (state !== "idle") return;
+    setState("running");
+    setErrMsg(null);
+    try {
+      const res = await fetch("/api/twin/execute-action", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ type: action.type, payload: action.payload })
+      });
+      const j = await res.json();
+      if (!res.ok || j?.error) {
+        setState("error");
+        setErrMsg(j?.detail || j?.error || "Failed to ship.");
+        return;
+      }
+      setState("done");
+    } catch (e: any) {
+      setState("error");
+      setErrMsg(e?.message || "Network error.");
+    }
+  }
+
+  const palette = (() => {
+    if (action.type === "accept_proposal")
+      return { primary: "#10b981", glow: "rgba(16,185,129,0.35)" };
+    if (action.type === "deny_proposal")
+      return { primary: "#ef4444", glow: "rgba(239,68,68,0.30)" };
+    return { primary: "#2358ff", glow: "rgba(35,88,255,0.30)" };
+  })();
+
+  return (
+    <div
+      style={{
+        border: `1px solid ${state === "done" ? "#10b981" : "var(--border)"}`,
+        borderRadius: 12,
+        padding: 12,
+        background: "var(--panel-solid)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        maxWidth: "min(86%, 580px)"
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          fontSize: 12,
+          fontWeight: 700,
+          color: "var(--text)",
+          textTransform: "uppercase",
+          letterSpacing: "0.06em"
+        }}
+      >
+        <span style={{ color: palette.primary }}>▶</span>
+        {label}
+      </div>
+      {previewText && (
+        <div
+          style={{
+            fontSize: 13,
+            lineHeight: 1.45,
+            color: "var(--text)",
+            padding: "8px 10px",
+            background: "rgba(120,130,160,0.08)",
+            borderRadius: 8,
+            wordBreak: "break-word",
+            maxHeight: 200,
+            overflowY: "auto"
+          }}
+        >
+          {previewText}
+        </div>
+      )}
+      {state === "done" ? (
+        <div
+          style={{
+            fontSize: 12,
+            fontWeight: 700,
+            color: "#10b981",
+            display: "flex",
+            alignItems: "center",
+            gap: 6
+          }}
+        >
+          ✓ Shipped to the database. You can verify on /proposals.
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => void approve()}
+            disabled={state === "running"}
+            style={{
+              flex: 1,
+              padding: "8px 14px",
+              borderRadius: 10,
+              border: "none",
+              background:
+                state === "running"
+                  ? "var(--border)"
+                  : `linear-gradient(135deg, ${palette.primary} 0%, ${palette.primary} 100%)`,
+              color: "#fff",
+              fontWeight: 700,
+              fontSize: 13,
+              cursor: state === "running" ? "default" : "pointer",
+              boxShadow:
+                state === "running"
+                  ? "none"
+                  : `0 6px 20px -8px ${palette.glow}`
+            }}
+          >
+            {state === "running" ? "Shipping…" : "✓ Approve"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setState("done")}
+            disabled={state === "running"}
+            style={{
+              flex: "0 0 auto",
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text-dim)",
+              fontSize: 13,
+              cursor: "pointer"
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+      {state === "error" && errMsg && (
+        <div
+          style={{
+            fontSize: 12,
+            color: "#ef4444",
+            background: "rgba(239,68,68,0.08)",
+            padding: "6px 8px",
+            borderRadius: 6
+          }}
+        >
+          {errMsg}
         </div>
       )}
     </div>

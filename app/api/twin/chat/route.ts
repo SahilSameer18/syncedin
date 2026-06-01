@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
+import {
+  TWIN_TOOLS,
+  runTwinTool,
+  type PendingAction
+} from "@/lib/twin-tools";
 
 /**
  * Talk-to-your-twin chat (#159). A single 1:1 thread per user where
@@ -182,37 +187,96 @@ You know them intimately:
 
 Speak in first-person as their twin, but stay aware that you ARE the AI and they ARE the human. Be candid. Push back when their thinking is off. Offer specific moves they can take next. Keep replies under 200 words unless they explicitly ask for more depth.
 
-# CRITICAL — YOU CANNOT TAKE ACTIONS
-You currently have NO tools wired. You CANNOT update proposals, send messages, accept agreements, deny anything, or modify any database row. Tool-use is being added in the next release.
+# YOUR TOOLS
+You have 7 tools — read tools run immediately, write tools generate Approve cards the user taps to confirm:
 
-Until then:
-- NEVER say "updated", "sent", "accepted", "denied", "done", or any wording that implies you took an action. That is a lie and breaks user trust the instant they check.
-- If the user asks you to update a proposal, write a DRAFT of the new proposal text in your reply, then say exactly: "Open /proposals to paste this in — I can't write to the DB myself yet."
-- If they ask you to send a message to someone, write the DRAFT and say: "Open /messages and paste this in."
-- If they ask you to accept / deny a proposal, list the proposals with brief recommendations, then say: "Tap Accept or Deny on the card in your right rail — those buttons are live."
-- Be honest about the limit. "I can draft it; you tap to ship it" is the contract.
+READ (auto-execute, you get the data back):
+- list_pending_proposals() — every proposal waiting on the user
+- list_recent_conversations() — last 10 active threads
+- search_platform_users(query) — find people on the platform
+
+WRITE (return an inline Approve card, NO DB writes happen unless the user taps Approve):
+- update_proposal_text(conversation_id, counterpart_name, new_text)
+- accept_proposal(conversation_id, counterpart_name)
+- deny_proposal(conversation_id, counterpart_name, reason)
+- send_message_to_conversation(conversation_id, counterpart_name, text)
+
+# RULES
+- When the user asks "what proposals do I have", "who's waiting on me", "triage my inbox" — call list_pending_proposals FIRST, then summarize.
+- When they ask to update / accept / deny / send — call list_pending_proposals or list_recent_conversations FIRST to get real conversation_ids, then call the appropriate write tool. NEVER invent a conversation_id.
+- Write tools stage actions. After calling one, tell the user briefly what you've staged — e.g. "Staged an update to the Jacob proposal — tap Approve below to ship it." Do NOT claim the action is done. The user's tap is what writes to the DB.
+- If they ask to do something across multiple proposals ("update all 5"), call the write tool ONCE per conversation — every action gets its own Approve card.
+- For drafts: write the new text in plain prose (contract-style for agreements, the user's voice for messages). No emoji clusters, no markdown images.
 ${proposalContext}`;
 
   try {
-    const conversationTurns = [
+    // Multi-turn tool-use loop: model calls tools → we run them →
+    // feed results back → model emits final text. Capped at TURN_CAP
+    // so a runaway tool-call loop can't burn tokens forever.
+    const TURN_CAP = 6;
+    let conversationTurns: any[] = [
       ...priorMessages,
       { role: "user" as const, content: userText }
     ];
-    const resp = await anthropic.messages.create({
-      model: TWIN_MODEL,
-      max_tokens: 800,
-      system,
-      messages: conversationTurns
-    });
-    const out =
-      resp.content
-        .map((b: any) => (b.type === "text" ? b.text : ""))
-        .join("")
-        .trim() || "(no reply)";
+    let finalText = "";
+    const pendingActions: PendingAction[] = [];
+
+    for (let i = 0; i < TURN_CAP; i++) {
+      const resp = await anthropic.messages.create({
+        model: TWIN_MODEL,
+        max_tokens: 1200,
+        system,
+        tools: TWIN_TOOLS as any,
+        messages: conversationTurns
+      });
+
+      const textChunks = resp.content
+        .filter((c: any) => c.type === "text")
+        .map((c: any) => c.text)
+        .join("\n");
+      if (textChunks.trim()) finalText = textChunks;
+
+      const toolUses = resp.content.filter(
+        (c: any) => c.type === "tool_use"
+      ) as any[];
+
+      if (toolUses.length === 0) {
+        break; // pure text response — done
+      }
+
+      conversationTurns.push({ role: "assistant", content: resp.content });
+
+      const toolResultBlocks: any[] = [];
+      for (const tu of toolUses) {
+        const { data, pending_action } = await runTwinTool(
+          service as any,
+          user.id,
+          tu.name,
+          tu.input || {}
+        );
+        if (pending_action) pendingActions.push(pending_action);
+        toolResultBlocks.push({
+          type: "tool_result",
+          tool_use_id: tu.id,
+          content: JSON.stringify(data).slice(0, 6000)
+        });
+      }
+      conversationTurns.push({ role: "user", content: toolResultBlocks });
+    }
+
+    const out = finalText.trim() || "(no reply)";
+
+    // Persist the assistant message. Stash pending_actions in the body
+    // as a trailing JSON marker so they survive reload (the client
+    // parses + strips them before rendering).
+    const persistBody =
+      pendingActions.length > 0
+        ? `${out}\n\n<!--PENDING_ACTIONS:${JSON.stringify(pendingActions)}-->`
+        : out;
 
     const { data: asstMsg } = await service
       .from("twin_chat_messages")
-      .insert({ user_id: user.id, role: "assistant", body: out })
+      .insert({ user_id: user.id, role: "assistant", body: persistBody })
       .select("id, created_at")
       .single();
 
@@ -224,7 +288,8 @@ ${proposalContext}`;
         role: "assistant",
         body: out,
         created_at: (asstMsg as any)?.created_at ?? null
-      }
+      },
+      pending_actions: pendingActions
     });
   } catch (e: any) {
     console.error("[twin/chat] generation failed", e);
