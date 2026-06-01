@@ -153,6 +153,60 @@ YouTube / Loom: TBD — record a 60-second walkthrough showing handle paste → 
 
 ---
 
+## NO-ACCOUNT PATHS (truly automatable, zero clicks needed)
+
+These don't require any signup at all. Some I've already wired:
+
+### ✅ IndexNow (Bing + Yandex + Naver instant URL ping)
+Wired at `/api/indexnow`. Hit `https://syncedin.org/api/indexnow` and it submits every public URL (landing, FAQ, articles, all `/u/[handle]` portfolios, all polls) to Bing/Yandex/Naver in one shot. No account, no API key signup — the key file at `/8e7c4f3a2b1d9e6f5c8a7b4d2e9f1c3a.txt` validates ownership.
+
+Run after every deploy:
+```bash
+curl https://syncedin.org/api/indexnow
+```
+
+Or wire into Vercel deploy hook so it auto-fires.
+
+### ✅ Sitemap pings (no account needed)
+After every meaningful content change, ping:
+- `https://www.google.com/ping?sitemap=https://syncedin.org/sitemap.xml`
+- `https://www.bing.com/ping?sitemap=https://syncedin.org/sitemap.xml`
+
+(Google deprecated this in 2023 — still works but they prefer Search Console verification. IndexNow above is the modern path.)
+
+### Form-only directories (some still no-account):
+- **AddThis.com directory** — Free, email confirm only
+- **Spotify-style AI tools meta-directories** — many just need an email + URL
+
+### Public registries (PR-based, GitHub account needed but no submission account):
+- **awesome-ai-agents** GitHub list — open PR
+- **awesome-llm-tools** — open PR
+- **awesome-saas-boilerplates** — open PR
+- **awesome-networking-tools** — open PR
+- **awesome-productivity-tools** — open PR
+
+### Passive (search engines find you via robots.txt + sitemap)
+- DuckDuckGo (passively crawls)
+- Brave Search (passively crawls)
+- Mojeek (passively crawls)
+- Marginalia Search (passively crawls)
+- Kagi (passively crawls)
+
+---
+
+## ONE-COMMAND "POST-DEPLOY" SCRIPT
+
+Add to `package.json`:
+```json
+"scripts": {
+  "post-deploy": "curl -s https://syncedin.org/api/indexnow && curl -s 'https://www.google.com/ping?sitemap=https://syncedin.org/sitemap.xml' && curl -s 'https://www.bing.com/ping?sitemap=https://syncedin.org/sitemap.xml' && echo 'Pinged Bing + Yandex + Naver + Google'"
+}
+```
+
+Or wire it as a Vercel deploy hook so every prod deploy auto-pings.
+
+---
+
 ## SUBMISSION FORM CHEAT SHEET (per-field copy)
 
 **Name:** SyncedIn
