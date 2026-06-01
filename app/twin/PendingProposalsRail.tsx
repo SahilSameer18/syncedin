@@ -164,9 +164,17 @@ export function PendingProposalsRail() {
             color: "var(--text-dim)"
           }}
         >
-          No proposals waiting on you right now. When your twin lands a
-          deal in a conversation, you&apos;ll see Accept / Deny here so
-          you can move on it without leaving this page.
+          <div
+            style={{
+              fontWeight: 700,
+              color: "var(--text)",
+              marginBottom: 4
+            }}
+          >
+            Inbox clear.
+          </div>
+          When your twin lands a deal in a conversation, Accept / Deny
+          shows up here so you can move without leaving this page.
         </div>
       ) : (
         proposals.map((p) => (
@@ -337,6 +345,95 @@ export function PendingProposalsRail() {
           </div>
         ))
       )}
+
+      {/* Quick Actions — always-on shortcuts. Keeps the right rail
+          full of value even when proposals are clear. */}
+      <div
+        style={{
+          background: "var(--panel)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 12,
+          display: "flex",
+          flexDirection: "column",
+          gap: 2,
+          marginTop: 6
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase",
+            color: "var(--text-dim)",
+            marginBottom: 6,
+            padding: "0 2px"
+          }}
+        >
+          Quick actions
+        </div>
+        {[
+          { href: "/dashboard", label: "Find someone to talk to", icon: "🔎" },
+          { href: "/proposals", label: "All proposals", icon: "🤝" },
+          { href: "/messages", label: "Open messages", icon: "💬" },
+          {
+            href: "/personal-intelligence",
+            label: "Personal intelligence",
+            icon: "✨"
+          },
+          { href: "/poll", label: "Ask the network", icon: "📊" },
+          { href: "/invite", label: "Invite & earn", icon: "💌" }
+        ].map((a) => (
+          <Link
+            key={a.href}
+            href={a.href}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "8px 8px",
+              borderRadius: 8,
+              textDecoration: "none",
+              color: "var(--text)",
+              fontSize: 13,
+              fontWeight: 500
+            }}
+          >
+            <span style={{ fontSize: 16, width: 22, textAlign: "center" }}>
+              {a.icon}
+            </span>
+            {a.label}
+          </Link>
+        ))}
+      </div>
+
+      {/* Steady context — always visible footer of the rail */}
+      <div
+        style={{
+          background: "var(--panel)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 14,
+          fontSize: 12,
+          lineHeight: 1.5,
+          color: "var(--text-dim)",
+          marginTop: 6
+        }}
+      >
+        <div
+          style={{
+            fontWeight: 700,
+            color: "var(--text)",
+            marginBottom: 4
+          }}
+        >
+          How your twin learns
+        </div>
+        Your twin trains on every message you edit and every proposal
+        you accept or deny. The more you steer it, the more it sounds
+        like you — and the better the deals it lands.
+      </div>
     </aside>
   );
 }
