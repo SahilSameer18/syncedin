@@ -16,7 +16,15 @@ export async function middleware(request: NextRequest) {
     earlyPath.endsWith("/twitter-image") ||
     earlyPath === "/robots.txt" ||
     earlyPath === "/sitemap.xml" ||
-    earlyPath === "/manifest.json"
+    earlyPath === "/manifest.json" ||
+    // API routes manage their own auth — middleware must NOT inject
+    // Supabase session cookies into JSON responses (poisons Cache-
+    // Control AND can return HTML on errors). Each /api route that
+    // needs auth calls supabase.auth.getUser() itself.
+    earlyPath.startsWith("/api/") ||
+    // IndexNow key-file path (alphanumeric .txt at root) — must serve
+    // plain text to the search engines verbatim.
+    /^\/[a-zA-Z0-9]+\.txt$/.test(earlyPath)
   ) {
     return NextResponse.next();
   }

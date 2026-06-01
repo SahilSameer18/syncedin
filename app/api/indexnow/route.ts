@@ -99,21 +99,39 @@ async function pingEndpoints(urls: string[]) {
 }
 
 export async function GET(req: Request) {
-  const u = new URL(req.url);
-  const single = u.searchParams.get("url");
-  const urls = single ? [single] : await buildAllUrls();
-  if (urls.length === 0) {
-    return NextResponse.json({ error: "no_urls" }, { status: 400 });
+  try {
+    const u = new URL(req.url);
+    const single = u.searchParams.get("url");
+    const urls = single ? [single] : await buildAllUrls();
+    if (urls.length === 0) {
+      return NextResponse.json(
+        { error: "no_urls" },
+        { status: 400, headers: { "cache-control": "no-store" } }
+      );
+    }
+    const results = await pingEndpoints(urls);
+    return NextResponse.json(
+      {
+        submitted: urls.length,
+        sample_urls: urls.slice(0, 3),
+        endpoints: results.map((r) =>
+          r.status === "fulfilled"
+            ? r.value
+            : {
+                endpoint: "unknown",
+                status: "failed",
+                reason: (r as any).reason?.message
+              }
+        )
+      },
+      { headers: { "cache-control": "no-store" } }
+    );
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: "indexnow_failed", detail: e?.message ?? String(e) },
+      { status: 500, headers: { "cache-control": "no-store" } }
+    );
   }
-  const results = await pingEndpoints(urls);
-  return NextResponse.json({
-    submitted: urls.length,
-    endpoints: results.map((r) =>
-      r.status === "fulfilled"
-        ? r.value
-        : { endpoint: "unknown", status: "failed", reason: (r as any).reason?.message }
-    )
-  });
 }
 
 export async function POST(req: Request) {
