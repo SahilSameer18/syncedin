@@ -137,22 +137,25 @@ export function PersistentCompose({
     }
   }
 
+  // Unified control height — every button matches the textarea's
+  // baseline minimum so the whole row reads as one strip instead of
+  // a jumble of misaligned chips. Jack: "clean up this block, it's
+  // ugly and not spaced well."
+  const H = 40;
   return (
     <div
-      className="retro-panel"
       style={{
-        padding: 12,
         marginTop: 8,
         display: "flex",
         flexDirection: "column",
-        gap: 8
+        gap: 6
       }}
     >
       <div
         style={{
           display: "flex",
           alignItems: "flex-end",
-          gap: 8
+          gap: 6
         }}
       >
         <textarea
@@ -164,34 +167,28 @@ export function PersistentCompose({
               send();
             }
           }}
-          rows={Math.min(8, Math.max(2, text.split("\n").length + 1))}
-          // Long placeholder for desktop, short for mobile (set via the
-          // .compose-textarea CSS class + a media-query swap below).
+          rows={Math.min(8, Math.max(1, text.split("\n").length))}
           placeholder="Message…"
           data-desktop-placeholder="Type a message, or tap ✨ to have your twin draft one for you…"
           className="retro-input"
           style={{
             flex: 1,
             fontSize: 14,
-            padding: 10,
-            minHeight: 44,
-            resize: "none"
+            padding: "10px 12px",
+            minHeight: H,
+            resize: "none",
+            borderRadius: 12
           }}
         />
-        {/* Voice dictation — Jack: "most people don't realize they can
-            voice type. I'd like across the platform for there to be a
-            little mic button." Uses Web Speech API (free, browser
-            native, instant). Appends transcribed text to the existing
-            input value so users can speak after typing. */}
+        {/* Voice dictation. Sized to match H so the whole row aligns. */}
         <MicButton
           onText={(chunk) =>
             setText((t) => `${t}${t && !t.endsWith(" ") ? " " : ""}${chunk}`)
           }
           ariaLabel="Dictate message"
-          size={34}
-          style={{ marginRight: 2 }}
+          size={H}
         />
-        {/* Attach a file/video. Hidden native input + paperclip button. */}
+        {/* Hidden file input + paperclip button. */}
         <input
           ref={fileInputRef}
           type="file"
@@ -210,10 +207,16 @@ export function PersistentCompose({
           aria-label="Attach file"
           className="retro-btn"
           style={{
-            padding: "8px 10px",
+            width: H,
+            height: H,
+            padding: 0,
             fontSize: 15,
             color: uploading ? "var(--text-dim)" : "var(--text)",
-            flexShrink: 0
+            flexShrink: 0,
+            borderRadius: 10,
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center"
           }}
         >
           {uploading ? "↑" : "📎"}
@@ -226,7 +229,8 @@ export function PersistentCompose({
           aria-label="AI pre-draft"
           className="retro-btn"
           style={{
-            padding: "8px 10px",
+            height: H,
+            padding: "0 12px",
             fontSize: 13,
             fontWeight: 700,
             color: drafting ? "var(--text-dim)" : "#1f8bff",
@@ -234,7 +238,8 @@ export function PersistentCompose({
             display: "inline-flex",
             alignItems: "center",
             gap: 4,
-            flexShrink: 0
+            flexShrink: 0,
+            borderRadius: 10
           }}
         >
           <span aria-hidden="true">✨</span>
@@ -246,31 +251,34 @@ export function PersistentCompose({
           disabled={sending || text.trim().length === 0}
           className="retro-btn retro-btn-primary"
           style={{
-            padding: "8px 14px",
+            height: H,
+            padding: "0 16px",
             fontSize: 13,
             fontWeight: 700,
-            flexShrink: 0
+            flexShrink: 0,
+            borderRadius: 10
           }}
         >
           {sending ? "…" : "send →"}
         </button>
       </div>
-      {/* Keyboard-shortcut hint. Hidden on mobile (no ⌘ key on a phone
-          — Jack: "the command enter plus send part doesn't even need
-          to be shown on mobile"). The class is targeted via the
-          @media block at the bottom of this file. */}
+      {/* Compact footer row — keyhint left, retroactive help text right.
+          Single line. Mobile hides the ⌘ hint via the @media below. */}
       <div
-        className="compose-keyhint"
         style={{
           display: "flex",
           alignItems: "center",
-          justifyContent: "flex-end",
+          justifyContent: "space-between",
           gap: 8,
-          fontSize: 11,
-          color: "var(--text-dim)"
+          fontSize: 10,
+          color: "var(--text-dim)",
+          padding: "0 2px"
         }}
       >
-        <span>⌘+Enter to send</span>
+        <span style={{ opacity: 0.7 }}>
+          right-click to copy · double-click your own to edit
+        </span>
+        <span className="compose-keyhint">⌘+Enter to send</span>
       </div>
       <style>{`
         @media (max-width: 767px) {

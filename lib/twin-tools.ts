@@ -263,10 +263,10 @@ export async function runTwinTool(
       const { data: convs } = await service
         .from("conversations")
         .select(
-          "id, participant_a, participant_b, summary, updated_at, created_at"
+          "id, participant_a, participant_b, summary, created_at"
         )
         .or(`participant_a.eq.${userId},participant_b.eq.${userId}`)
-        .order("updated_at", { ascending: false, nullsFirst: false })
+        .order("created_at", { ascending: false, nullsFirst: false })
         .limit(10);
       const convList = (convs ?? []) as any[];
       const otherIds = Array.from(
@@ -294,7 +294,7 @@ export async function runTwinTool(
             (cp.handle as string) ||
             "Someone",
           summary: ((c.summary as string) ?? "").slice(0, 300),
-          updated_at: c.updated_at ?? c.created_at
+          updated_at: c.created_at
         };
       });
       return { data: { conversations }, pending_action: null };

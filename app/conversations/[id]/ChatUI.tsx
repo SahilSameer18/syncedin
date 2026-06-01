@@ -2439,10 +2439,10 @@ export function ChatUI({
             on the right side on desktop instead of cluttering the
             bottom of the chat flow. */}
 
-        <div className="conv-bottom-hint retro-dim text-[11px] text-center">
-          right-click any message to copy · double-click your own to edit —
-          editing regenerates everything after
-        </div>
+        {/* Bottom-hint moved into the composer's footer row so it
+            doesn't hang separately under the input — cleaner spacing
+            (Jack: "clean up this block, it's ugly and not spaced
+            well"). */}
       </div>
 
       {/* Context menu */}

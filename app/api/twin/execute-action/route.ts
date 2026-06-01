@@ -135,10 +135,11 @@ export async function POST(req: Request) {
       );
     }
     // Update the conversation summary itself — this is what the
-    // conversation page + proposals page both read.
+    // conversation page + proposals page both read. (updated_at
+    // column doesn't exist on this schema, so only set summary.)
     const { error: upErr } = await service
       .from("conversations")
-      .update({ summary: new_text, updated_at: new Date().toISOString() })
+      .update({ summary: new_text })
       .eq("id", conversation_id);
     if (upErr) {
       return NextResponse.json(
@@ -178,10 +179,6 @@ export async function POST(req: Request) {
         { status: 500 }
       );
     }
-    await service
-      .from("conversations")
-      .update({ updated_at: new Date().toISOString() })
-      .eq("id", conversation_id);
     return NextResponse.json({ ok: true, action: "sent" });
   }
 
