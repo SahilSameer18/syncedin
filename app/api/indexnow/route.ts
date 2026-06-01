@@ -21,8 +21,11 @@ export const runtime = "nodejs";
 
 // Self-generated 32-char hex key. Once committed, this stays stable —
 // IndexNow validates the key by fetching https://syncedin.org/{KEY}.txt
-// and confirming it contains this exact string.
-export const INDEXNOW_KEY = "8e7c4f3a2b1d9e6f5c8a7b4d2e9f1c3a";
+// and confirming it contains this exact string. NOTE: Next.js 14 route.ts
+// files cannot export non-handler constants (same class as #229 bug), so
+// this is a module-scoped const — not exported. The key.txt file under
+// /public mirrors the value independently.
+const INDEXNOW_KEY = "8e7c4f3a2b1d9e6f5c8a7b4d2e9f1c3a";
 
 const HOST = "syncedin.org";
 const ENDPOINTS = [
