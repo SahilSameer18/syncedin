@@ -32,6 +32,10 @@ export function PendingProposalsRail() {
   const [acting, setActing] = useState<string | null>(null);
   const [denyOpen, setDenyOpen] = useState<string | null>(null);
   const [denyReason, setDenyReason] = useState("");
+  // Collapsed by default per Jack: rail should be a small "▶ N pending"
+  // header that expands on click. Avoids stacking 6 huge cards and
+  // duplicating what the twin will surface inline once tool-use lands.
+  const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -111,38 +115,64 @@ export function PendingProposalsRail() {
         gap: 10
       }}
     >
-      <div
+      {/* Collapsible header. Click anywhere on the row to toggle.
+          Shows "▶ 3 pending proposals" by default — expand to see
+          full Accept/Deny cards. */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
         style={{
           display: "flex",
-          alignItems: "baseline",
+          alignItems: "center",
           justifyContent: "space-between",
-          padding: "4px 4px 0"
+          padding: "10px 12px",
+          background: "var(--panel-solid)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          cursor: "pointer",
+          textAlign: "left",
+          font: "inherit",
+          width: "100%"
         }}
+        aria-expanded={expanded}
+        aria-label={expanded ? "Collapse proposals" : "Expand proposals"}
       >
-        <div
+        <span
           style={{
-            fontSize: 10,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            fontSize: 12,
             fontWeight: 700,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-            color: "var(--text-dim)"
+            color: "var(--text)"
           }}
         >
-          Pending proposals
-        </div>
+          <span style={{ fontSize: 10, color: "var(--text-dim)" }}>
+            {expanded ? "▼" : "▶"}
+          </span>
+          {loading
+            ? "Loading proposals…"
+            : proposals.length === 0
+            ? "Inbox clear"
+            : `${proposals.length} pending proposal${
+                proposals.length === 1 ? "" : "s"
+              }`}
+        </span>
         <Link
           href="/proposals"
+          onClick={(e) => e.stopPropagation()}
           style={{
             fontSize: 11,
             color: "var(--accent)",
-            textDecoration: "none"
+            textDecoration: "none",
+            fontWeight: 600
           }}
         >
           All →
         </Link>
-      </div>
+      </button>
 
-      {loading ? (
+      {!expanded ? null : loading ? (
         <div
           style={{
             padding: 12,

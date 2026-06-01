@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
@@ -11,6 +12,101 @@ import { SocialIconRow } from "../../SocialIconRow";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * SEO-friendly slug helper — converts the poll question into a
+ * kebab-case URL fragment, capped at 60 chars. The full slug pattern
+ * is `${slug}-${shortId}` where shortId is the first 8 chars of the
+ * UUID, so we get both human-readable + collision-proof URLs.
+ *   "What's your deepest secret?" → "whats-your-deepest-secret"
+ */
+function questionToSlug(q: string): string {
+  return (
+    q
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "poll"
+  );
+}
+
+/**
+ * generateMetadata — gives every poll page its own title + description
+ * + OG card derived from the actual poll question and a snippet of the
+ * synthesis. This is the SEO unlock: Google indexes "[question] —
+ * SyncedIn" instead of every poll page having identical metadata.
+ */
+export async function generateMetadata({
+  params
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  try {
+    const service = createServiceClient();
+    // Slug-aware lookup — same logic as the page component.
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let lookupId = params.id;
+    if (!UUID_RE.test(params.id)) {
+      const m = params.id.match(/-([0-9a-f]{8})$/i);
+      const shortId = m ? m[1] : null;
+      if (shortId) {
+        const { data: hit } = await service
+          .from("polls")
+          .select("id")
+          .ilike("id", `${shortId}%`)
+          .limit(1)
+          .maybeSingle();
+        if (hit && (hit as any).id) lookupId = (hit as any).id;
+      }
+    }
+    const { data } = await service
+      .from("polls")
+      .select("id, question, synthesis_one_liner, synthesis")
+      .eq("id", lookupId)
+      .maybeSingle();
+    const p = data as {
+      id?: string;
+      question?: string;
+      synthesis_one_liner?: string | null;
+      synthesis?: string | null;
+    } | null;
+    if (!p) {
+      return {
+        title: "Poll — SyncedIn",
+        description: "Ask a question; get every twin's honest answer."
+      };
+    }
+    const question = (p.question ?? "Poll").trim();
+    const description =
+      (p.synthesis_one_liner ?? "").trim() ||
+      (p.synthesis ?? "").trim().slice(0, 160) ||
+      `See how the SyncedIn network answered: "${question}".`;
+    const canonical = `/poll/${questionToSlug(question)}-${params.id.slice(0, 8)}`;
+    return {
+      title: `${question} — SyncedIn poll`,
+      description,
+      alternates: { canonical },
+      openGraph: {
+        title: question,
+        description,
+        type: "article",
+        siteName: "SyncedIn",
+        url: canonical
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: question,
+        description
+      },
+      robots: { index: true, follow: true }
+    };
+  } catch {
+    return {
+      title: "Poll — SyncedIn",
+      description: "Ask a question; get every twin's honest answer."
+    };
+  }
+}
 
 type PollRow = {
   id: string;
@@ -69,20 +165,56 @@ export default async function PollDetailPage({
   if (!user) redirect(`/login?next=/poll/${params.id}`);
 
   const service = createServiceClient();
+
+  // Slug routing — accept both bare UUIDs AND slug-suffixed URLs of
+  // the form `${question-kebab}-${first-8-chars-of-uuid}`. We extract
+  // the trailing 8-char fragment, find the poll whose UUID starts
+  // with it, then serve. This lets us rank on Google for the actual
+  // question wording while keeping URLs unique.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  let lookupId = params.id;
+  if (!UUID_RE.test(params.id)) {
+    // Slug path — pull the last 8 hex chars after the final dash.
+    const m = params.id.match(/-([0-9a-f]{8})$/i);
+    const shortId = m ? m[1] : null;
+    if (shortId) {
+      const { data: hit } = await service
+        .from("polls")
+        .select("id")
+        .ilike("id", `${shortId}%`)
+        .limit(1)
+        .maybeSingle();
+      if (hit && (hit as any).id) {
+        lookupId = (hit as any).id;
+      } else {
+        notFound();
+      }
+    } else {
+      notFound();
+    }
+  }
+
   const { data: poll } = await service
     .from("polls")
     .select("*")
-    .eq("id", params.id)
+    .eq("id", lookupId)
     .maybeSingle();
   if (!poll) notFound();
   const p = poll as PollRow;
+
+  // Canonical URL — if user landed via bare UUID, push them to the
+  // pretty slug for SEO + share clarity. 307 keeps it cheap.
+  const canonicalSlug = `${questionToSlug(p.question)}-${p.id.slice(0, 8)}`;
+  if (params.id === p.id) {
+    redirect(`/poll/${canonicalSlug}`);
+  }
 
   const { data: responsesData } = await service
     .from("poll_responses")
     .select(
       "id, poll_id, twin_user_id, twin_response, human_override, was_overridden, generated_at, overridden_at"
     )
-    .eq("poll_id", params.id);
+    .eq("poll_id", lookupId);
   const responses = (responsesData ?? []) as ResponseRow[];
 
   const userIds = responses.map((r) => r.twin_user_id);
@@ -114,6 +246,43 @@ export default async function PollDetailPage({
     },
     {}
   );
+
+  // BACKFILL FROM auth.users — some responder twin_user_ids don't have
+  // a profiles row (signup edge case, deleted profile, or the response
+  // predates profile-row creation). Without this, those names fall all
+  // the way through to "User abcd" which looks like a ghost network.
+  // service.auth.admin.getUserById hits auth.users directly + returns
+  // email + raw_user_meta_data (full_name from Google OAuth). Wrap in
+  // try so a 404 on any single id doesn't tank the whole page.
+  const missingIds = userIds.filter((id) => id && !profiles[id]);
+  if (missingIds.length) {
+    await Promise.all(
+      missingIds.map(async (id) => {
+        try {
+          const { data: authData } =
+            await service.auth.admin.getUserById(id);
+          const u = authData?.user as any;
+          if (!u) return;
+          const meta = (u.user_metadata ?? u.raw_user_meta_data ?? {}) as any;
+          profiles[id] = {
+            id,
+            display_name:
+              (meta.full_name as string | undefined) ||
+              (meta.name as string | undefined) ||
+              null,
+            email: (u.email as string | undefined) ?? null,
+            avatar_url:
+              (meta.avatar_url as string | undefined) ||
+              (meta.picture as string | undefined) ||
+              null,
+            handle: null
+          };
+        } catch {
+          /* leave the id unresolved — falls back to short suffix */
+        }
+      })
+    );
+  }
 
   // Also pull each twin's ai_export_blob so socialsFromBlob can infer
   // LinkedIn / X / IG / FB URLs that the user added via Sources (which
