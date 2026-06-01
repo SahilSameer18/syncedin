@@ -2169,7 +2169,14 @@ export function ChatUI({
               // blowing past the card edge. Force wrap.
               wordBreak: "break-word",
               overflowWrap: "anywhere",
-              maxWidth: "100%"
+              maxWidth: "100%",
+              // Cap height so the proposal body scrolls INTERNALLY on
+              // long agreements — keeps the Accept/Reject/Counter
+              // buttons always visible at the card bottom instead of
+              // pushing them below the right-rail viewport.
+              maxHeight: "min(38vh, 360px)",
+              overflowY: "auto",
+              paddingRight: 4
             }}
           >
             {renderProposalBody(lastAgreement)}
