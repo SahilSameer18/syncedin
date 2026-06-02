@@ -22,7 +22,20 @@ const config: CapacitorConfig = {
     cleartext: false,
     androidScheme: "https",
     iosScheme: "https",
-    allowNavigation: ["syncedin.org", "*.syncedin.org", "*.supabase.co"]
+    // Google OAuth needs accounts.google.com + the googleusercontent.com
+    // host that Google redirects through. Without these on the whitelist
+    // the WebView refuses to navigate to the OAuth screen the moment the
+    // user taps "Continue with Google" — sign-in silently fails on the
+    // mobile app. (Akash beta feedback, blocker.) Apple OAuth domain
+    // added pre-emptively for when we flip Apple sign-in on.
+    allowNavigation: [
+      "syncedin.org",
+      "*.syncedin.org",
+      "*.supabase.co",
+      "accounts.google.com",
+      "*.googleusercontent.com",
+      "appleid.apple.com"
+    ]
   },
   ios: {
     contentInset: "always",

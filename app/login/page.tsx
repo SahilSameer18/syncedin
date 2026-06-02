@@ -138,7 +138,7 @@ export default async function LoginPage({
             className="mt-1 text-xs sm:text-sm"
             style={{ color: "var(--text-dim)" }}
           >
-            Google / Apple for the fastest path, or email + magic link.
+            Google sign-in is the fastest path — or use email + magic link.
           </p>
         </div>
 

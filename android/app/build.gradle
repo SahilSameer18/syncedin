@@ -14,23 +14,21 @@ android {
     namespace "org.syncedin.app"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        // applicationId must match what's registered in Play Console.
-        // Jack created the Play Console listing with org.syncedin.myapp
-        // before this build settled on org.syncedin.app. Once a listing
-        // is published the package name is permanent, so we change the
-        // build to match instead. Note: only applicationId moves — the
-        // android namespace (resource compilation package) stays as
-        // org.syncedin.app since that's the directory layout the code
-        // is already organized under.
-        applicationId "org.syncedin.myapp"
+        // applicationId mirrors the iOS bundle ID so SyncedIn has one
+        // canonical identifier across both stores. Earlier attempt used
+        // org.syncedin.myapp but Play Console rejected that as already
+        // in use (reserved from a prior Persist account upload). Moving
+        // to org.syncedin.app — symmetric with the iOS app and the
+        // android namespace declared above.
+        applicationId "org.syncedin.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // Bumped 1 → 2 after Play Console rejected the v1 upload for
         // wrong package name. Play Console version codes are monotonic
         // per applicationId — even a rejected v1 may be reserved, so
         // safer to start at v2.
-        versionCode 2
-        versionName "1.0.1"
+        versionCode 3
+        versionName "1.0.2"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

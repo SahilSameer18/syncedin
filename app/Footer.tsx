@@ -12,7 +12,12 @@ import { BUILD_SHA } from "@/lib/version";
 const HIDE_ON: Array<string | RegExp> = [
   /^\/conversations(?:\/|$)/,
   /^\/messages(?:\/|$)/,
-  /^\/admin(?:\/|$)/
+  /^\/admin(?:\/|$)/,
+  // Akash beta feedback: tapping the /talk composer surfaced the footer
+  // (build SHA, marketing links) — wrong surface for a chat experience.
+  /^\/talk(?:\/|$)/,
+  /^\/twin(?:\/|$)/,
+  /^\/chat(?:\/|$)/
 ];
 
 function shouldHide(path: string): boolean {
@@ -35,9 +40,19 @@ export function Footer() {
         borderTop: "1px solid var(--border)"
       }}
     >
+      {/*
+        SyncedIn copyright shown to users. The build SHA stays in the DOM
+        as a hidden comment so I can still inspect it (Akash beta
+        feedback: "build a5fe759" looked like a leak / unfinished surface
+        to a new user, even though I use it constantly for diagnosis).
+      */}
       <div className="font-mono">
-        SyncedIn · build{" "}
-        <span style={{ color: "var(--amber-bright)" }}>{BUILD_SHA}</span>
+        SyncedIn{" "}
+        <span style={{ color: "var(--amber-bright)" }}>
+          {new Date().getFullYear()}
+        </span>
+        {/* build:{BUILD_SHA} */}
+        <span style={{ display: "none" }}>build:{BUILD_SHA}</span>
       </div>
       <nav className="flex items-center gap-4">
         <Link href="/hypernetwork" className="hover:text-white">
