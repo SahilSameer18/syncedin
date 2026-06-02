@@ -1,0 +1,119 @@
+# SyncedIn — Fastlane config for CI/CD mobile releases.
+#
+# Two lanes:
+#   bundle exec fastlane ios beta       → archive + upload to TestFlight
+#   bundle exec fastlane android beta   → build AAB + upload to Play Internal
+#
+# Both auto-bump the build number (CFBundleVersion / versionCode) based on
+# the latest already-uploaded build, so you never have to manually edit
+# the build number again. Marketing version (1.0, 1.1, ...) stays
+# committed in the repo and is the source of truth.
+
+# --------------------------------------------------------------------- iOS
+platform :ios do
+  desc "Archive + upload to TestFlight (Public Beta external group)"
+  lane :beta do
+    # Pull a fresh App Store Connect API key in-memory.
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+      duration: 1200,
+      in_house: false
+    )
+
+    # Auto-bump CFBundleVersion to (latest TestFlight build + 1). Means
+    # we never collide with an earlier upload even if we forget to bump.
+    latest = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: "org.syncedin.app",
+      initial_build_number: 0
+    )
+    increment_build_number(
+      xcodeproj: "ios/App/App.xcodeproj",
+      build_number: latest + 1
+    )
+
+    # Archive with our existing manual provisioning profile.
+    build_app(
+      workspace: "ios/App/App.xcworkspace",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build/ios",
+      output_name: "SyncedIn.ipa",
+      clean: true,
+      export_options: {
+        provisioningProfiles: {
+          "org.syncedin.app" => "SyncedIn App Store"
+        }
+      }
+    )
+
+    # Upload to TestFlight. Skip waiting for processing so the CI job
+    # finishes fast — App Store Connect handles processing async and the
+    # auto-distribute setting on the Public Beta group picks it up.
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: "build/ios/SyncedIn.ipa",
+      skip_waiting_for_build_processing: true,
+      changelog: build_changelog
+    )
+  end
+
+  # Format the last 5 commits as the TestFlight "What to Test" notes so
+  # testers see what changed since the last upload.
+  def build_changelog
+    log = `git log -5 --pretty=format:"• %s"`
+    log.empty? ? "Bug fixes and improvements." : log
+  end
+end
+
+# --------------------------------------------------------------------- Android
+platform :android do
+  desc "Build AAB + upload to Play Console Internal Testing"
+  lane :beta do
+    # Auto-bump versionCode in build.gradle (same idea as iOS).
+    # google_play_track_version_codes pulls the highest versionCode that
+    # already exists across ANY track (so we never collide with promoted
+    # production builds either).
+    play_json = "fastlane/play-service-account.json"
+    next_code = google_play_track_version_codes(
+      package_name: "org.syncedin.app",
+      track: "internal",
+      json_key: play_json
+    ).max.to_i + 1
+
+    android_set_version_code(
+      version_code: next_code,
+      gradle_file: "android/app/build.gradle"
+    )
+
+    # Build signed AAB.
+    gradle(
+      project_dir: "android",
+      task: "bundleRelease",
+      properties: {
+        "android.injected.signing.store.file" => File.expand_path(
+          "../android/app/release.keystore", __dir__
+        ),
+        "android.injected.signing.store.password" => ENV["ANDROID_KEYSTORE_PASSWORD"],
+        "android.injected.signing.key.alias" => ENV["ANDROID_KEY_ALIAS"],
+        "android.injected.signing.key.password" => ENV["ANDROID_KEY_PASSWORD"]
+      }
+    )
+
+    # Upload to Play Console Internal Testing track.
+    upload_to_play_store(
+      package_name: "org.syncedin.app",
+      track: "internal",
+      json_key: play_json,
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      release_status: "completed"
+    )
+  end
+end
