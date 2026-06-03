@@ -9,20 +9,27 @@
  * the needle. No single input caps the meter prematurely — pasting one
  * more paragraph or holding one more conversation always nudges it up.
  *
- * Bucket maxes (sums to >99 so cap kicks in for highly active twins):
- *   name filled                  3
- *   goals filled                10
- *   hometown + current city      4   (2 each)
- *   deal_preferences             4
- *   comm_style                   4
- *   deal_breakers                4
- *   ai_export_blob length       30   (1 pt per 80 chars, capped)
- *   context snippets             8   (1 pt per "# X (source)" block, max 8)
- *   conversations               15   (3 pts each, max 5 — i.e. 15)
- *   accepted agreements         18   (6 pts each, max 3 — i.e. 18)
- *   edits captured               6   (1 pt per 4 edits, max 6)
+ * Rebalanced (2026-06): setup alone should NOT get you near 99. Profile
+ * completeness caps at ~43; the rest is earned by actively syncing your
+ * twin — and editing its drafts is the strongest training signal there is,
+ * so it's the single biggest, steepest bucket. Jack: "I'm at 98% but I
+ * haven't truly synced it — message edits and proposal edits are powerful."
+ *
+ * STATIC profile (max ~43):
+ *   name filled                  2
+ *   goals filled                 6
+ *   hometown + current city      2   (1 each)
+ *   deal_preferences             3
+ *   comm_style                   3
+ *   deal_breakers                3
+ *   ai_export_blob length       18   (1 pt per 150 chars, capped)
+ *   context snippets             6   (1 pt per "# X (source)" block, max 6)
+ * ACTIVE syncing (max ~57 — this is where real sync lives):
+ *   conversations               12   (2 pts each, max 6 convos)
+ *   sealed agreements           20   (5 pts each, max 4)
+ *   edits captured              25   (1 pt per 2 edits, max 50 edits)
  *   ─────────────────────────────
- *   max total                  106   → clamped to 99
+ *   max total                  100   → clamped to 99
  */
 
 export type SyncInputs = {
@@ -81,106 +88,109 @@ export function computeSyncScore(inp: SyncInputs): SyncBreakdown {
   const blobLen = blob.length;
   // Lower threshold (80 chars per pt) so each added paragraph visibly moves
   // the meter. Caps at 30.
-  const blobPts = Math.min(30, Math.floor(blobLen / 80));
+  const blobPts = Math.min(18, Math.floor(blobLen / 150));
 
   // Count "# Label (source)" snippet headers in the blob — every added
   // source (LinkedIn / X / IG / Any URL) is a discrete +1.
   const snippetMatches = blob.match(/^#\s+.+?\s+\(.+?\)\s*$/gm);
   const snippetCount = snippetMatches ? snippetMatches.length : 0;
-  const snippetPts = Math.min(8, snippetCount);
+  const snippetPts = Math.min(6, snippetCount);
 
   const completed = inp.completed_conversations ?? 0;
   const accepted = inp.accepted_agreements ?? 0;
   const edits = inp.edit_count ?? 0;
 
-  // 3 pts per conversation, max 15. So #1 = 3, #2 = 6, ... #5+ = 15.
-  const convPts = Math.min(15, completed * 3);
-  // 6 pts per accepted agreement, max 18.
-  const agrPts = Math.min(18, accepted * 6);
-  // 1 pt per 4 edits captured, max 6 — small but always nudges the meter.
-  const editPts = Math.min(6, Math.floor(edits / 4));
+  // 2 pts per conversation, max 12 (6 convos).
+  const convPts = Math.min(12, completed * 2);
+  // 5 pts per sealed agreement, max 20 (4 agreements).
+  const agrPts = Math.min(20, accepted * 5);
+  // EDITS ARE THE STRONGEST SIGNAL. 1 pt per 2 edits, max 25 (50 edits).
+  // This is the biggest single bucket — truly syncing your twin means
+  // correcting its drafts over and over. Jack: "message edits and proposal
+  // edits are powerful."
+  const editPts = Math.min(25, Math.floor(edits / 2));
 
   // Goals + the short-form fields scale with content depth. A one-word goal
   // gets 33% credit; a sentence gets 66%; a real paragraph fills the bucket.
   // Name / location stay binary because there's no "deeper name" — you
   // either have it or you don't.
-  const goalsPoints = scaledPoints(inp.goals, 10);
-  const dealPrefsPoints = scaledPoints(inp.deal_preferences, 4);
-  const commStylePoints = scaledPoints(inp.comm_style, 4);
-  const dealBreakersPoints = scaledPoints(inp.deal_breakers, 4);
+  const goalsPoints = scaledPoints(inp.goals, 6);
+  const dealPrefsPoints = scaledPoints(inp.deal_preferences, 3);
+  const commStylePoints = scaledPoints(inp.comm_style, 3);
+  const dealBreakersPoints = scaledPoints(inp.deal_breakers, 3);
 
   const parts: SyncBreakdown["parts"] = [
     {
       label: "Name",
-      points: filled(inp.name) ? 3 : 0,
-      max: 3,
+      points: filled(inp.name) ? 2 : 0,
+      max: 2,
       done: filled(inp.name)
     },
     {
       label: "Goals",
       points: goalsPoints,
-      max: 10,
-      done: goalsPoints >= 10
+      max: 6,
+      done: goalsPoints >= 6
     },
     {
       label: "Where you live",
-      points: filled(inp.current_city) ? 2 : 0,
-      max: 2,
+      points: filled(inp.current_city) ? 1 : 0,
+      max: 1,
       done: filled(inp.current_city)
     },
     {
       label: "Where you're from",
-      points: filled(inp.hometown) ? 2 : 0,
-      max: 2,
+      points: filled(inp.hometown) ? 1 : 0,
+      max: 1,
       done: filled(inp.hometown)
     },
     {
       label: "Deal preferences",
       points: dealPrefsPoints,
-      max: 4,
-      done: dealPrefsPoints >= 4
+      max: 3,
+      done: dealPrefsPoints >= 3
     },
     {
       label: "Communication style",
       points: commStylePoints,
-      max: 4,
-      done: commStylePoints >= 4
+      max: 3,
+      done: commStylePoints >= 3
     },
     {
       label: "Deal breakers",
       points: dealBreakersPoints,
-      max: 4,
-      done: dealBreakersPoints >= 4
+      max: 3,
+      done: dealBreakersPoints >= 3
     },
     {
       label: "Voice / context blob",
       points: blobPts,
-      max: 30,
-      done: blobPts >= 30
+      max: 18,
+      done: blobPts >= 18
     },
     {
       label: "Context sources",
       points: snippetPts,
-      max: 8,
-      done: snippetPts >= 8
+      max: 6,
+      done: snippetPts >= 6
     },
     {
       label: "Conversations had",
       points: convPts,
-      max: 15,
-      done: convPts >= 15
+      max: 12,
+      done: convPts >= 12
     },
     {
       label: "Sealed agreements",
       points: agrPts,
-      max: 18,
-      done: agrPts >= 18
+      max: 20,
+      done: agrPts >= 20
     },
     {
-      label: "Edits captured",
+      label: "Edits captured (your twin learning you)",
       points: editPts,
-      max: 6,
-      done: editPts >= 6
+      max: 25,
+      done: editPts >= 25
     }
   ];
 
@@ -205,8 +215,9 @@ export function computeSyncScore(inp: SyncInputs): SyncBreakdown {
       case "Sealed agreements":
         nextStep = "Reach a win-win agreement with someone";
         break;
-      case "Edits captured":
-        nextStep = "Edit a draft your twin proposes — every 4 edits = +1%";
+      case "Edits captured (your twin learning you)":
+        nextStep =
+          "Edit your twin's drafts — this is what truly syncs it. Every 2 edits = +1%.";
         break;
       default:
         nextStep = `Fill in ${undone.label.toLowerCase()}`;
