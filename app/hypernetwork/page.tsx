@@ -5,6 +5,7 @@ import { SignupsChart } from "./SignupsChart";
 import { BulkReachToolkit } from "../BulkReachToolkit";
 import { AppShell } from "../AppShell";
 import { WorldRadarAnimation } from "./WorldRadarAnimation";
+import { LoomEmbed } from "../LoomEmbed";
 
 export const metadata = {
   title: "Hypernetwork · SyncedIn",
@@ -662,6 +663,14 @@ export default async function HypernetworkPage() {
             </span>
           </Link>
         </div>
+      </section>
+
+      <section style={{ padding: "8px 0 56px" }}>
+        <LoomEmbed
+          id="f1a22bc84d914c6399f0ea20e955ccc8"
+          title="See the hypernetwork in motion"
+          caption="A quick walk through what SyncedIn is building."
+        />
       </section>
     </>
   );

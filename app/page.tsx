@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "./Wordmark";
 import { LandingHandleHero } from "./LandingHandleHero";
+import { LoomEmbed } from "./LoomEmbed";
 
 /**
  * Public home page — completely redesigned May 2026 per Jack: "we
@@ -440,6 +441,14 @@ export default async function HomePage() {
             BOTTOM OF THAT THAT THERES ANOTHER SIGN UP BUTTON WHICH
             PUSHES THEM TO THE TOP." Anchor to #top, smooth-scroll
             via CSS. */}
+        <section style={{ padding: "32px 20px 8px" }}>
+          <LoomEmbed
+            id="f1a22bc84d914c6399f0ea20e955ccc8"
+            title="See SyncedIn in action"
+            caption="Two minutes on what it is and why it works."
+          />
+        </section>
+
         <section className="lh-bottom-cta">
           <h2 className="lh-section-h2">
             Your twin is 30 seconds away.
