@@ -85,16 +85,25 @@ export default async function ConversationPage({
         .maybeSingle()
     ]);
 
-  const { data: messages } = await supabase
-    .from("messages")
-    .select("*")
-    .eq("conversation_id", params.id)
-    .order("sent_at", { ascending: true });
-
-  const { data: responses } = await supabase
-    .from("agreement_responses")
-    .select("*")
-    .eq("conversation_id", params.id);
+  // Parallelize the conversation's own data + the sidebar profile — these
+  // are independent and were previously three sequential round-trips.
+  const [{ data: messages }, { data: responses }, { data: profileForSidebar }] =
+    await Promise.all([
+      supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", params.id)
+        .order("sent_at", { ascending: true }),
+      supabase
+        .from("agreement_responses")
+        .select("*")
+        .eq("conversation_id", params.id),
+      supabase
+        .from("profiles")
+        .select("display_name, avatar_url, email, handle")
+        .eq("id", user.id)
+        .maybeSingle()
+    ]);
 
   const msgs = (messages as Message[]) ?? [];
   const last = msgs[msgs.length - 1];
@@ -118,11 +127,7 @@ export default async function ConversationPage({
   // them and that's why opening a conversation made the 7 Messages
   // badge disappear. Now we fetch the same data AppShell does.
   const userId = user.id;
-  const { data: profileForSidebar } = await supabase
-    .from("profiles")
-    .select("display_name, avatar_url, email, handle")
-    .eq("id", userId)
-    .maybeSingle();
+  // profileForSidebar is now fetched in the parallel batch above.
   function prettifyEmailUsername(raw: string): string {
     const parts = raw
       .replace(/[._-]+/g, " ")
@@ -139,25 +144,25 @@ export default async function ConversationPage({
     (profileForSidebar?.display_name &&
       profileForSidebar.display_name.trim()) ||
     (emailUsername ? prettifyEmailUsername(emailUsername) : "you");
-  let conferences: { slug: string; name: string }[] = [];
-  try {
-    const { data: memberRows } = await supabase
-      .from("conference_members")
-      .select("conference_slug")
-      .eq("user_id", userId);
-    const slugs = (memberRows ?? []).map((r: any) => r.conference_slug);
-    if (slugs.length > 0) {
+  async function loadConferences(): Promise<{ slug: string; name: string }[]> {
+    try {
+      const { data: memberRows } = await supabase
+        .from("conference_members")
+        .select("conference_slug")
+        .eq("user_id", userId);
+      const slugs = (memberRows ?? []).map((r: any) => r.conference_slug);
+      if (slugs.length === 0) return [];
       const { data: confs } = await supabase
         .from("conferences")
         .select("slug, name")
         .in("slug", slugs);
-      conferences = (confs ?? []).map((c: any) => ({
+      return (confs ?? []).map((c: any) => ({
         slug: c.slug as string,
         name: c.name as string
       }));
+    } catch {
+      return []; /* sidebar still renders without conferences section */
     }
-  } catch {
-    /* sidebar still renders without conferences section */
   }
 
   // Unread counts — mirrors AppShell's parallel fetch so badges show
@@ -231,10 +236,48 @@ export default async function ConversationPage({
     );
     return convIds.filter((id: string) => !respondedSet.has(id)).length;
   }
-  const [mRes, pRes, prRes] = await Promise.allSettled([
-    computeMessagesUnread(),
-    computePollUnread(),
-    computeProposalsUnread()
+  // Run the three remaining independent server workloads in parallel —
+  // conferences, the unread-badge counts, and the SyncMeter inputs — instead
+  // of three sequential phases. Jack: "every page loads fast besides the
+  // chat page; the caching isn't there." This collapses the waterfall.
+  const [
+    conferences,
+    [mRes, pRes, prRes],
+    [
+      { data: twinForMeter },
+      { data: myMsgsForMeter },
+      { count: agreedForMeter },
+      { count: editsForMeter }
+    ]
+  ] = await Promise.all([
+    loadConferences(),
+    Promise.allSettled([
+      computeMessagesUnread(),
+      computePollUnread(),
+      computeProposalsUnread()
+    ]),
+    Promise.all([
+      service
+        .from("twin_profiles")
+        .select(
+          "goals, deal_preferences, communication_style, deal_breakers, ai_export_blob, hometown, current_city"
+        )
+        .eq("user_id", userId)
+        .maybeSingle(),
+      service
+        .from("messages")
+        .select("conversation_id")
+        .eq("sender_user_id", userId),
+      service
+        .from("agreement_responses")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("response", "accepted"),
+      service
+        .from("edit_deltas")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+    ])
   ]);
   if (mRes.status === "fulfilled" && mRes.value > 0)
     unreadCounts["/messages"] = mRes.value;
@@ -242,45 +285,6 @@ export default async function ConversationPage({
     unreadCounts["/poll"] = pRes.value;
   if (prRes.status === "fulfilled" && prRes.value > 0)
     unreadCounts["/proposals"] = prRes.value;
-
-  // Clone Sync card — same sidebarExtra slot the dashboard passes to
-  // AppShell. Fetched twin data is light here (just goals); SyncMeter
-  // tolerates missing fields. We don't pass conversation/edit counts
-  // since this is the chat page and the meter is meant as a quick
-  // glance, not a precise score.
-  // Fetch the EXACT same inputs AppShell uses so the SyncMeter shows
-  // identical numbers across the dashboard, messages, and conversation
-  // pages. Jack: "Why are there 2 different sync connection scores
-  // now?" The previous version of this code hardcoded
-  // completed_conversations / accepted_agreements / edit_count to 0,
-  // dropping ~30 points off the score on the conversation page only.
-  const [
-    { data: twinForMeter },
-    { data: myMsgsForMeter },
-    { count: agreedForMeter },
-    { count: editsForMeter }
-  ] = await Promise.all([
-    service
-      .from("twin_profiles")
-      .select(
-        "goals, deal_preferences, communication_style, deal_breakers, ai_export_blob, hometown, current_city"
-      )
-      .eq("user_id", userId)
-      .maybeSingle(),
-    service
-      .from("messages")
-      .select("conversation_id")
-      .eq("sender_user_id", userId),
-    service
-      .from("agreement_responses")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("response", "accepted"),
-    service
-      .from("edit_deltas")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", userId)
-  ]);
   const completedConvsCount = new Set(
     ((myMsgsForMeter ?? []) as Array<{ conversation_id: string }>).map(
       (m) => m.conversation_id
