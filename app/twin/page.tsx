@@ -32,26 +32,29 @@ export default async function TwinPage() {
 
   return (
     <AppShell>
-      <section className="mt-2">
-        <div className="retro-label">chat</div>
-        <h1 className="retro-h1 text-2xl sm:text-3xl mt-2 leading-tight">
-          Chat with your twin.
+      {/* Compact header — Jack: "shorten that so it's only a single line,
+          remove the blue top chat, give me the maximal amount of view."
+          Dropped the eyebrow label + collapsed the 2-line blurb to one
+          line + shrank the h1 so the chat scroller reclaims the vertical
+          space (the scroller's height reservation in TwinChatUI was cut
+          to match). */}
+      <section className="mt-1">
+        <h1 className="retro-h1 text-xl sm:text-2xl leading-tight">
+          Chat with your twin.{" "}
+          <span
+            className="font-normal text-sm sm:text-base align-middle"
+            style={{ color: "var(--text-dim)" }}
+          >
+            Your home base — ask who to reach out to, triage proposals, draft anything.
+          </span>
         </h1>
-        <p
-          className="mt-2 text-sm sm:text-base leading-relaxed"
-          style={{ color: "var(--text-dim)" }}
-        >
-          Your AI knows your goals, your voice, who's on the platform.
-          Ask it who to reach out to, triage proposals, draft a message
-          to send to anyone — this is your home base.
-        </p>
 
         {/* Desktop: 2-col grid — chat fills the wide center, pending
             proposals live in a sticky right rail with Accept/Deny
             buttons so the user can move on real action without leaving
             this page. Mobile: stacks (chat first, proposals below). */}
         <div
-          className="mt-6 grid gap-6 twin-grid"
+          className="mt-3 grid gap-6 twin-grid"
           style={{
             gridTemplateColumns: "minmax(0, 1fr)"
           }}

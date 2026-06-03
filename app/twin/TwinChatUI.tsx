@@ -508,7 +508,10 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           // Independent scroll context.
           overflowY: "auto",
           overscrollBehavior: "contain",
-          height: "calc(100dvh - 64px - 210px)",
+          // 64px top bar + ~120px compact header (was 210px for the old
+          // eyebrow + 2-line blurb; the header was collapsed to a single
+          // line so the chat reclaims ~90px of vertical view).
+          height: "calc(100dvh - 64px - 120px)",
           minHeight: 300,
           // Solid background so messages don't render over the page
           // bg when the scroller has its own bounds.
