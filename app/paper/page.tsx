@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { NetworkDensity } from "../communities/NetworkDensity";
 
 export const metadata = {
   title: "Intention Is All You Need · SyncedIn",
@@ -208,6 +209,45 @@ function FigWinWinAttention() {
   );
 }
 
+// FIG 5 — The lived-experience flywheel. The reality-navigation loop.
+function FigFlywheel() {
+  const stages = ["Live", "Record", "Sync", "Understand", "Coordinate", "Live better"];
+  const cx = 160;
+  const cy = 160;
+  const r = 116;
+  const pts = stages.map((s, i) => {
+    const a = (i / stages.length) * Math.PI * 2 - Math.PI / 2;
+    return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a), label: s };
+  });
+  return (
+    <figure className="fig">
+      <svg viewBox="0 0 320 320" className="fig-svg" style={{ maxWidth: 360, margin: "0 auto" }}>
+        <circle cx={cx} cy={cy} r={r} className="fly-ring" fill="none" />
+        <circle r="6" className="fly-spark">
+          <animateMotion
+            dur="7s"
+            repeatCount="indefinite"
+            path={`M ${cx},${cy - r} a ${r},${r} 0 1,1 -0.1,0 z`}
+          />
+        </circle>
+        {pts.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r="7" className="node-live" style={{ animationDelay: `${i * 0.3}s` }} />
+            <text x={p.x} y={p.y - 14} className="fly-label">{p.label}</text>
+          </g>
+        ))}
+        <text x={cx} y={cy} className="fly-center">the flywheel</text>
+      </svg>
+      <figcaption>
+        Figure 5: Live, record, sync, understand, coordinate, live better. Your
+        real-world experience becomes the dataset; your purpose becomes the
+        compass; your twin becomes the navigator. Each turn of the loop makes
+        the next one sharper.
+      </figcaption>
+    </figure>
+  );
+}
+
 export default function PaperPage() {
   return (
     <main className="paper">
@@ -327,6 +367,12 @@ export default function PaperPage() {
         }
         .flow-soft { border-color: var(--amber); background: linear-gradient(135deg, rgba(35,88,255,0.10), rgba(147,51,234,0.10)); }
         .flow-arrow { color: var(--text-dim); font-weight: 800; }
+
+        /* lived-experience flywheel */
+        .fly-ring { stroke: var(--border-bright); stroke-width: 2; opacity: 0.5; }
+        .fly-spark { fill: var(--amber-bright); }
+        .fly-label { fill: var(--text); font-size: 12px; font-weight: 700; text-anchor: middle; font-family: ui-sans-serif, system-ui; }
+        .fly-center { fill: var(--text-dim); font-size: 12px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; text-anchor: middle; dominant-baseline: middle; }
       `}</style>
 
       <Link href="/" className="back">&lt; syncedin.org</Link>
@@ -386,7 +432,14 @@ export default function PaperPage() {
         have light at our fingertips and we use it to send each other linear
         messages.
       </p>
-      <FigBandwidth />
+      <div className="fig">
+        <NetworkDensity
+          slowLabel="Today · human bandwidth"
+          fastLabel="On SyncedIn · speed of light"
+          slowCaption="One introduction at a time. Most of the highest-leverage pairs never meet."
+          fastCaption="Twins talk in parallel, continuously, surfacing the strongest win-wins ahead of time."
+        />
+      </div>
 
       <h2>3. From attention to intention</h2>
       <p>
@@ -475,22 +528,57 @@ export default function PaperPage() {
         technology, pointed at us.
       </p>
 
-      <h2>8. Conclusion</h2>
+      <h2>8. From networking to reality navigation</h2>
+      <p>
+        Everything so far reads as a better way to meet people. The real shift
+        is larger. The same layer that routes professional intent can route
+        every kind: work, social life, language and meaning, community, purpose,
+        inspiration, the environments that make you more alive. Most AI starts
+        in the digital world and tries to simulate reality. SyncedIn does the
+        reverse. <strong>It starts with lived experience and syncs the digital
+        world around it.</strong>
+      </p>
+      <p>
+        That runs on three layers. First, an <strong>internal compass</strong>:
+        the system learns what gives you energy, which people make you more
+        alive, which rooms unlock you, what work feels meaningful, what patterns
+        keep repeating. This is not preferences. It is your alignment signal.
+        Second, <strong>real-world discovery</strong>: it routes you toward
+        aligned people, inspiring rooms, events, collaborators, cities, retreats,
+        and the kind of serendipity that does not happen by accident. Third,
+        <strong> digital sync</strong>: after the experience, it records who you
+        met, what mattered, what energized you, and what should happen next, and
+        your twin gets truer. Live, record, sync, understand, coordinate, live
+        better.
+      </p>
+      <FigFlywheel />
+      <blockquote>
+        Most people are building AI that understands your files. We are building
+        AI that understands your life. Your life becomes the dataset, your
+        purpose becomes the compass, your agent becomes the navigator.
+      </blockquote>
+
+      <h2>9. Conclusion</h2>
       <p>
         The bottleneck on human potential is the speed at which intentions find
         each other. We finally have machines that can carry intention faithfully
         and route it in parallel. Pointed at language, attention gave us models
         that understand us. Pointed at each other, intention can give us a way to
-        find the people we were always meant to build with.
+        find the people, places, and experiences we were always meant to live
+        into.
       </p>
       <blockquote>
         LinkedIn mapped who knows whom. SyncedIn maps who should meet whom, and
         lets their agents coordinate why, when, and how.
       </blockquote>
       <p>
-        SyncedIn starts as an AI networking app and becomes an open protocol for
-        human harmonization. It is a meaningful path for humanity to connect.
-        That is the whole reason to build it.
+        SyncedIn begins as automated networking and becomes a navigation layer
+        for reality. It learns from your lived experience, maps your purpose,
+        finds the aligned people and environments, and coordinates the next step
+        that brings your world into harmony. Not a LinkedIn replacement. Not an
+        AI CRM. A world harmonizer: a system for syncing lived experience, human
+        potential, and real-world coordination into one moving whole. That is
+        the whole reason to build it. Come build it.
       </p>
 
       <div style={{ marginTop: 40, display: "flex", gap: 12, flexWrap: "wrap" }}>
