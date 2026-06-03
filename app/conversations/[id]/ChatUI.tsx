@@ -958,6 +958,7 @@ export function ChatUI({
   // ≥768px so desktop users still see the full outcome inline like
   // before.
   const [summaryCollapsed, setSummaryCollapsed] = useState(true);
+  const [aboutCollapsed, setAboutCollapsed] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(min-width: 768px)");
@@ -1609,7 +1610,9 @@ export function ChatUI({
                       leaving the chat. Renders nothing if the user
                       hasn't connected any social profiles. */}
                   {other.socials && (
-                    <SocialIconRow urls={other.socials} size={14} gap={4} />
+                    <span className="lg:hidden">
+                      <SocialIconRow urls={other.socials} size={14} gap={4} />
+                    </span>
                   )}
                   {/* Per-convo funny-mode toggle. When on, twin prompt
                       swaps to personality-forward wiring. */}
@@ -2017,12 +2020,59 @@ export function ChatUI({
           className="mb-2 retro-panel"
           style={{ padding: 12, background: "var(--panel-2)" }}
         >
-          <div className="retro-label" style={{ marginBottom: 4 }}>
-            about {other.name}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 8,
+              marginBottom: aboutCollapsed ? 0 : 4
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setAboutCollapsed((v) => !v)}
+              className="retro-label"
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+                textAlign: "left"
+              }}
+              aria-expanded={!aboutCollapsed}
+            >
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-block",
+                  width: 8,
+                  fontSize: 10,
+                  color: "var(--text-dim)"
+                }}
+              >
+                {aboutCollapsed ? "▸" : "▾"}
+              </span>
+              about {other.name}
+            </button>
+            {/* Counterpart socials — top-right of the About card on
+                desktop. Jack: "move the social logos to the top right in
+                the About Akash area on desktop." Desktop-only; mobile
+                keeps them in the conversation header. */}
+            {other.socials && (
+              <span className="hidden lg:inline-flex">
+                <SocialIconRow urls={other.socials} size={14} gap={4} />
+              </span>
+            )}
           </div>
-          <div className="retro-dim text-xs" style={{ lineHeight: 1.5 }}>
-            {summaryResult.counterpart_summary}
-          </div>
+          {!aboutCollapsed && (
+            <div className="retro-dim text-xs" style={{ lineHeight: 1.5 }}>
+              {summaryResult.counterpart_summary}
+            </div>
+          )}
         </div>
       )}
 
@@ -2352,14 +2402,28 @@ export function ChatUI({
             aria-label="Collapse deal panel"
             title="Click anywhere on this row to collapse"
           >
-            <div
+            <span
               className="retro-label"
               style={{
-                color: bothAccepted ? "var(--green)" : "var(--amber)"
+                color: bothAccepted ? "var(--green)" : "var(--amber)",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6
               }}
             >
-              // {bothAccepted ? "deal sealed" : "proposed final destination"}
-            </div>
+              <span
+                aria-hidden="true"
+                style={{
+                  display: "inline-block",
+                  width: 8,
+                  fontSize: 10,
+                  color: "var(--text-dim)"
+                }}
+              >
+                ▾
+              </span>
+              {bothAccepted ? "deal sealed" : "proposed final destination"}
+            </span>
             <span
               className="retro-dim"
               style={{ fontSize: 11 }}
@@ -2435,8 +2499,28 @@ export function ChatUI({
             </div>
           ) : myResponse?.response === "accepted" ? (
             <div className="mt-2">
-              <div className="text-[11px] retro-green">
-                You accepted ✓
+              {/* Full-width "Accepted" button — Jack: "the 'you accepted'
+                  thing should still be the full button showing 'accepted.'
+                  Right now this is too small." Reads as a locked-in state,
+                  not a tiny caption. */}
+              <div
+                style={{
+                  width: "100%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  padding: "10px 12px",
+                  borderRadius: 10,
+                  background: "rgba(16,185,129,0.12)",
+                  border: "1px solid var(--green)",
+                  color: "var(--green)",
+                  fontWeight: 800,
+                  fontSize: 14,
+                  letterSpacing: "-0.01em"
+                }}
+              >
+                ✓ Accepted
               </div>
               {bothAccepted && (
                 <SchedulePanel

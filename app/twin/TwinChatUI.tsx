@@ -1060,7 +1060,16 @@ function Bubble({
         </div>
       ) : (
         <div
-          onClick={onBeginEdit}
+          onClick={() => {
+            // Don't hijack a text selection — if the user just
+            // highlighted text (to copy), releasing the mouse fires this
+            // click; entering edit mode would blow away their selection.
+            // Jack: "if I've highlighted something and let go, it
+            // shouldn't enter edit mode."
+            const sel = typeof window !== "undefined" ? window.getSelection() : null;
+            if (sel && sel.toString().trim().length > 0) return;
+            onBeginEdit();
+          }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {

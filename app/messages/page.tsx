@@ -10,6 +10,7 @@ import { ConversationPrefetch } from "./ConversationPrefetch";
 import { startConversationWithUser } from "../dashboard/actions";
 import { computePairScore } from "@/lib/pair-score";
 import { socialsFromBlob } from "@/lib/social-from-blob";
+import { InlineActions } from "./InlineActions";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -543,6 +544,21 @@ export default async function MessagesPage() {
                     locked={c.excitement_locked}
                   />
                 </div>
+                {/* Proposal actions — Accept / Deny-with-reason, brought
+                    over from the removed /proposals page. Shown only when
+                    a proposal exists (the conversation has a summary). */}
+                {c.summary &&
+                  (() => {
+                    const rs = respsByConv.get(c.id) ?? [];
+                    const mine = rs.find((r) => r.user_id === user.id);
+                    return (
+                      <InlineActions
+                        conversationId={c.id}
+                        alreadyAccepted={mine?.response === "accepted"}
+                        alreadyRejected={mine?.response === "rejected"}
+                      />
+                    );
+                  })()}
               </div>
             );
           })}

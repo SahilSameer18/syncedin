@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Avatar } from "../../Avatar";
+import { RailFilter } from "./RailFilter";
 
 /**
  * ConversationRail — narrow vertical strip on the left of the
@@ -323,6 +324,9 @@ export async function ConversationRail({
         <span>all</span>
       </Link>
 
+      {/* Sort control (#20) — reorders the rows below by recent / outcome. */}
+      <RailFilter />
+
       {rows.map((c) => {
         const otherId =
           c.participant_a === user.id ? c.participant_b : c.participant_a;
@@ -354,6 +358,13 @@ export async function ConversationRail({
             aria-label={`Open conversation with ${fullName}`}
             aria-current={active ? "page" : undefined}
             className="conv-rail-link"
+            data-rail-row=""
+            data-ts={new Date(
+              lastByConv.get(c.id)?.sent_at || c.created_at
+            ).getTime()}
+            data-score={
+              typeof c.excitement_score === "number" ? c.excitement_score : 0
+            }
             style={{
               display: "flex",
               flexDirection: "column",
