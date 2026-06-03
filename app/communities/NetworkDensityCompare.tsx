@@ -70,15 +70,20 @@ export function NetworkDensityCompare({
   }));
 
   // Generate every edge between every pair → fully-connected graph.
-  const edges: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
+  const edges: Array<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+    len: number;
+  }> = [];
   for (let i = 0; i < nodePositions.length; i++) {
     for (let j = i + 1; j < nodePositions.length; j++) {
-      edges.push({
-        x1: nodePositions[i].x,
-        y1: nodePositions[i].y,
-        x2: nodePositions[j].x,
-        y2: nodePositions[j].y
-      });
+      const x1 = nodePositions[i].x;
+      const y1 = nodePositions[i].y;
+      const x2 = nodePositions[j].x;
+      const y2 = nodePositions[j].y;
+      edges.push({ x1, y1, x2, y2, len: Math.hypot(x2 - x1, y2 - y1) });
     }
   }
 
@@ -141,6 +146,23 @@ export function NetworkDensityCompare({
               text-align: center;
               max-width: 320px;
             }
+            /* Right side: edges draw themselves in, then nodes fade up —
+               the network visibly "wiring itself together" at the speed
+               of light. Left side: dots drift faintly (isolated, restless,
+               never connecting). Pure CSS, no JS. */
+            @keyframes ndc-draw { to { stroke-dashoffset: 0; } }
+            @keyframes ndc-fade { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+            @keyframes ndc-bloom { 0%,100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.05); } }
+            @keyframes ndc-drift { 0%,100% { transform: translate(0,0); } 50% { transform: translate(0,-5px); } }
+            .ndc-edge { animation: ndc-draw 0.8s ease forwards; }
+            .ndc-node { opacity: 0; transform-box: fill-box; transform-origin: center; animation: ndc-fade 0.5s ease forwards; }
+            .ndc-bloom-c { transform-box: fill-box; transform-origin: center; animation: ndc-bloom 4.5s ease-in-out infinite; }
+            .ndc-dot { transform-box: fill-box; transform-origin: center; animation: ndc-drift 6s ease-in-out infinite; }
+            @media (prefers-reduced-motion: reduce) {
+              .ndc-edge { stroke-dashoffset: 0 !important; animation: none !important; }
+              .ndc-node { opacity: 1 !important; transform: none !important; animation: none !important; }
+              .ndc-bloom-c, .ndc-dot { animation: none !important; }
+            }
           `}</style>
 
           {/* LEFT — today / human bandwidth */}
@@ -155,7 +177,11 @@ export function NetworkDensityCompare({
               aria-label="Members scattered, mostly disconnected"
             >
               {leftDots.map((d, i) => (
-                <g key={i}>
+                <g
+                  key={i}
+                  className="ndc-dot"
+                  style={{ animationDelay: `${i * 0.18}s` }}
+                >
                   <circle
                     cx={d.x}
                     cy={d.y}
@@ -204,15 +230,18 @@ export function NetworkDensityCompare({
               </defs>
               {/* Soft ambient bloom behind the polygon */}
               <circle
+                className="ndc-bloom-c"
                 cx={cx}
                 cy={cy}
                 r={ringR + 40}
                 fill="url(#ndc-glow)"
               />
-              {/* Every edge */}
+              {/* Every edge — draws itself in (stroke-dashoffset → 0),
+                  staggered so the network wires together left-to-right. */}
               {edges.map((e, i) => (
                 <line
                   key={i}
+                  className="ndc-edge"
                   x1={e.x1}
                   y1={e.y1}
                   x2={e.x2}
@@ -220,6 +249,11 @@ export function NetworkDensityCompare({
                   stroke="#1f8bff"
                   strokeOpacity={0.45}
                   strokeWidth={1}
+                  style={{
+                    strokeDasharray: e.len,
+                    strokeDashoffset: e.len,
+                    animationDelay: `${(i % 28) * 0.022}s`
+                  }}
                 />
               ))}
               {/* Nodes (member avatars + circles) */}
@@ -227,7 +261,11 @@ export function NetworkDensityCompare({
                 const m = n.member;
                 const isReal = !!m;
                 return (
-                  <g key={i}>
+                  <g
+                    key={i}
+                    className="ndc-node"
+                    style={{ animationDelay: `${0.5 + i * 0.05}s` }}
+                  >
                     <circle
                       cx={n.x}
                       cy={n.y}
