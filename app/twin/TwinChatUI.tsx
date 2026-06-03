@@ -1,6 +1,28 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+
+/**
+ * Internal slash-routes the twin commonly references in copy. When the
+ * assistant says "verify on /proposals" we want that to render as a
+ * real link the user can click. Whitelist approach so we don't turn
+ * incidental "use /n for newline" into bad nav.
+ */
+const TWIN_INTERNAL_PATHS = new Set([
+  "/dashboard",
+  "/messages",
+  "/proposals",
+  "/twin",
+  "/talk",
+  "/invite",
+  "/poll",
+  "/personal-intelligence",
+  "/settings",
+  "/hypernetwork",
+  "/feedback",
+  "/conversations"
+]);
 
 type PendingAction = {
   id: string;
@@ -61,7 +83,12 @@ function renderInlineMd(text: string): React.ReactNode[] {
   // Tokenize **bold**, *italic*, `code` in one pass. Greedy match for
   // bold first (so "**foo**" doesn't get eaten as two italics).
   const out: React.ReactNode[] = [];
-  const re = /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`)/g;
+  // Token order matters: bold > italic > code > internal-slash-path.
+  // The slash-path token requires the slash to be at a word boundary
+  // (start-of-string or after whitespace / punctuation) so we don't
+  // turn "a/b" or "foo/bar" inside regular text into a fake link.
+  const re =
+    /(\*\*[^*\n]+\*\*|\*[^*\n]+\*|`[^`\n]+`|(?:^|(?<=[\s(\[]))\/[a-z][a-z0-9-]*(?:\/[a-z0-9-]+)?)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
   let key = 0;
@@ -74,6 +101,31 @@ function renderInlineMd(text: string): React.ReactNode[] {
       out.push(<strong key={`b${key++}`}>{tok.slice(2, -2)}</strong>);
     } else if (tok.startsWith("*") && tok.endsWith("*")) {
       out.push(<em key={`i${key++}`}>{tok.slice(1, -1)}</em>);
+    } else if (tok.startsWith("/")) {
+      // Internal slash-path → render as Link if it's a known app route.
+      // We strip a trailing /[id] segment when checking the whitelist so
+      // /conversations/abc123 still autolinks. Unknown paths fall through
+      // as plain text so we don't break unrelated copy.
+      const root = "/" + tok.slice(1).split("/")[0];
+      if (TWIN_INTERNAL_PATHS.has(root)) {
+        out.push(
+          <Link
+            key={`a${key++}`}
+            href={tok}
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              color: "var(--blue, #2358ff)",
+              textDecoration: "underline",
+              textUnderlineOffset: 2,
+              fontWeight: 600
+            }}
+          >
+            {tok}
+          </Link>
+        );
+      } else {
+        out.push(tok);
+      }
     } else if (tok.startsWith("`") && tok.endsWith("`")) {
       out.push(
         <code
@@ -217,6 +269,13 @@ function renderMarkdown(body: string): React.ReactNode {
  * edit_deltas so future twin replies learn from the correction.
  */
 const COMPOSER_HEIGHT = 96; // approximate height of the bottom composer
+// Suggested-prompt chip strip sits on top of the composer. Its bottom
+// edge anchors at calc(60px + safe-area) (the composer's top) and the
+// pill itself is ~30px tall. Jack flagged: chips were visually masking
+// the last chat message because the scroller height only reserved
+// space for the composer, not the chips. We carve a separate budget
+// so the scroller floor sits ABOVE the chip strip with a small gap.
+const CHIPS_HEIGHT = 44;
 
 export function TwinChatUI({ selfName }: { selfName: string }) {
   const [messages, setMessages] = useState<ChatRow[]>([]);
@@ -439,9 +498,11 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           // Independent scroll context.
           overflowY: "auto",
           overscrollBehavior: "contain",
-          // Height: viewport minus topbar minus intro minus composer.
-          // Tuned to leave the chat as the dominant surface on the page.
-          height: `calc(100dvh - 64px - 210px - ${COMPOSER_HEIGHT}px - env(safe-area-inset-bottom, 0px))`,
+          // Height: viewport minus topbar minus intro minus composer
+          // AND chips. Without subtracting CHIPS_HEIGHT the last
+          // message could scroll into the same pixels the floating
+          // chip pills occupy → chip background masked the chat.
+          height: `calc(100dvh - 64px - 210px - ${COMPOSER_HEIGHT}px - ${CHIPS_HEIGHT}px - env(safe-area-inset-bottom, 0px))`,
           minHeight: 300,
           // Solid background so messages don't render over the page
           // bg when the scroller has its own bounds.
@@ -569,15 +630,26 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           message immediately so the user doesn't have to type the
           first prompt cold. Static V1 — V2 should pull the most-recent
           counterpart name + most-recent pending proposal title from
-          props to make these dynamic. */}
+          props to make these dynamic.
+
+          Solid background + subtle top fade so the chips read as a
+          docked surface, not as pills floating over chat content.
+          Jack: "the gray bar is cutting off the chat in the background,
+          removing usable space" — fixed by reserving the strip's
+          height in the scroller budget AND giving it a real surface
+          so the visual stop is clear. */}
       <div
         style={{
           position: "fixed",
           left: 0,
           right: 0,
-          // Tighter offset — sits 4px above the composer instead of 8.
+          // Sit flush on top of the composer with no overlap gap.
           bottom: "calc(60px + env(safe-area-inset-bottom, 0px))",
-          padding: "0 14px 4px",
+          padding: "7px 14px 7px",
+          background: "var(--panel-solid)",
+          // Subtle hairline so the strip reads as part of the composer
+          // dock, not a floating layer over the chat.
+          borderTop: "1px solid var(--border)",
           pointerEvents: "none",
           zIndex: 29
         }}
