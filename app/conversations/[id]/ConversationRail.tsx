@@ -260,6 +260,13 @@ export async function ConversationRail({
           zIndex: 5
         }}
       >
+      <style>{`
+        .conv-rail-ava { transition: transform 140ms ease, box-shadow 140ms ease; border-radius: 50%; }
+        .conv-rail-link:hover .conv-rail-ava {
+          transform: scale(1.06);
+          box-shadow: 0 0 0 3px var(--amber-bright);
+        }
+      `}</style>
       <Link
         href="/messages"
         prefetch={true}
@@ -311,6 +318,7 @@ export async function ConversationRail({
             prefetch={true}
             aria-label={`Open conversation with ${fullName}`}
             aria-current={active ? "page" : undefined}
+            className="conv-rail-link"
             style={{
               display: "flex",
               flexDirection: "column",
@@ -326,7 +334,7 @@ export async function ConversationRail({
               transition: "background 120ms, border-color 120ms"
             }}
           >
-            <div style={{ position: "relative" }}>
+            <div className="conv-rail-ava" style={{ position: "relative" }}>
               <Avatar
                 id={otherId}
                 name={fullName}

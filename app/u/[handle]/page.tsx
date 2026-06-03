@@ -100,9 +100,17 @@ export default async function PortfolioPage({
           .toLowerCase()
           .replace(/[^a-z0-9]+/g, "-")
           .replace(/^-+|-+$/g, "");
-      const match = ((data ?? []) as any[]).find(
-        (p) => p.display_name && norm(p.display_name) === handle
-      );
+      const rows = (data ?? []) as any[];
+      // Exact slug match first; then prefix-tolerant so a display name with
+      // a suffix ("Raghavendra Reddy · Founder" → "raghavendra-reddy-founder")
+      // still resolves from a name-only link like /u/raghavendra-reddy.
+      const match =
+        rows.find((p) => p.display_name && norm(p.display_name) === handle) ||
+        rows.find((p) => {
+          if (!p.display_name) return false;
+          const n = norm(p.display_name);
+          return n.startsWith(`${handle}-`) || handle.startsWith(`${n}-`);
+        });
       if (match) coreProfile = match;
     } catch {
       /* still null */
