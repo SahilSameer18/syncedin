@@ -2,19 +2,26 @@
 
 import { useState } from "react";
 
-const AI_PROMPT = `Give me everything you know about me — my personality, current goals, active projects, communication style, key relationships and the dynamics with each, ongoing deals or negotiations, professional background, what I'm good at and what I struggle with, my deal-breakers, how I make decisions, what I'm trying to accomplish in the next 6–12 months, and what kinds of opportunities I'd say yes to immediately.
+const AI_PROMPT = `I am building my digital twin that is going to network for me.
+
+Give me everything that would help coordinate: my personality, my needs, my wants, my offers, current goals, active projects, communication style, key relationships, professional background, what I'm good at and what I struggle with, how I make decisions, what I'm trying to accomplish in the next 6–12 months, what my ultimate north star is, and what kinds of opportunities I'd say yes to immediately.
 
 Be specific and concrete. Don't summarize — include exact phrases I use, quotes from past conversations if you have them, and named examples. If you have memories or stored context about me, surface all of it. If you don't know something, say "unknown" rather than guessing.
 
 Output as plain text, structured by these headings:
-# Background
+# Personality
+# Needs
+# Wants
+# Offers (what I bring)
 # Current goals (next 6–12 months)
 # Active projects
 # Communication style (with examples of how I write)
 # Key relationships
-# Ongoing deals / negotiations
-# Decision style
-# Deal-breakers and constraints
+# Professional background
+# What I'm good at
+# What I struggle with
+# How I make decisions
+# My ultimate north star
 # Opportunities I'd say yes to immediately`;
 
 type Guide = {
