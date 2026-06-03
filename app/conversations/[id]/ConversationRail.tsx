@@ -31,7 +31,7 @@ export async function ConversationRail({
   const { data: convs } = await supabase
     .from("conversations")
     .select(
-      "id, participant_a, participant_b, status, created_at, excitement_score"
+      "id, participant_a, participant_b, status, created_at, excitement_score, last_read_a, last_read_b"
     )
     .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
     .order("created_at", { ascending: false })
@@ -87,6 +87,29 @@ export async function ConversationRail({
       return { color: "#9ca3af", label: "waiting on them" };
     }
     return { color: "var(--amber-bright)", label: "your turn" };
+  }
+
+  /**
+   * Read receipt (#20 — "two check marks if it's red on the other
+   * person's face"). Only meaningful when YOUR message is the latest
+   * (ball in their court). Compares the counterpart's last_read stamp
+   * against your last message's sent_at:
+   *   - "read" → they've opened it since you sent → ✓✓ in brand red.
+   *   - "sent" → delivered but not yet read → faint gray ✓✓.
+   * Returns null when it's your turn / no messages / sealed.
+   */
+  function readReceipt(c: any): "read" | "sent" | null {
+    const last = lastByConv.get(c.id);
+    if (!last || last.sender_user_id !== user!.id) return null;
+    const isA = c.participant_a === user!.id;
+    const theirLastRead = isA ? c.last_read_b : c.last_read_a;
+    if (
+      theirLastRead &&
+      new Date(theirLastRead).getTime() >= new Date(last.sent_at).getTime()
+    ) {
+      return "read";
+    }
+    return "sent";
   }
 
   const otherIds = Array.from(
@@ -319,6 +342,10 @@ export async function ConversationRail({
               ? sd.color
               : "transparent";
         const dotLabel = c.status === "closed" ? "sealed" : sd?.label ?? "";
+        // Read receipt overrides the plain "waiting on them" gray dot
+        // with a ✓✓ glyph (red = they read it). Not shown on sealed
+        // conversations or when it's your turn.
+        const rr = c.status === "closed" ? null : readReceipt(c);
         return (
           <Link
             key={c.id}
@@ -349,21 +376,58 @@ export async function ConversationRail({
                 avatarUrl={p?.avatar_url ?? null}
                 size={56}
               />
-              {dot !== "transparent" && (
+              {rr ? (
                 <span
-                  aria-label={dotLabel}
-                  title={dotLabel}
+                  aria-label={rr === "read" ? "read" : "delivered"}
+                  title={rr === "read" ? "Read" : "Delivered · not read yet"}
                   style={{
                     position: "absolute",
-                    right: -1,
-                    bottom: -1,
-                    width: 10,
-                    height: 10,
-                    borderRadius: 5,
-                    background: dot,
-                    border: "2px solid var(--panel-solid)"
+                    right: -3,
+                    bottom: -3,
+                    height: 16,
+                    padding: "0 3px",
+                    borderRadius: 8,
+                    background: "var(--panel-solid)",
+                    border: "1px solid var(--border)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: rr === "read" ? "var(--red, #ef4444)" : "#9ca3af",
+                    lineHeight: 1
                   }}
-                />
+                >
+                  <svg
+                    width="16"
+                    height="11"
+                    viewBox="0 0 16 11"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M1 5.5 4 8.5 9.5 2" />
+                    <path d="M6.5 8.5 12 2" />
+                  </svg>
+                </span>
+              ) : (
+                dot !== "transparent" && (
+                  <span
+                    aria-label={dotLabel}
+                    title={dotLabel}
+                    style={{
+                      position: "absolute",
+                      right: -1,
+                      bottom: -1,
+                      width: 10,
+                      height: 10,
+                      borderRadius: 5,
+                      background: dot,
+                      border: "2px solid var(--panel-solid)"
+                    }}
+                  />
+                )
               )}
               {typeof c.excitement_score === "number" &&
                 c.excitement_score > 0 && (
