@@ -281,15 +281,16 @@ export default async function AdminUsagePage() {
       <div className="mt-3 retro-panel" style={{ padding: 16 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 }}>
           <Stat label="Invites drafted" value={invTotal} />
-          <Stat label="Marked sent" value={invSent} sub={`${pct(invSent, invTotal)} of drafted`} />
-          <Stat label="Visited link" value={invVisited} sub={`${pct(invVisited, invSent)} of sent`} />
+          <Stat label="Visited link" value={invVisited} sub={`${pct(invVisited, invTotal)} of drafted`} />
           <Stat label="Claimed (signed up)" value={invClaimed} sub={`${pct(invClaimed, invVisited)} of visits`} />
+          <Stat label="Marked sent (manual)" value={invSent} sub="manual flag, usually skipped" />
         </div>
         <p className="mt-3 text-xs" style={{ color: "var(--text-dim)" }}>
-          Visited/sent is the closest thing we have to email open-rate — it's
-          whether the recipient actually opened their invite link. True email
-          open/read tracking isn't wired yet (would need a Resend webhook +
-          an opened_at column); say the word and I'll add it.
+          The real funnel is drafted → visited → claimed; visited/drafted is the
+          closest thing we have to an open-rate (did the recipient open their
+          link). &quot;Marked sent&quot; is a manual button most people skip, so
+          it&apos;s shown separately rather than as a funnel stage. True email
+          open/read tracking would need a Resend webhook + an opened_at column.
         </p>
       </div>
 
