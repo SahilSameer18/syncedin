@@ -13,8 +13,11 @@ const ADMIN_EMAIL = "jacksonjezio@gmail.com";
 const DAY = 24 * 60 * 60 * 1000;
 
 function pct(part: number, whole: number): string {
-  if (!whole) return "0%";
-  return `${Math.round((part / whole) * 100)}%`;
+  if (!whole) return "—";
+  // Clamp to 100: counts can come from different populations (e.g. a claim
+  // recorded without an incremented visit_count), and a funnel stage should
+  // never display over 100%.
+  return `${Math.min(100, Math.round((part / whole) * 100))}%`;
 }
 
 /** Bucket ISO timestamps into the last `days` calendar days (UTC). */
@@ -127,7 +130,7 @@ export default async function AdminUsagePage() {
     service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", true),
     service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false).gte("created_at", iso7),
     service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false).gte("created_at", iso30),
-    service.from("twin_profiles").select("user_id", { count: "exact", head: true }).not("goals", "is", null),
+    service.from("twin_profiles").select("user_id, profiles!inner(is_test_persona)", { count: "exact", head: true }).eq("profiles.is_test_persona", false).not("goals", "is", null),
     service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false).gte("last_active_at", iso7),
     service.from("pending_invites").select("slug", { count: "exact", head: true }),
     service.from("pending_invites").select("slug", { count: "exact", head: true }).not("sent_at", "is", null),

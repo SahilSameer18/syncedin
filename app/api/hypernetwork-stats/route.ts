@@ -27,7 +27,17 @@ export async function GET() {
     { count: scoringCalibrations }
   ] = await Promise.all([
     headCount("profiles", (q: any) => q.eq("is_test_persona", false)),
-    headCount("twin_profiles", (q: any) => q.not("goals", "is", null)),
+    // Count twins among NON-test users only — test personas have built
+    // twins too, so an unfiltered count made "twins" exceed "humans" on the
+    // public dashboard. Inner-join profiles and filter to real users.
+    service
+      .from("twin_profiles")
+      .select("user_id, profiles!inner(is_test_persona)", {
+        count: "exact",
+        head: true
+      })
+      .eq("profiles.is_test_persona", false)
+      .not("goals", "is", null),
     headCount("conversations"),
     headCount("conversations", (q: any) => q.eq("status", "closed")),
     headCount("messages"),

@@ -202,6 +202,7 @@ export function FeedbackBubble() {
           setErr("");
         }}
         aria-label="Give feedback"
+        className="fb-launch"
         style={{
           display: "inline-flex",
           alignItems: "center",
@@ -215,10 +216,36 @@ export function FeedbackBubble() {
           letterSpacing: "-0.005em",
           cursor: "pointer",
           background:
-            "linear-gradient(135deg, #2358ff 0%, #6b2dc9 60%, #9333ea 100%)",
-          boxShadow: "0 10px 28px -8px rgba(80, 50, 200, 0.55)"
+            "linear-gradient(135deg, #2358ff 0%, #6b2dc9 60%, #9333ea 100%)"
         }}
       >
+        <style>{`
+          .fb-launch {
+            box-shadow:
+              0 0 0 1px rgba(147, 51, 234, 0.55),
+              0 10px 30px -6px rgba(107, 45, 201, 0.7),
+              0 0 22px rgba(147, 51, 234, 0.55);
+            animation: fbGlow 2.8s ease-in-out infinite;
+          }
+          .fb-launch:hover { transform: translateY(-1px); }
+          @keyframes fbGlow {
+            0%, 100% {
+              box-shadow:
+                0 0 0 1px rgba(147, 51, 234, 0.5),
+                0 10px 30px -6px rgba(107, 45, 201, 0.6),
+                0 0 18px rgba(147, 51, 234, 0.45);
+            }
+            50% {
+              box-shadow:
+                0 0 0 1px rgba(147, 51, 234, 0.75),
+                0 12px 36px -6px rgba(107, 45, 201, 0.85),
+                0 0 34px rgba(147, 51, 234, 0.8);
+            }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .fb-launch { animation: none; }
+          }
+        `}</style>
         <svg
           width="18"
           height="18"

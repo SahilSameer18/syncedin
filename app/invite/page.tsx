@@ -124,9 +124,13 @@ export default async function InvitePage() {
     /* daily series unavailable — sparklines render as flat lines */
   }
 
-  const ctr = drafted > 0 ? Math.round((visited / drafted) * 100) : 0;
+  const ctr =
+    drafted > 0 ? Math.min(100, Math.round((visited / drafted) * 100)) : 0;
+  // Clamp to 100: `claimed` includes manual bonus credit + cross-account
+  // matches that aren't a strict subset of this user's drafted invites, so
+  // the raw ratio can exceed 100%. A claim rate over 100% reads as a bug.
   const claimRate =
-    drafted > 0 ? Math.round((claimed / drafted) * 100) : 0;
+    drafted > 0 ? Math.min(100, Math.round((claimed / drafted) * 100)) : 0;
 
   return (
     <AppShell>

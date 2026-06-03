@@ -49,7 +49,16 @@ async function loadStats(): Promise<Stats> {
     { count: scoringCalibrations }
   ] = await Promise.all([
     headCount("profiles", (q: any) => q.eq("is_test_persona", false)),
-    headCount("twin_profiles", (q: any) => q.not("goals", "is", null)),
+    // Twins among NON-test users only, so "twins online" never exceeds
+    // "humans on SyncedIn" on the public dashboard.
+    service
+      .from("twin_profiles")
+      .select("user_id, profiles!inner(is_test_persona)", {
+        count: "exact",
+        head: true
+      })
+      .eq("profiles.is_test_persona", false)
+      .not("goals", "is", null),
     headCount("conversations"),
     headCount("conversations", (q: any) => q.eq("status", "closed")),
     headCount("messages"),
