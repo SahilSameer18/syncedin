@@ -153,6 +153,31 @@ export async function POST(req: Request) {
       .from("agreement_responses")
       .delete()
       .eq("conversation_id", conversation_id);
+    // If the user asked to update AND accept in one breath, record their
+    // acceptance now (after the clear above, so it isn't wiped). This is
+    // why "update the proposal and I accept it" no longer needs a second
+    // Approve card. Jack: "it should have auto-accepted because I
+    // accepted it."
+    if (payload.also_accept === true) {
+      const { error: accErr } = await service
+        .from("agreement_responses")
+        .upsert(
+          {
+            conversation_id,
+            user_id: user.id,
+            response: "accepted",
+            reason: null
+          },
+          { onConflict: "conversation_id,user_id" }
+        );
+      if (accErr) {
+        return NextResponse.json(
+          { error: "save_failed", detail: accErr.message },
+          { status: 500 }
+        );
+      }
+      return NextResponse.json({ ok: true, action: "updated_and_accepted" });
+    }
     return NextResponse.json({ ok: true, action: "updated" });
   }
 

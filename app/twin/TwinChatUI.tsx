@@ -1037,7 +1037,9 @@ function ActionCard({ action }: { action: PendingAction }) {
   const label = (() => {
     switch (action.type) {
       case "update_proposal_text":
-        return `Update proposal with ${p.counterpart_name ?? "counterpart"}`;
+        return p.also_accept
+          ? `Update & accept proposal with ${p.counterpart_name ?? "counterpart"}`
+          : `Update proposal with ${p.counterpart_name ?? "counterpart"}`;
       case "accept_proposal":
         return `Accept ${p.counterpart_name ?? "counterpart"}'s proposal`;
       case "deny_proposal":

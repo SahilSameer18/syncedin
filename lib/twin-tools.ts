@@ -61,7 +61,7 @@ export const TWIN_TOOLS = [
   {
     name: "update_proposal_text",
     description:
-      "Propose a NEW text for a conversation's final agreement/proposal. Returns a pending_action that the user must approve in the chat — does NOT immediately write to the DB. Call this when the user says 'update my proposal with Jacob to say X' or 'change the Jacob deal to include Y'. Always pull conversation_id from list_pending_proposals or list_recent_conversations first — never invent one.",
+      "Propose a NEW text for a conversation's final agreement/proposal. Returns a pending_action that the user must approve in the chat — does NOT immediately write to the DB. Call this when the user says 'update my proposal with Jacob to say X' or 'change the Jacob deal to include Y'. Always pull conversation_id from list_pending_proposals or list_recent_conversations first — never invent one. IMPORTANT: if the user wants to ACCEPT their updated version in the same breath ('update the proposal to X and I accept it', 'change it and lock it in'), set also_accept=true and do NOT also call accept_proposal — the single update_proposal_text card will both update the text AND record the user's acceptance, so the user only taps Approve once.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -78,6 +78,11 @@ export const TWIN_TOOLS = [
           type: "string" as const,
           description:
             "The proposed new agreement text. Plain prose, contract-style. No markdown images, no emoji clusters."
+        },
+        also_accept: {
+          type: "boolean" as const,
+          description:
+            "Set true when the user wants to accept this updated proposal immediately. The single card will update the text AND record the user's acceptance. When true, do NOT also stage a separate accept_proposal action."
         }
       },
       required: ["conversation_id", "counterpart_name", "new_text"]
