@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 // Hard email gate — only Jack sees this. notFound() so the route's
-// existence isn't even revealed to anyone else.
+// existence isn't even revealed to anyone else (incl. direct-URL access).
 const ADMIN_EMAIL = "jacksonjezio@gmail.com";
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -15,6 +15,81 @@ const DAY = 24 * 60 * 60 * 1000;
 function pct(part: number, whole: number): string {
   if (!whole) return "0%";
   return `${Math.round((part / whole) * 100)}%`;
+}
+
+/** Bucket ISO timestamps into the last `days` calendar days (UTC). */
+function dailyBuckets(
+  timestamps: Array<string | null | undefined>,
+  days: number
+): { day: string; count: number }[] {
+  const buckets = new Map<string, number>();
+  for (let i = days - 1; i >= 0; i--) {
+    const key = new Date(Date.now() - i * DAY).toISOString().slice(0, 10);
+    buckets.set(key, 0);
+  }
+  for (const ts of timestamps) {
+    if (!ts) continue;
+    const key = String(ts).slice(0, 10);
+    if (buckets.has(key)) buckets.set(key, (buckets.get(key) ?? 0) + 1);
+  }
+  return Array.from(buckets.entries()).map(([day, count]) => ({ day, count }));
+}
+
+function BarChart({
+  data,
+  color
+}: {
+  data: { day: string; count: number }[];
+  color: string;
+}) {
+  const counts = data.map((d) => d.count);
+  const max = Math.max(1, ...counts);
+  const total = counts.reduce((a, b) => a + b, 0);
+  const W = 880;
+  const H = 150;
+  const pad = 16;
+  const bw = (W - pad * 2) / Math.max(1, data.length);
+  const first = data[0]?.day ?? "";
+  const last = data[data.length - 1]?.day ?? "";
+  return (
+    <div>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        style={{ width: "100%", height: "auto", display: "block" }}
+        preserveAspectRatio="none"
+      >
+        {data.map((d, i) => {
+          const h = (d.count / max) * (H - pad * 2);
+          return (
+            <rect
+              key={d.day}
+              x={pad + i * bw + 1}
+              y={H - pad - h}
+              width={Math.max(1, bw - 2)}
+              height={Math.max(d.count > 0 ? 2 : 0, h)}
+              rx={2}
+              fill={color}
+            />
+          );
+        })}
+      </svg>
+      <div
+        className="text-xs"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          color: "var(--text-dim)",
+          marginTop: 4
+        }}
+      >
+        <span>{first}</span>
+        <span>
+          {total} total · peak {max}/day
+        </span>
+        <span>{last}</span>
+      </div>
+    </div>
+  );
 }
 
 export default async function AdminUsagePage() {
@@ -27,11 +102,10 @@ export default async function AdminUsagePage() {
   }
 
   const service = createServiceClient();
-  const now = Date.now();
-  const iso7 = new Date(now - 7 * DAY).toISOString();
-  const iso30 = new Date(now - 30 * DAY).toISOString();
+  const iso7 = new Date(Date.now() - 7 * DAY).toISOString();
+  const iso30 = new Date(Date.now() - 30 * DAY).toISOString();
 
-  // ── Headline counts (cheap head:true counts) ──────────────────────────────
+  // ── Headline counts ───────────────────────────────────────────────────────
   const [
     totalUsersR,
     testUsersR,
@@ -47,52 +121,19 @@ export default async function AdminUsagePage() {
     emailTotalR,
     email7R
   ] = await Promise.all([
-    service
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("is_test_persona", false),
-    service
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("is_test_persona", true),
-    service
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("is_test_persona", false)
-      .gte("created_at", iso7),
-    service
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("is_test_persona", false)
-      .gte("created_at", iso30),
-    service
-      .from("twin_profiles")
-      .select("user_id", { count: "exact", head: true })
-      .not("goals", "is", null),
-    service
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("is_test_persona", false)
-      .gte("last_active_at", iso7),
+    service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false),
+    service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", true),
+    service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false).gte("created_at", iso7),
+    service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false).gte("created_at", iso30),
+    service.from("twin_profiles").select("user_id", { count: "exact", head: true }).not("goals", "is", null),
+    service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false).gte("last_active_at", iso7),
     service.from("pending_invites").select("slug", { count: "exact", head: true }),
-    service
-      .from("pending_invites")
-      .select("slug", { count: "exact", head: true })
-      .not("sent_at", "is", null),
-    service
-      .from("pending_invites")
-      .select("slug", { count: "exact", head: true })
-      .gt("visit_count", 0),
-    service
-      .from("pending_invites")
-      .select("slug", { count: "exact", head: true })
-      .not("claimed_by_user_id", "is", null),
+    service.from("pending_invites").select("slug", { count: "exact", head: true }).not("sent_at", "is", null),
+    service.from("pending_invites").select("slug", { count: "exact", head: true }).gt("visit_count", 0),
+    service.from("pending_invites").select("slug", { count: "exact", head: true }).not("claimed_by_user_id", "is", null),
     service.from("conversations").select("id", { count: "exact", head: true }),
     service.from("notification_log").select("id", { count: "exact", head: true }),
-    service
-      .from("notification_log")
-      .select("id", { count: "exact", head: true })
-      .gte("sent_at", iso7)
+    service.from("notification_log").select("id", { count: "exact", head: true }).gte("sent_at", iso7)
   ]);
 
   const totalUsers = totalUsersR.count ?? 0;
@@ -109,191 +150,159 @@ export default async function AdminUsagePage() {
   const emailTotal = emailTotalR.count ?? 0;
   const email7 = email7R.count ?? 0;
 
-  // ── Recently active users (engagement recency) ────────────────────────────
-  const { data: recentActive } = await service
-    .from("profiles")
-    .select("id, display_name, email, handle, last_active_at, created_at")
-    .eq("is_test_persona", false)
-    .not("last_active_at", "is", null)
-    .order("last_active_at", { ascending: false })
-    .limit(25);
-
-  // ── Power users — aggregate message + invite volume per user in JS ────────
-  // Pre-launch scale, so a capped raw fetch + in-memory tally is fine.
-  const [{ data: msgRows }, { data: invRows }] = await Promise.all([
-    service.from("messages").select("sender_user_id").limit(20000),
-    service.from("pending_invites").select("inviter_user_id").limit(20000)
+  // ── Raw data for charts + the unified user table ──────────────────────────
+  const [
+    { data: msgRows },
+    { data: invRows },
+    { data: profileRows },
+    { data: signupRows },
+    { data: emailRows }
+  ] = await Promise.all([
+    service.from("messages").select("sender_user_id, sent_at").limit(20000),
+    service.from("pending_invites").select("inviter_user_id").limit(20000),
+    service
+      .from("profiles")
+      .select("id, display_name, email, handle, last_active_at, created_at")
+      .eq("is_test_persona", false)
+      .limit(1000),
+    service.from("profiles").select("created_at").eq("is_test_persona", false).gte("created_at", iso30),
+    service.from("notification_log").select("kind").order("sent_at", { ascending: false }).limit(1000)
   ]);
+
   const msgBy = new Map<string, number>();
-  for (const r of (msgRows ?? []) as Array<{ sender_user_id: string }>) {
-    if (r.sender_user_id)
-      msgBy.set(r.sender_user_id, (msgBy.get(r.sender_user_id) ?? 0) + 1);
+  const msgTimestamps: string[] = [];
+  for (const r of (msgRows ?? []) as Array<{ sender_user_id: string; sent_at: string }>) {
+    if (r.sender_user_id) msgBy.set(r.sender_user_id, (msgBy.get(r.sender_user_id) ?? 0) + 1);
+    if (r.sent_at) msgTimestamps.push(r.sent_at);
   }
   const invBy = new Map<string, number>();
   for (const r of (invRows ?? []) as Array<{ inviter_user_id: string }>) {
-    if (r.inviter_user_id)
-      invBy.set(r.inviter_user_id, (invBy.get(r.inviter_user_id) ?? 0) + 1);
+    if (r.inviter_user_id) invBy.set(r.inviter_user_id, (invBy.get(r.inviter_user_id) ?? 0) + 1);
   }
-  const allIds = new Set<string>(
-    Array.from(msgBy.keys()).concat(Array.from(invBy.keys()))
-  );
-  const ranked = Array.from(allIds)
-    .map((id) => ({
-      id,
-      messages: msgBy.get(id) ?? 0,
-      invites: invBy.get(id) ?? 0,
-      score: (msgBy.get(id) ?? 0) + (invBy.get(id) ?? 0)
-    }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 15);
 
-  // Resolve names for the leaderboard.
-  const nameById = new Map<string, { name: string; handle: string | null }>();
-  if (ranked.length > 0) {
-    const { data: profs } = await service
-      .from("profiles")
-      .select("id, display_name, email, handle")
-      .in(
-        "id",
-        ranked.map((r) => r.id)
-      );
-    for (const p of (profs ?? []) as any[]) {
-      nameById.set(p.id, {
+  // ── Unified user table — power users + recency in ONE place ───────────────
+  // (Jack: "rather than power users and recently active in separate things,
+  // have it all in one.") One row per user: activity + last seen + joined.
+  const rows = ((profileRows ?? []) as any[])
+    .map((p) => {
+      const messages = msgBy.get(p.id) ?? 0;
+      const invites = invBy.get(p.id) ?? 0;
+      return {
+        id: p.id,
         name: p.display_name || p.email || p.id.slice(0, 8),
-        handle: p.handle ?? null
-      });
-    }
-  }
+        handle: p.handle as string | null,
+        messages,
+        invites,
+        total: messages + invites,
+        last_active_at: p.last_active_at as string | null,
+        created_at: p.created_at as string | null
+      };
+    })
+    // Sort by activity, then by recency, so power users surface first but a
+    // recently-active newcomer still appears.
+    .sort((a, b) => {
+      if (b.total !== a.total) return b.total - a.total;
+      const at = a.last_active_at ? new Date(a.last_active_at).getTime() : 0;
+      const bt = b.last_active_at ? new Date(b.last_active_at).getTime() : 0;
+      return bt - at;
+    })
+    .slice(0, 40);
 
-  // ── Email volume by kind (last 1000 rows, tallied) ────────────────────────
-  const { data: emailRows } = await service
-    .from("notification_log")
-    .select("kind")
-    .order("sent_at", { ascending: false })
-    .limit(1000);
+  const signupSeries = dailyBuckets(
+    ((signupRows ?? []) as Array<{ created_at: string }>).map((r) => r.created_at),
+    30
+  );
+  const activitySeries = dailyBuckets(msgTimestamps, 30);
+
   const emailByKind = new Map<string, number>();
   for (const r of (emailRows ?? []) as Array<{ kind: string }>) {
     emailByKind.set(r.kind, (emailByKind.get(r.kind) ?? 0) + 1);
   }
-  const emailKinds = Array.from(emailByKind.entries()).sort(
-    (a, b) => b[1] - a[1]
-  );
+  const emailKinds = Array.from(emailByKind.entries()).sort((a, b) => b[1] - a[1]);
 
   return (
     <main className="max-w-5xl mx-auto px-5 py-8">
       <div className="retro-label">internal · admin only</div>
       <h1 className="retro-h1 text-3xl mt-2">SyncedIn · Usage</h1>
       <p className="mt-2 text-sm" style={{ color: "var(--text-dim)" }}>
-        Live from Supabase, recomputed on every load. Test personas excluded
-        from user counts. checked {new Date().toISOString()}
+        Live from Supabase, recomputed every load. Test personas excluded.
+        checked {new Date().toISOString()}
       </p>
 
-      {/* ── Headline stat grid ── */}
       <div
         className="mt-6"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-          gap: 12
-        }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 12 }}
       >
         <Stat label="Real users" value={totalUsers} sub={`${testUsers} test personas`} />
         <Stat label="Twins built" value={twinsBuilt} sub={`${pct(twinsBuilt, totalUsers)} of users`} />
         <Stat label="Active (7d)" value={active7} sub={`${pct(active7, totalUsers)} of users`} />
         <Stat label="New (7d / 30d)" value={`${new7} / ${new30}`} />
         <Stat label="Conversations" value={convTotal} />
-        <Stat label="Emails sent (7d / all)" value={`${email7} / ${emailTotal}`} />
+        <Stat label="Emails (7d / all)" value={`${email7} / ${emailTotal}`} />
       </div>
 
-      {/* ── Referral funnel — the core retention/virality diagnostic ── */}
+      {/* ── Time-series charts ── */}
+      <h2 className="retro-h1 text-xl mt-8">New signups · last 30 days</h2>
+      <div className="mt-3 retro-panel" style={{ padding: 16 }}>
+        <BarChart data={signupSeries} color="var(--amber)" />
+      </div>
+
+      <h2 className="retro-h1 text-xl mt-8">Platform activity (messages) · last 30 days</h2>
+      <div className="mt-3 retro-panel" style={{ padding: 16 }}>
+        <BarChart data={activitySeries} color="var(--amber-bright)" />
+      </div>
+
+      {/* ── Referral funnel ── */}
       <h2 className="retro-h1 text-xl mt-8">Referral funnel</h2>
       <div className="mt-3 retro-panel" style={{ padding: 16 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))",
-            gap: 12
-          }}
-        >
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 }}>
           <Stat label="Invites drafted" value={invTotal} />
           <Stat label="Marked sent" value={invSent} sub={`${pct(invSent, invTotal)} of drafted`} />
           <Stat label="Visited link" value={invVisited} sub={`${pct(invVisited, invSent)} of sent`} />
           <Stat label="Claimed (signed up)" value={invClaimed} sub={`${pct(invClaimed, invVisited)} of visits`} />
         </div>
         <p className="mt-3 text-xs" style={{ color: "var(--text-dim)" }}>
-          The drop between each stage is where the loop leaks. Sent → visited
-          is message quality; visited → claimed is the landing-page + signup
-          flow.
+          Visited/sent is the closest thing we have to email open-rate — it's
+          whether the recipient actually opened their invite link. True email
+          open/read tracking isn't wired yet (would need a Resend webhook +
+          an opened_at column); say the word and I'll add it.
         </p>
       </div>
 
-      {/* ── Power users ── */}
-      <h2 className="retro-h1 text-xl mt-8">Power users</h2>
+      {/* ── Unified users table ── */}
+      <h2 className="retro-h1 text-xl mt-8">Users · activity & recency</h2>
       <div className="mt-3 retro-panel" style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ textAlign: "left" }}>
               <th style={th}>User</th>
-              <th style={th}>Messages</th>
+              <th style={th}>Msgs</th>
               <th style={th}>Invites</th>
-              <th style={th}>Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ranked.length === 0 && (
-              <tr>
-                <td style={td} colSpan={4}>
-                  No activity yet.
-                </td>
-              </tr>
-            )}
-            {ranked.map((r) => {
-              const info = nameById.get(r.id);
-              return (
-                <tr key={r.id} style={{ borderTop: "1px solid var(--border)" }}>
-                  <td style={td}>
-                    <strong>{info?.name ?? r.id.slice(0, 8)}</strong>
-                    {info?.handle && (
-                      <span style={{ color: "var(--text-dim)" }}> · /{info.handle}</span>
-                    )}
-                  </td>
-                  <td style={{ ...td, fontFamily: "monospace" }}>{r.messages}</td>
-                  <td style={{ ...td, fontFamily: "monospace" }}>{r.invites}</td>
-                  <td style={{ ...td, fontFamily: "monospace", fontWeight: 700 }}>
-                    {r.score}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* ── Recently active ── */}
-      <h2 className="retro-h1 text-xl mt-8">Recently active</h2>
-      <div className="mt-3 retro-panel" style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr style={{ textAlign: "left" }}>
-              <th style={th}>User</th>
+              <th style={th}>Activity</th>
               <th style={th}>Last active</th>
               <th style={th}>Joined</th>
             </tr>
           </thead>
           <tbody>
-            {((recentActive ?? []) as any[]).map((p) => (
-              <tr key={p.id} style={{ borderTop: "1px solid var(--border)" }}>
+            {rows.length === 0 && (
+              <tr>
+                <td style={td} colSpan={6}>No users yet.</td>
+              </tr>
+            )}
+            {rows.map((r) => (
+              <tr key={r.id} style={{ borderTop: "1px solid var(--border)" }}>
                 <td style={td}>
-                  <strong>{p.display_name || p.email}</strong>
-                  {p.handle && (
-                    <span style={{ color: "var(--text-dim)" }}> · /{p.handle}</span>
-                  )}
+                  <strong>{r.name}</strong>
+                  {r.handle && <span style={{ color: "var(--text-dim)" }}> · /{r.handle}</span>}
+                </td>
+                <td style={{ ...td, fontFamily: "monospace" }}>{r.messages}</td>
+                <td style={{ ...td, fontFamily: "monospace" }}>{r.invites}</td>
+                <td style={{ ...td, fontFamily: "monospace", fontWeight: 700 }}>{r.total}</td>
+                <td style={{ ...td, color: "var(--text-dim)" }}>
+                  {r.last_active_at ? <ClientDate value={r.last_active_at} /> : "—"}
                 </td>
                 <td style={{ ...td, color: "var(--text-dim)" }}>
-                  <ClientDate value={p.last_active_at} />
-                </td>
-                <td style={{ ...td, color: "var(--text-dim)" }}>
-                  <ClientDate value={p.created_at} />
+                  {r.created_at ? <ClientDate value={r.created_at} /> : "—"}
                 </td>
               </tr>
             ))}
@@ -304,8 +313,8 @@ export default async function AdminUsagePage() {
       {/* ── Email breakdown ── */}
       <h2 className="retro-h1 text-xl mt-8">Emails by type</h2>
       <p className="mt-1 text-xs" style={{ color: "var(--text-dim)" }}>
-        From notification_log (last 1000). Use this to spot which notifications
-        are firing most before deciding what to cut.
+        From notification_log (last 1000). Spot which notifications fire most
+        before deciding what to cut.
       </p>
       <div className="mt-3 retro-panel" style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -318,9 +327,7 @@ export default async function AdminUsagePage() {
           <tbody>
             {emailKinds.length === 0 && (
               <tr>
-                <td style={td} colSpan={2}>
-                  No emails logged yet.
-                </td>
+                <td style={td} colSpan={2}>No emails logged yet.</td>
               </tr>
             )}
             {emailKinds.map(([kind, count]) => (
@@ -336,26 +343,12 @@ export default async function AdminUsagePage() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  sub
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-}) {
+function Stat({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
   return (
     <div className="retro-panel" style={{ padding: 14 }}>
-      <div className="retro-label" style={{ marginBottom: 6 }}>
-        {label}
-      </div>
+      <div className="retro-label" style={{ marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1 }}>{value}</div>
-      {sub && (
-        <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>
-          {sub}
-        </div>
-      )}
+      {sub && <div className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>{sub}</div>}
     </div>
   );
 }
