@@ -834,6 +834,68 @@ export function ChatUI({
     }
   }
 
+  // ── Multi-outcome (#10): "Top Outcome" is summaryResult.summary; this
+  // fetches 2-3 DISTINCT alternative win-wins on demand and lets the user
+  // promote one to the live proposal. ──────────────────────────────────
+  const [otherOutcomes, setOtherOutcomes] = useState<
+    { title: string; text: string }[] | null
+  >(null);
+  const [loadingOutcomes, setLoadingOutcomes] = useState(false);
+  const [promotingOutcome, setPromotingOutcome] = useState<string | null>(null);
+
+  async function loadOtherOutcomes() {
+    if (loadingOutcomes) return;
+    setLoadingOutcomes(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/conversations/${conversationId}/other-outcomes`,
+        { method: "POST" }
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      const j = await res.json();
+      setOtherOutcomes(Array.isArray(j.outcomes) ? j.outcomes : []);
+    } catch (e: any) {
+      setError(e?.message || String(e));
+      setOtherOutcomes([]);
+    } finally {
+      setLoadingOutcomes(false);
+    }
+  }
+
+  // Promote an alternate outcome to the live proposal. Reuses the same
+  // change-proposal endpoint the counter-edit flow uses, then mirrors the
+  // new text into summaryResult so the OUTCOME card updates instantly.
+  async function useOutcome(text: string) {
+    if (promotingOutcome) return;
+    setPromotingOutcome(text);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/conversations/${conversationId}/change-proposal`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ text })
+        }
+      );
+      if (!res.ok) throw new Error(await readError(res));
+      setSummaryResult((prev) =>
+        prev
+          ? { ...prev, summary: text }
+          : { summary: text, counterpart_summary: "", excitement_score: 0 }
+      );
+      // The proposal changed → prior accept/reject answers are stale.
+      setMyResponse(null);
+      setOtherResponse(null);
+      setOtherOutcomes(null);
+    } catch (e: any) {
+      setError(e?.message || String(e));
+    } finally {
+      setPromotingOutcome(null);
+    }
+  }
+
   // Auto-summarize on conversation complete. Jack: "lets automatically
   // summarize the conversation" — kill the manual "✦ summarize" button
   // and trigger as soon as the chat is done + we don't already have a
@@ -2045,6 +2107,119 @@ export function ChatUI({
               style={{ marginBottom: 6, lineHeight: 1.45 }}
             >
               {summaryResult.summary}
+            </div>
+          )}
+
+          {/* Multi-outcome (#10): the summary above is the TOP outcome.
+              This reveals 2-3 alternative win-win paths the user can
+              promote to the live proposal with one tap. */}
+          {!summaryCollapsed && summaryResult.summary && (
+            <div style={{ marginTop: 4 }}>
+              {otherOutcomes === null ? (
+                <button
+                  type="button"
+                  onClick={loadOtherOutcomes}
+                  disabled={loadingOutcomes}
+                  style={{
+                    background: "transparent",
+                    border: "none",
+                    padding: 0,
+                    cursor: loadingOutcomes ? "default" : "pointer",
+                    color: "var(--amber-bright)",
+                    fontSize: 12,
+                    fontWeight: 700
+                  }}
+                >
+                  {loadingOutcomes
+                    ? "Generating alternatives…"
+                    : "⇄ View other outcomes"}
+                </button>
+              ) : otherOutcomes.length === 0 ? (
+                <div
+                  className="text-xs"
+                  style={{ color: "var(--text-dim)" }}
+                >
+                  No clearly different alternative surfaced.{" "}
+                  <button
+                    type="button"
+                    onClick={() => setOtherOutcomes(null)}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: "var(--amber-bright)",
+                      fontSize: 12,
+                      fontWeight: 700
+                    }}
+                  >
+                    retry
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div
+                    className="retro-label"
+                    style={{ color: "var(--text-dim)" }}
+                  >
+                    other win-win paths
+                  </div>
+                  {otherOutcomes.map((o, i) => (
+                    <div
+                      key={i}
+                      className="retro-panel"
+                      style={{
+                        padding: 10,
+                        background: "var(--panel-solid)"
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 800,
+                          color: "var(--amber-bright)",
+                          marginBottom: 3
+                        }}
+                      >
+                        {o.title}
+                      </div>
+                      <div
+                        className="text-xs"
+                        style={{ lineHeight: 1.45, marginBottom: 8 }}
+                      >
+                        {o.text}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => useOutcome(o.text)}
+                        disabled={promotingOutcome !== null}
+                        className="retro-btn retro-btn-primary"
+                        style={{ fontSize: 11, padding: "5px 10px" }}
+                      >
+                        {promotingOutcome === o.text
+                          ? "Setting…"
+                          : "Use this →"}
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => setOtherOutcomes(null)}
+                    style={{
+                      alignSelf: "flex-start",
+                      background: "transparent",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      color: "var(--text-dim)",
+                      fontSize: 11,
+                      fontWeight: 700
+                    }}
+                  >
+                    × hide
+                  </button>
+                </div>
+              )}
             </div>
           )}
           {/* (counterpart "About" now lives in its own card above the
