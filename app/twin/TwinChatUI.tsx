@@ -1031,6 +1031,7 @@ function ActionCard({ action }: { action: PendingAction }) {
     "idle"
   );
   const [errMsg, setErrMsg] = useState<string | null>(null);
+  const [fetchedPreview, setFetchedPreview] = useState<string | null>(null);
   const p = action.payload as any;
 
   const label = (() => {
@@ -1048,13 +1049,40 @@ function ActionCard({ action }: { action: PendingAction }) {
     }
   })();
 
-  const previewText = (() => {
+  const explicitPreview = (() => {
     if (action.type === "update_proposal_text") return p.new_text as string;
     if (action.type === "deny_proposal") return p.reason as string;
     if (action.type === "send_message_to_conversation")
       return p.text as string;
     return null;
   })();
+
+  // An accept card's payload carries only the conversation id + name, so
+  // historically it showed a bare header + a ▶ that looked like a
+  // disclosure arrow expanding to nothing. Pull the actual agreement the
+  // user is about to accept and SHOW it inline. Jack: "the arrow looks
+  // like it would drop down — there's lots of free place to show that."
+  useEffect(() => {
+    if (action.type !== "accept_proposal") return;
+    const convId = p?.conversation_id;
+    if (!convId) return;
+    let alive = true;
+    fetch(`/api/conversations/${convId}/agreement-text`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!alive) return;
+        const txt = (j?.agreement_text || "")
+          .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+          .trim();
+        setFetchedPreview(txt || null);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [action.type, p?.conversation_id]);
+
+  const previewText = explicitPreview ?? fetchedPreview;
 
   async function approve() {
     if (state !== "idle") return;
@@ -1112,7 +1140,16 @@ function ActionCard({ action }: { action: PendingAction }) {
           letterSpacing: "0.06em"
         }}
       >
-        <span style={{ color: palette.primary }}>▶</span>
+        <span
+          aria-hidden
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 2,
+            background: palette.primary,
+            flexShrink: 0
+          }}
+        />
         {label}
       </div>
       {previewText && (

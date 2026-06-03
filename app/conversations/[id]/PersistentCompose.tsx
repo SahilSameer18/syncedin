@@ -162,7 +162,14 @@ export function PersistentCompose({
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+            // Enter sends; Shift+Enter inserts a newline. (Cmd/Ctrl+Enter
+            // still sends.) Jack: "Enter when in messages shouldn't create
+            // a new line, it should send the message."
+            if (
+              e.key === "Enter" &&
+              !e.shiftKey &&
+              !e.nativeEvent.isComposing
+            ) {
               e.preventDefault();
               send();
             }
@@ -278,7 +285,7 @@ export function PersistentCompose({
         <span style={{ opacity: 0.7 }}>
           right-click to copy · double-click your own to edit
         </span>
-        <span className="compose-keyhint">⌘+Enter to send</span>
+        <span className="compose-keyhint">Enter to send · Shift+Enter for newline</span>
       </div>
       <style>{`
         @media (max-width: 767px) {

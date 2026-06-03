@@ -1855,8 +1855,14 @@ export function ChatUI({
           when the user wants the twins to handle the next turn on
           their own. Per-conversation goal moved to a slim toggle
           above the compose. */}
-      {done && !running && !editingId && (
+      {!editingId && (
         <>
+          {/* Composer is ALWAYS present (was gated on `done && !running`,
+              which hid the chat interface entirely while the twins were
+              still talking — Jack: "I'm missing my chat interface … that
+              should always be there even when the twins are just
+              starting"). Only edit mode hides it, since the inline edit
+              textarea takes over then. */}
           {/* Goal-set + let-twins-continue chips removed per Jack's
               "clean this up a lot more" pass. Goal is now accessed via
               a tiny pencil icon next to the destination card header
@@ -1876,6 +1882,10 @@ export function ChatUI({
             onSent={(msg) => {
               setMessages((prev) => [...prev, msg]);
               setDone(false);
+              // After the user drops in a manual message, let the
+              // counterpart's twin respond automatically. Jack: "I don't
+              // even see Jacob's twin replying" after sending.
+              runLoop();
             }}
             onContinueLoop={() => runLoop()}
           />
@@ -1930,6 +1940,23 @@ export function ChatUI({
             }
           }
         `}</style>
+      {/* About the counterpart — Jack: "the About part's useful to keep
+          there before even the outcome." Lifted out of the OUTCOME card
+          so it reads as its own block ABOVE the outcome in the rail. */}
+      {summaryResult?.counterpart_summary && (
+        <div
+          className="mb-2 retro-panel"
+          style={{ padding: 12, background: "var(--panel-2)" }}
+        >
+          <div className="retro-label" style={{ marginBottom: 4 }}>
+            about {other.name}
+          </div>
+          <div className="retro-dim text-xs" style={{ lineHeight: 1.5 }}>
+            {summaryResult.counterpart_summary}
+          </div>
+        </div>
+      )}
+
       {/* Outcome / "the deal" card — placed ABOVE the proposed-destination
           panel in the rail. Jack: "Now that we have proposed destination
           on the right side we can put it under outcome and not collapsed."
@@ -2013,17 +2040,8 @@ export function ChatUI({
               {summaryResult.summary}
             </div>
           )}
-          {!summaryCollapsed && summaryResult.counterpart_summary && (
-            <div
-              className="retro-dim text-xs"
-              style={{ lineHeight: 1.5 }}
-            >
-              <strong style={{ color: "var(--text)" }}>
-                About {other.name}:
-              </strong>{" "}
-              {summaryResult.counterpart_summary}
-            </div>
-          )}
+          {/* (counterpart "About" now lives in its own card above the
+              OUTCOME — see the about-{other.name} block above.) */}
         </div>
       )}
 

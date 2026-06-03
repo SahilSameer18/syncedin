@@ -99,6 +99,10 @@ const SORTS: Array<{ key: SortKey; label: string }> = [
 export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
   const [sort, setSort] = useState<SortKey>("excitement");
   const [openFilter, setOpenFilter] = useState(false);
+  // Jack: "max of three conversations showing, then click 'load more'.
+  // That page is just getting super long." Show 3, reveal 10 more per tap.
+  const PAGE = 3;
+  const [visibleCount, setVisibleCount] = useState(PAGE);
   // Sync-score prompt overlay: loaded lazily when the user opens the
   // edit modal. Avoids a fetch on first paint of the dashboard.
   const [promptModal, setPromptModal] = useState(false);
@@ -410,7 +414,7 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
         }
       `}</style>
       <div className="mt-3 space-y-2">
-        {sorted.map((c) => (
+        {sorted.slice(0, visibleCount).map((c) => (
           <div key={c.id} className="retro-panel retro-panel-hover p-3">
             <div className="conv-card-row">
               <Link
@@ -552,6 +556,19 @@ export function ConversationsList({ rows }: { rows: ConversationRow[] }) {
           </div>
         ))}
       </div>
+
+      {sorted.length > visibleCount && (
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            onClick={() => setVisibleCount((n) => n + 10)}
+            className="retro-btn"
+            style={{ fontSize: 13, padding: "8px 18px" }}
+          >
+            load more ({sorted.length - visibleCount} more)
+          </button>
+        </div>
+      )}
 
       {/* SYNC-SCORE PROMPT MODAL — opened by the (i) badge in the
           header. Shows the default natural-language description of
