@@ -27,8 +27,8 @@ android {
         // wrong package name. Play Console version codes are monotonic
         // per applicationId — even a rejected v1 may be reserved, so
         // safer to start at v2.
-        versionCode 3
-        versionName "1.0.2"
+        versionCode 4
+        versionName "1.0.3"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
