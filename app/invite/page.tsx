@@ -50,7 +50,7 @@ export default async function InvitePage() {
     // actual personal intelligence unlock page... VERY DIFFERENT" —
     // previously this page added handle-prefix + ambient-growth
     // fallbacks the PI page didn't, which inflated this number ~3x.
-    const referralRes = await countReferrals(user.id);
+    const referralRes = await countReferrals(user.id, { email: user.email });
     claimed = referralRes.count;
     // visit_count + first_visit_at may not exist yet in prod (schema
     // migration pending). Use a defensive try.

@@ -109,6 +109,16 @@ export function Sidebar({
           duplicating chrome. Drops a full row of vertical space too. */}
 
       {/* Primary nav */}
+      <style>{`
+        .synced-nav-link { transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease, border-left-color 0.15s ease; }
+        .synced-nav-link:hover {
+          background: var(--panel-2) !important;
+          color: var(--text) !important;
+          transform: translateX(3px);
+          border-left-color: var(--amber-bright) !important;
+        }
+        .synced-nav-link:hover .synced-nav-icon { color: var(--amber-bright) !important; }
+      `}</style>
       <nav style={{ display: "flex", flexDirection: "column", gap: 2 }}>
         {items.map((item) => {
           const active = isActive(item.href);
@@ -117,6 +127,7 @@ export function Sidebar({
             <Link
               key={item.href}
               href={item.href}
+              className="synced-nav-link"
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -134,6 +145,7 @@ export function Sidebar({
               }}
             >
               <span
+                className="synced-nav-icon"
                 style={{
                   width: 18,
                   height: 18,
@@ -201,6 +213,7 @@ export function Sidebar({
                 <Link
                   key={c.slug}
                   href={href}
+                  className="synced-nav-link"
                   style={{
                     display: "flex",
                     alignItems: "center",

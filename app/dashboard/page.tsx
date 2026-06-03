@@ -106,7 +106,9 @@ export default async function DashboardPage() {
   // Unified completed-referral count — shared helper backs /invite,
   // /personal-intelligence, and this dashboard card so all three
   // surfaces read the same number.
-  const completedReferrals = await countCompletedReferrals(user.id);
+  const completedReferrals = await countCompletedReferrals(user.id, {
+    email: user.email
+  });
 
   const otherIds = (conversations ?? []).map((c) =>
     c.participant_a === user.id ? c.participant_b : c.participant_a

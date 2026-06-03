@@ -51,7 +51,9 @@ export default async function PersonalIntelligencePage() {
 
   // Unified count — same lib helper backs /invite + dashboard so all
   // three surfaces read the same number. Strict claim ∪ email match.
-  const { count: referrals } = await countReferrals(user.id);
+  const { count: referrals } = await countReferrals(user.id, {
+    email: user.email
+  });
 
   const firstName =
     ((profile as any)?.display_name || "").split(/\s+/)[0] ||

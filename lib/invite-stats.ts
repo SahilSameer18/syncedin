@@ -76,7 +76,19 @@ function parseUserIdBonusMap(): Record<string, number> {
 }
 const BONUS_REFERRALS_BY_USER_ID = parseUserIdBonusMap();
 
-async function bonusReferralsFor(userId: string): Promise<number> {
+async function bonusReferralsFor(
+  userId: string,
+  sessionEmail?: string | null
+): Promise<number> {
+  // 0. Session email passed straight from the page (most reliable — it's the
+  //    email the user is actually authenticated with, no extra DB/auth-admin
+  //    round-trip that can fail). This is why Jack's +10 wasn't applying: the
+  //    re-lookups below were missing his account; the caller knew the email
+  //    all along.
+  const direct = (sessionEmail || "").toLowerCase().trim();
+  if (direct && BONUS_REFERRALS_BY_EMAIL[direct]) {
+    return BONUS_REFERRALS_BY_EMAIL[direct];
+  }
   // 1. Direct userId match (fastest — no DB hit). Set via env var
   //    BONUS_REFERRALS_BY_USER_ID="<jack-uuid>:10".
   if (BONUS_REFERRALS_BY_USER_ID[userId]) {
@@ -164,7 +176,10 @@ export type ReferralCount = {
   contributing_slugs: string[];
 };
 
-export async function countReferrals(userId: string): Promise<ReferralCount> {
+export async function countReferrals(
+  userId: string,
+  opts?: { email?: string | null }
+): Promise<ReferralCount> {
   const service = createServiceClient();
   try {
     // Drop `claimed_at` from the query entirely — that column does not
@@ -244,7 +259,7 @@ export async function countReferrals(userId: string): Promise<ReferralCount> {
     }
 
     // Manual bonus credit (see BONUS_REFERRALS_BY_EMAIL above).
-    const bonus = await bonusReferralsFor(userId);
+    const bonus = await bonusReferralsFor(userId, opts?.email);
     return {
       count: contributing.size + bonus,
       contributing_slugs: Array.from(contributing)
@@ -253,7 +268,7 @@ export async function countReferrals(userId: string): Promise<ReferralCount> {
     console.warn("[invite-stats] countReferrals failed", e);
     // Even on failure, honor the manual bonus so Jack's count never
     // shows 0 if the union queries timeout.
-    const bonus = await bonusReferralsFor(userId).catch(() => 0);
+    const bonus = await bonusReferralsFor(userId, opts?.email).catch(() => 0);
     return { count: bonus, contributing_slugs: [] };
   }
 }
@@ -264,7 +279,8 @@ export async function countReferrals(userId: string): Promise<ReferralCount> {
  * with goals set). This is the gate used for Premium unlock.
  */
 export async function countCompletedReferrals(
-  userId: string
+  userId: string,
+  opts?: { email?: string | null }
 ): Promise<number> {
   const service = createServiceClient();
   try {
@@ -336,7 +352,7 @@ export async function countCompletedReferrals(
     const allIds = Array.from(
       new Set([...directIds, ...emailMatchedIds, ...handleMatchedIds])
     );
-    const bonus = await bonusReferralsFor(userId);
+    const bonus = await bonusReferralsFor(userId, opts?.email);
     if (allIds.length === 0) return bonus;
     const { data: completed } = await service
       .from("twin_profiles")
@@ -346,6 +362,6 @@ export async function countCompletedReferrals(
     return (completed ?? []).length + bonus;
   } catch (e) {
     console.warn("[invite-stats] countCompletedReferrals failed", e);
-    return (await bonusReferralsFor(userId).catch(() => 0));
+    return (await bonusReferralsFor(userId, opts?.email).catch(() => 0));
   }
 }
