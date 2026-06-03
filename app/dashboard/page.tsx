@@ -19,6 +19,7 @@ import { QuickFeedbackWidget } from "./QuickFeedbackWidget";
 import { PremiumProgressCard } from "./PremiumProgressCard";
 import { ConversationsList, type ConversationRow } from "./ConversationsList";
 import { countCompletedReferrals } from "@/lib/invite-stats";
+import { computeSyncScore } from "@/lib/sync-score";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -533,6 +534,23 @@ export default async function DashboardPage() {
     accepted_agreements: acceptedAgreementsCount ?? 0,
     edit_count: editCount ?? 0
   };
+  // ── Command Center header + feed (real numbers only) ──────────────────────
+  const syncPct = computeSyncScore(syncInputs).total;
+  const firstName =
+    ((myProfile?.display_name as string) || user.email?.split("@")[0] || "there")
+      .split(/\s+/)[0];
+  const hr = new Date().getHours();
+  const greetPart = hr < 12 ? "morning" : hr < 18 ? "afternoon" : "evening";
+  const ccConversations = realConversations.length;
+  const ccProposals = realConversations.filter(
+    (c: any) => (c.summary ?? "").toString().trim().length > 0
+  ).length;
+  const commandFeed = [
+    { icon: "💬", label: "Conversations", value: ccConversations, href: "/messages", tint: "#5b5bf5" },
+    { icon: "🤝", label: "Proposals landed", value: ccProposals, href: "/proposals", tint: "#0f9d6b" },
+    { icon: "💌", label: "Referrals", value: completedReferrals, href: "/invite", tint: "#e0526a" },
+    { icon: "✨", label: "Twin sync", value: `${syncPct}%`, href: "/onboarding", tint: "#8b5cf6" }
+  ];
   // Kept as a dead reference for the hidden legacy aside below.
   const cloneSyncCard = (
     <aside
@@ -572,6 +590,77 @@ export default async function DashboardPage() {
       <ScrollTopOnSaved />
 
       <>
+        {/* COMMAND CENTER header + feed — Jack's rebrand. Real numbers only. */}
+        <section className="mt-2">
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              color: "var(--amber-bright)"
+            }}
+          >
+            Command Center
+          </div>
+          <h1
+            className="retro-h1"
+            style={{ fontSize: 30, fontWeight: 850, letterSpacing: "-0.02em", marginTop: 4 }}
+          >
+            Good {greetPart}, {firstName}.
+          </h1>
+          <p style={{ color: "var(--text-dim)", marginTop: 2, fontSize: 15 }}>
+            Your twin is scanning, prioritizing, and opening doors.
+          </p>
+
+          <div
+            style={{
+              marginTop: 18,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 14
+            }}
+          >
+            {commandFeed.map((c) => (
+              <Link
+                key={c.label}
+                href={c.href}
+                className="retro-panel retro-panel-hover"
+                style={{
+                  padding: 16,
+                  textDecoration: "none",
+                  color: "var(--text)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10
+                }}
+              >
+                <span
+                  style={{
+                    width: 40,
+                    height: 40,
+                    borderRadius: 12,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 20,
+                    background: `${c.tint}1f`
+                  }}
+                  aria-hidden
+                >
+                  {c.icon}
+                </span>
+                <div style={{ fontSize: 28, fontWeight: 850, lineHeight: 1 }}>
+                  {c.value}
+                </div>
+                <div style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 600 }}>
+                  {c.label}
+                </div>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         {!twinComplete && (
           <div
             className="mt-6 retro-panel p-4 text-sm"
