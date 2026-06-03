@@ -70,6 +70,14 @@ export async function ConversationRail({
       });
     }
   }
+  // Sort by most-recent activity (last message), falling back to created_at.
+  // Jack: "the scroll-through can be most recent." Mutates the render order.
+  rows.sort((a, b) => {
+    const at = lastByConv.get(a.id)?.sent_at || a.created_at;
+    const bt = lastByConv.get(b.id)?.sent_at || b.created_at;
+    return new Date(bt).getTime() - new Date(at).getTime();
+  });
+
   function statusDot(convId: string):
     | { color: string; label: string }
     | null {
@@ -357,6 +365,32 @@ export async function ConversationRail({
                   }}
                 />
               )}
+              {typeof c.excitement_score === "number" &&
+                c.excitement_score > 0 && (
+                  <span
+                    title="outcome score"
+                    style={{
+                      position: "absolute",
+                      left: -3,
+                      bottom: -3,
+                      minWidth: 22,
+                      height: 16,
+                      padding: "0 4px",
+                      borderRadius: 8,
+                      background: "var(--panel-solid)",
+                      border: "1px solid var(--border)",
+                      fontSize: 9,
+                      fontWeight: 800,
+                      color: "var(--amber-bright)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      lineHeight: 1
+                    }}
+                  >
+                    {Math.round(c.excitement_score)}%
+                  </span>
+                )}
             </div>
             <span
               style={{
