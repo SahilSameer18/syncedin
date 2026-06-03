@@ -403,38 +403,76 @@ export function PendingProposalsRail() {
         >
           Quick actions
         </div>
+        {/* These fire prompts INTO the chat (not nav links — the menu
+            already covers navigation). Each maps to something the twin can
+            actually do with its tools: update context, find matches, triage,
+            sharpen its voice, read poll consensus. */}
         {[
-          { href: "/dashboard", label: "Find someone to talk to", icon: "🔎" },
-          { href: "/proposals", label: "All proposals", icon: "🤝" },
-          { href: "/messages", label: "Open messages", icon: "💬" },
           {
-            href: "/personal-intelligence",
-            label: "Personal intelligence",
-            icon: "✨"
+            icon: "🧠",
+            label: "Add context to my twin",
+            prompt:
+              "I want to add something to my twin's context. Ask me what to add, then stage the update for me to approve."
           },
-          { href: "/poll", label: "Ask the network", icon: "📊" },
-          { href: "/invite", label: "Invite & earn", icon: "💌" }
+          {
+            icon: "🎯",
+            label: "Find my best match",
+            prompt:
+              "Who on the platform is my highest-leverage match right now, and why? Search and show me the top few."
+          },
+          {
+            icon: "🤝",
+            label: "Triage my proposals",
+            prompt:
+              "Triage my pending proposals: which should I accept, counter, or deny, and why? Stage the actions."
+          },
+          {
+            icon: "✍️",
+            label: "Sharpen my twin's voice",
+            prompt:
+              "Critique how my twin currently sounds and suggest 3 concrete edits to make it more like me."
+          },
+          {
+            icon: "📊",
+            label: "My poll consensus",
+            prompt: "What did the network conclude on my polls? Summarize the results."
+          },
+          {
+            icon: "👋",
+            label: "Who to reach out to today",
+            prompt: "Who are the 3 people I should reach out to today, and what should I say?"
+          }
         ].map((a) => (
-          <Link
-            key={a.href}
-            href={a.href}
+          <button
+            key={a.label}
+            type="button"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent("twin-quick-prompt", { detail: a.prompt })
+              )
+            }
             style={{
               display: "flex",
               alignItems: "center",
               gap: 10,
               padding: "8px 8px",
               borderRadius: 8,
-              textDecoration: "none",
+              border: "none",
+              background: "transparent",
+              textAlign: "left",
+              cursor: "pointer",
               color: "var(--text)",
               fontSize: 13,
-              fontWeight: 500
+              fontWeight: 500,
+              width: "100%",
+              font: "inherit"
             }}
           >
             <span style={{ fontSize: 16, width: 22, textAlign: "center" }}>
               {a.icon}
             </span>
             {a.label}
-          </Link>
+          </button>
         ))}
       </div>
 

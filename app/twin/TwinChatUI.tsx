@@ -418,6 +418,26 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
     }
   }
 
+  // Quick Actions (right rail) fire chat prompts into this thread via a
+  // window event, so the rail becomes a launchpad for using the platform
+  // through the twin rather than a duplicate of the nav menu.
+  useEffect(() => {
+    function onQuickPrompt(e: Event) {
+      const detail = (e as CustomEvent).detail;
+      if (typeof detail === "string" && detail.trim()) {
+        void sendText(detail.trim());
+      }
+    }
+    window.addEventListener("twin-quick-prompt", onQuickPrompt as EventListener);
+    return () =>
+      window.removeEventListener(
+        "twin-quick-prompt",
+        onQuickPrompt as EventListener
+      );
+    // sendText is stable enough for this listener; re-binding each render is
+    // cheap and avoids stale-closure on `sending`.
+  });
+
   async function send() {
     const t = text.trim();
     if (!t || sending) return;
@@ -543,7 +563,11 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           // at the scroller's short floor. Filling + padding removes the
           // gap AND guarantees the last card always clears the dock.
           padding: "4px 4px 0",
-          paddingBottom: `calc(${COMPOSER_HEIGHT}px + ${CHIPS_HEIGHT}px + 16px + env(safe-area-inset-bottom, 0px))`,
+          // Clear the fixed chip strip + composer with padding tuned to the
+          // ACTUAL dock height (~108px). The earlier value over-padded, so at
+          // scroll-bottom there was a band of empty scroller showing below the
+          // last message — the "gray bar" Jack saw on mobile.
+          paddingBottom: "calc(112px + env(safe-area-inset-bottom, 0px))",
           // Independent scroll context.
           overflowY: "auto",
           overscrollBehavior: "contain",
@@ -1052,6 +1076,8 @@ function ActionCard({ action }: { action: PendingAction }) {
         return `Deny ${p.counterpart_name ?? "counterpart"}'s proposal`;
       case "send_message_to_conversation":
         return `Send message to ${p.counterpart_name ?? "counterpart"}`;
+      case "update_twin_context":
+        return "Add to your twin's context";
       default:
         return action.type;
     }
@@ -1062,6 +1088,7 @@ function ActionCard({ action }: { action: PendingAction }) {
     if (action.type === "deny_proposal") return p.reason as string;
     if (action.type === "send_message_to_conversation")
       return p.text as string;
+    if (action.type === "update_twin_context") return p.text as string;
     return null;
   })();
 

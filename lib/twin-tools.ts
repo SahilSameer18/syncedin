@@ -153,6 +153,32 @@ export const TWIN_TOOLS = [
       },
       required: ["conversation_id", "counterpart_name", "text"]
     }
+  },
+  {
+    name: "update_twin_context",
+    description:
+      "Add new context / a new goal to the user's OWN twin so it permanently informs future conversations. Use whenever the user says 'add to my context', 'remember that I…', 'update my goals to…', 'I'm now looking for…'. Returns a pending_action the user approves; on approve it's appended to their twin profile. The twin CAN do this — never tell the user you can't update their context.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        text: {
+          type: "string" as const,
+          description:
+            "The context or goal to add, in the user's voice. E.g. 'Looking for a technical cofounder for SyncedIn.'"
+        }
+      },
+      required: ["text"]
+    }
+  },
+  {
+    name: "list_polls",
+    description:
+      "List the network polls and their results / consensus, plus whether the user has responded. Use when the user asks 'what were my poll results', 'what did the network say', or wants the consensus on a question. Returns data immediately (no approval needed).",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: []
+    }
   }
 ];
 
@@ -160,7 +186,8 @@ export const TWIN_TOOLS = [
 const READ_TOOLS = new Set([
   "list_pending_proposals",
   "list_recent_conversations",
-  "search_platform_users"
+  "search_platform_users",
+  "list_polls"
 ]);
 
 /** Tools that defer to a user-approval card. */
@@ -168,7 +195,8 @@ export const WRITE_TOOLS = new Set([
   "update_proposal_text",
   "accept_proposal",
   "deny_proposal",
-  "send_message_to_conversation"
+  "send_message_to_conversation",
+  "update_twin_context"
 ]);
 
 export type PendingAction = {
@@ -179,7 +207,8 @@ export type PendingAction = {
     | "update_proposal_text"
     | "accept_proposal"
     | "deny_proposal"
-    | "send_message_to_conversation";
+    | "send_message_to_conversation"
+    | "update_twin_context";
   /** Full input payload the user's Approve POST will replay. */
   payload: Record<string, unknown>;
 };
@@ -337,6 +366,47 @@ export async function runTwinTool(
       };
     } catch {
       return { data: { matches: [] }, pending_action: null };
+    }
+  }
+
+  if (name === "list_polls") {
+    try {
+      const { data: polls } = await service
+        .from("polls")
+        .select("id, question, status, synthesis, synthesis_one_liner, created_at")
+        .order("created_at", { ascending: false })
+        .limit(15);
+      const list = (polls ?? []) as any[];
+      const pollIds = list.map((p) => p.id);
+      const responded = new Set<string>();
+      if (pollIds.length > 0) {
+        const { data: resps } = await service
+          .from("poll_responses")
+          .select("poll_id")
+          .eq("twin_user_id", userId)
+          .in("poll_id", pollIds);
+        for (const r of (resps ?? []) as any[]) responded.add(r.poll_id);
+      }
+      return {
+        data: {
+          polls: list.map((p) => ({
+            id: p.id,
+            question: p.question,
+            status: p.status,
+            consensus:
+              (p.synthesis_one_liner as string) ||
+              ((p.synthesis as string) ?? "").slice(0, 400) ||
+              "(no synthesis yet — still gathering twin responses)",
+            you_responded: responded.has(p.id)
+          }))
+        },
+        pending_action: null
+      };
+    } catch (e: any) {
+      return {
+        data: { polls: [], error: e?.message ?? "fetch_failed" },
+        pending_action: null
+      };
     }
   }
 

@@ -25,7 +25,8 @@ type Body = {
     | "update_proposal_text"
     | "accept_proposal"
     | "deny_proposal"
-    | "send_message_to_conversation";
+    | "send_message_to_conversation"
+    | "update_twin_context";
   payload: Record<string, any>;
 };
 
@@ -50,8 +51,38 @@ export async function POST(req: Request) {
 
   const service = createServiceClient();
 
-  // All four write actions need ownership of a conversation_id, so
-  // do that check once up front.
+  // ── UPDATE TWIN CONTEXT (no conversation needed) ─────────────────
+  // Appends new context/goal to the user's OWN twin so it informs future
+  // conversations. Handled before the conversation-ownership check since
+  // it isn't tied to a conversation. Jack: "the chat should be able to do
+  // everything" — this is the twin updating its own memory on request.
+  if (type === "update_twin_context") {
+    const text = String(payload.text || "").trim();
+    if (!text) {
+      return NextResponse.json({ error: "missing_text" }, { status: 400 });
+    }
+    const { data: tp } = await service
+      .from("twin_profiles")
+      .select("ai_export_blob")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const prev = ((tp as any)?.ai_export_blob || "").toString();
+    const stamp = new Date().toISOString().slice(0, 10);
+    const next = `${prev ? prev + "\n\n" : ""}[Added via twin chat ${stamp}]: ${text}`;
+    const { error } = await service
+      .from("twin_profiles")
+      .upsert({ user_id: user.id, ai_export_blob: next }, { onConflict: "user_id" });
+    if (error) {
+      return NextResponse.json(
+        { error: "save_failed", detail: error.message },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ ok: true, action: "context_updated" });
+  }
+
+  // All four conversation write actions need ownership of a
+  // conversation_id, so do that check once up front.
   const conversation_id = String(payload.conversation_id || "").trim();
   if (!conversation_id) {
     return NextResponse.json(
