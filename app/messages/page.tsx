@@ -10,6 +10,7 @@ import { ConversationPrefetch } from "./ConversationPrefetch";
 import { startConversationWithUser } from "../dashboard/actions";
 import { computePairScore } from "@/lib/pair-score";
 import { socialsFromBlob } from "@/lib/social-from-blob";
+import { InboxTabs } from "../InboxTabs";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -272,11 +273,12 @@ export default async function MessagesPage() {
 
   return (
     <AppShell>
-      <h1 className="retro-h1 text-3xl">Messages</h1>
+      <h1 className="retro-h1 text-3xl">Inbox</h1>
       <p className="retro-dim text-sm mt-2">
         Every conversation your twin is having or has had. Sorted by Sync
         score, so the highest-leverage ones surface first.
       </p>
+      <InboxTabs active="messages" />
 
       {sorted.length === 0 ? (
         // Empty state — replace the dead-end "go to dashboard" CTA with

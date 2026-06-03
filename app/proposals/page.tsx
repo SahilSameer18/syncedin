@@ -7,6 +7,7 @@ import { ProposalRowBody } from "./ProposalRowBody";
 import { SocialIconRow } from "../SocialIconRow";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 import { stripGifMarkdown } from "@/lib/giphy";
+import { InboxTabs } from "../InboxTabs";
 
 /**
  * /proposals — dedicated view of every conversation's END proposal.
@@ -270,7 +271,7 @@ export default async function ProposalsPage({
   return (
     <AppShell>
       <header style={{ marginBottom: 16 }}>
-        <h1 className="retro-h1 text-2xl">Proposals</h1>
+        <h1 className="retro-h1 text-2xl">Inbox</h1>
         <p
           className="mt-1 text-sm"
           style={{ color: "var(--text-dim)" }}
@@ -279,6 +280,7 @@ export default async function ProposalsPage({
           worth taking, counter the ones that are almost-right, deny the
           rest with a reason so your twin learns.
         </p>
+        <InboxTabs active="proposals" />
       </header>
 
       {blockedPending && (
