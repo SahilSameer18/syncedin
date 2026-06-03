@@ -47,7 +47,7 @@ export function NavMenu({
     | { kind: "form"; label: string; icon: string; action: () => void | Promise<void> }
   > = [
     { kind: "link", href: "/hypernetwork", label: "Hypernetwork", icon: "◇" },
-    { kind: "link", href: "/messages", label: "Messages", icon: "✉" },
+    { kind: "link", href: "/messages", label: "Messages", icon: "🤝" },
     { kind: "link", href: "/conferences/new", label: "Sync a conference", icon: "◈" },
     { kind: "link", href: "/feedback", label: "Feedback", icon: "✦" },
     { kind: "link", href: "/onboarding", label: "Edit twin", icon: "◐" },
