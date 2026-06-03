@@ -9,6 +9,7 @@ import { BulkReachToolkit } from "../../BulkReachToolkit";
 import { ShareUrlBox } from "./ShareUrlBox";
 import { ScrollTopOnFlag } from "../../ScrollTopOnFlag";
 import { NetworkDensityCompare } from "../../communities/NetworkDensityCompare";
+import { HostBriefEditor } from "./HostBriefEditor";
 
 export async function generateMetadata({
   params
@@ -165,11 +166,22 @@ export default async function ConferencePage({
   // Owner profile (lookup so we can render "hosted by ..." nicely)
   const { data: ownerProfile } = await service
     .from("profiles")
-    .select("display_name, email, avatar_url")
+    .select("display_name, email, avatar_url, portfolio_about")
     .eq("id", conf.owner_user_id)
     .maybeSingle();
   const ownerName =
     ownerProfile?.display_name || ownerProfile?.email || "the host";
+  // Host brief (#15): a per-room override (conferences.host_brief, may be
+  // absent pre-migration since the row is selected with `*`) falls back to
+  // the host's global profile brief. Shown on the host card; editable by
+  // the owner with a global-vs-this-room scope choice.
+  const resolvedHostBrief = (
+    (conf as any).host_brief ??
+    (ownerProfile as any)?.portfolio_about ??
+    ""
+  )
+    .toString()
+    .trim();
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
@@ -455,7 +467,14 @@ export default async function ConferencePage({
                         )}
                       </div>
                     </div>
-                    {summary && (
+                    {isHost && isOwner ? (
+                      // Owner sees an inline editor with the global-vs-
+                      // this-room scope choice (#15).
+                      <HostBriefEditor
+                        slug={conf.slug}
+                        initialBrief={resolvedHostBrief}
+                      />
+                    ) : (isHost ? resolvedHostBrief : summary) ? (
                       <div
                         style={{
                           fontSize: 12,
@@ -467,9 +486,9 @@ export default async function ConferencePage({
                           overflow: "hidden"
                         }}
                       >
-                        {summary}
+                        {isHost ? resolvedHostBrief : summary}
                       </div>
-                    )}
+                    ) : null}
                     {(m as any).handle && (
                       <Link
                         href={`/u/${(m as any).handle}`}
