@@ -590,15 +590,54 @@ export async function notifyNewMatch(opts: {
         recipient.profile.display_name,
         recipient.profile.email
       );
+      // Find-or-create the conversation between the two twins so the email
+      // CTA drops the recipient straight INTO it (Jack: "rather than open
+      // dashboard, it should open that conversation").
+      let convId: string | null = null;
+      try {
+        const { data: existingConv } = await service
+          .from("conversations")
+          .select("id")
+          .or(
+            `and(participant_a.eq.${opts.newUserId},participant_b.eq.${c.user_id}),and(participant_a.eq.${c.user_id},participant_b.eq.${opts.newUserId})`
+          )
+          .maybeSingle();
+        if (existingConv) {
+          convId = (existingConv as any).id as string;
+        } else {
+          const { data: created } = await service
+            .from("conversations")
+            .insert({ participant_a: c.user_id, participant_b: opts.newUserId })
+            .select("id")
+            .single();
+          convId = (created as any)?.id ?? null;
+        }
+      } catch {
+        /* fall back to dashboard link below */
+      }
+      const ctaUrl = convId
+        ? `${APP_URL}/conversations/${convId}`
+        : `${APP_URL}/dashboard`;
+
       const subject = `New twin: ${newName} (${score}% match)`;
-      const text = `Hey ${recipFirst},\n\n${newName} just finished setting up their twin on SyncedIn — and it lights up at ${score}% match against yours (your threshold is ${recipient.prefs.match_threshold}%). Worth letting your twins talk?\n\n${APP_URL}/dashboard\n\n— SyncedIn`;
+      const text = `Hey ${recipFirst},\n\n${newName} just set up their twin on SyncedIn and it lights up at ${score}% match against yours (your threshold is ${recipient.prefs.match_threshold}%). Open the conversation and let your twins find the win-win:\n\n${ctaUrl}\n\n— SyncedIn`;
       const html = renderEmailHtml({
         preheader: `${newName} is a ${score}% match with your twin.`,
-        heading: `New twin worth meeting: ${newName}`,
-        body: `<p>Hey ${recipFirst},</p><p><strong>${newName}</strong> just joined SyncedIn and their twin lines up at <strong>${score}%</strong> against yours — above your <strong>${recipient.prefs.match_threshold}%</strong> notification threshold. Tap below to start a conversation between the two twins.</p>`,
-        ctaText: "Open dashboard",
-        ctaUrl: `${APP_URL}/dashboard`,
-        footerNote: `You're getting this because your match threshold is set to ${recipient.prefs.match_threshold}% in notification settings.`
+        kicker: "New match",
+        heading: `${newName} is a ${score}% match`,
+        syncScore: score,
+        // Show the matched person's real photo (initials fallback for
+        // either side that has none) instead of a naked gray avatar.
+        heroAvatars: {
+          mine: null,
+          theirs: (newProfile as any).avatar_url ?? null,
+          mineInitials: recipFirst.slice(0, 2),
+          theirsInitials: (newName || "?").slice(0, 2)
+        } as any,
+        body: `<p>Hey ${recipFirst},</p><p><strong>${newName}</strong> just set up their twin and it lines up at <strong>${score}%</strong> against yours, above your <strong>${recipient.prefs.match_threshold}%</strong> threshold. Open the conversation and let the two twins find the win-win.</p>`,
+        ctaText: "Open the conversation",
+        ctaUrl,
+        footerNote: `You're getting this because your match threshold is set to ${recipient.prefs.match_threshold}% in notification settings. Reply STOP-style via the unsubscribe link to mute these.`
       });
 
       await logAndSend({
