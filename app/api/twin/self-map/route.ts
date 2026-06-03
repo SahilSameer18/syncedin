@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { anthropic, TWIN_MODEL } from "@/lib/anthropic";
+import { loadBlendedAiExports } from "@/lib/ai-exports";
 
 /**
  * Self Map — a research-grounded "map of self" derived from the user's
@@ -44,6 +45,22 @@ export async function POST(req: Request) {
   }
 
   const name = (body.name ?? "").trim() || "you";
+
+  // Blend the per-source AI exports (ChatGPT / Claude / etc. pastes stored
+  // in the ai_exports table) with the main dump field. Without this, a
+  // user who pasted rich context into the per-source panels saw an empty
+  // map — "I posted my output and it's not showing here" (#9). Now the
+  // map reads from EVERYTHING the user has pasted, not just the one box.
+  let blendedExports: string | null = null;
+  try {
+    blendedExports = await loadBlendedAiExports(
+      user.id,
+      body.ai_export_blob ?? ""
+    );
+  } catch {
+    blendedExports = (body.ai_export_blob ?? "").trim() || null;
+  }
+
   const context = [
     body.goals ? `Goals: ${body.goals}` : "",
     body.deal_preferences ? `Deal preferences: ${body.deal_preferences}` : "",
@@ -51,9 +68,7 @@ export async function POST(req: Request) {
       ? `Communication style: ${body.communication_style}`
       : "",
     body.deal_breakers ? `Deal breakers: ${body.deal_breakers}` : "",
-    body.ai_export_blob
-      ? `AI context dump:\n${body.ai_export_blob.slice(0, 7000)}`
-      : ""
+    blendedExports ? `AI context dump:\n${blendedExports.slice(0, 9000)}` : ""
   ]
     .filter(Boolean)
     .join("\n\n");
