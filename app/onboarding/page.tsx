@@ -3,7 +3,7 @@ import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
 import { OnboardingWizard } from "./OnboardingWizard";
-import { SelfGraph } from "./SelfGraph";
+import { SelfMap } from "./SelfMap";
 import { LiveSyncMeter } from "./LiveSyncMeter";
 import { WelcomeSplash } from "./WelcomeSplash";
 import { TypingParticles } from "./TypingParticles";
@@ -173,11 +173,12 @@ export default async function OnboardingPage({
         </div>
       </div>
 
-      {/* Self-graph at the bottom — full-width, more breathing room for
-          the constellation cards. Renders only when the user has some
-          context; otherwise the placeholder lives inside SelfGraph itself. */}
+      {/* Map of self at the bottom — full-width psychometric portrait
+          (Big Five radar + Schwartz values + SDT drives + narrative
+          identity). Renders only when the user has some context;
+          otherwise the placeholder lives inside SelfMap itself. */}
       <section className="mt-12">
-        <SelfGraph formSelector="#onboarding-form" />
+        <SelfMap formSelector="#onboarding-form" />
       </section>
     </main>
   );
