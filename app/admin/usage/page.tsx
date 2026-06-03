@@ -161,6 +161,44 @@ export default async function AdminUsagePage() {
   const returning7 = returning7R.count ?? 0;
   const olderUsers = olderUsersR.count ?? 0;
 
+  // ── Email engagement (#22) ───────────────────────────────────────────────
+  // Reads from email_events (populated by the Resend webhook). Degrades
+  // gracefully to a "setup pending" state if the table doesn't exist yet
+  // (i.e. the migration hasn't been run). Open rate = distinct opened /
+  // distinct delivered over the last 30 days.
+  const since30 = new Date(Date.now() - 30 * 86_400_000).toISOString();
+  let emailEng: {
+    ready: boolean;
+    sent: number;
+    delivered: number;
+    opened: number;
+    clicked: number;
+    bounced: number;
+  } = { ready: false, sent: 0, delivered: 0, opened: 0, clicked: 0, bounced: 0 };
+  try {
+    const countType = async (t: string) => {
+      const { count, error } = await service
+        .from("email_events")
+        .select("id", { count: "exact", head: true })
+        .eq("event_type", t)
+        .gte("occurred_at", since30);
+      // Missing table / column → Supabase returns an error object instead
+      // of throwing. Bubble it up so the catch flips ready:false.
+      if (error) throw error;
+      return count ?? 0;
+    };
+    const [sent, delivered, opened, clicked, bounced] = await Promise.all([
+      countType("email.sent"),
+      countType("email.delivered"),
+      countType("email.opened"),
+      countType("email.clicked"),
+      countType("email.bounced")
+    ]);
+    emailEng = { ready: true, sent, delivered, opened, clicked, bounced };
+  } catch {
+    /* table not migrated yet — leave ready:false */
+  }
+
   // ── Raw data for charts + the unified user table ──────────────────────────
   const [
     { data: msgRows },
@@ -293,8 +331,41 @@ export default async function AdminUsagePage() {
           closest thing we have to an open-rate (did the recipient open their
           link). &quot;Marked sent&quot; is a manual button most people skip, so
           it&apos;s shown separately rather than as a funnel stage. True email
-          open/read tracking would need a Resend webhook + an opened_at column.
+          open/read tracking now lives in the Email engagement panel below.
         </p>
+      </div>
+
+      {/* ── Email engagement (real opens/clicks via Resend webhook) ── */}
+      <h2 className="retro-h1 text-xl mt-8">Email engagement · last 30 days</h2>
+      <div className="mt-3 retro-panel" style={{ padding: 16 }}>
+        {emailEng.ready ? (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12 }}>
+              <Stat label="Sent" value={emailEng.sent} />
+              <Stat label="Delivered" value={emailEng.delivered} sub={`${pct(emailEng.delivered, emailEng.sent)} of sent`} />
+              <Stat label="Opened" value={emailEng.opened} sub={`${pct(emailEng.opened, emailEng.delivered)} open rate`} />
+              <Stat label="Clicked" value={emailEng.clicked} sub={`${pct(emailEng.clicked, emailEng.opened)} of opens`} />
+              <Stat label="Bounced" value={emailEng.bounced} sub={`${pct(emailEng.bounced, emailEng.sent)} of sent`} />
+            </div>
+            <p className="mt-3 text-xs" style={{ color: "var(--text-dim)" }}>
+              Counts are distinct events per message (re-fired webhooks are
+              deduped). Open rate is the industry-standard delivered→opened
+              ratio. Open tracking only fires for HTML emails with images
+              enabled in the recipient&apos;s client, so treat it as a floor.
+            </p>
+          </>
+        ) : (
+          <div className="text-sm" style={{ color: "var(--text-dim)" }}>
+            <strong style={{ color: "var(--amber-bright)" }}>Setup pending.</strong>{" "}
+            The email_events table isn&apos;t live yet. To turn this on: (1) run{" "}
+            <code>supabase/migrations/0001_email_events.sql</code> in the Supabase
+            SQL editor, (2) add the Resend webhook at{" "}
+            <code>/api/webhooks/resend</code> for the email.* events, (3) set{" "}
+            <code>RESEND_WEBHOOK_SECRET</code> in Vercel, (4) enable Open + Click
+            tracking on the syncedin.org domain in Resend. Data appears here on
+            the next send after that.
+          </div>
+        )}
       </div>
 
       {/* ── Unified users table ── */}
