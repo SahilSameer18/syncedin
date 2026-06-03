@@ -4,6 +4,7 @@ import Script from "next/script";
 import { Footer } from "./Footer";
 import { ChunkErrorRecovery } from "./ChunkErrorRecovery";
 import { ErrorAutoReport } from "./ErrorAutoReport";
+import { FeedbackBubble } from "./FeedbackBubble";
 
 // Microsoft Clarity — session-replay + heatmap analytics. Free, no PII
 // collection by default, gives us watch-real-people-use-the-product
@@ -316,6 +317,10 @@ export default function RootLayout({
             than discovering them from screenshots later. */}
         <ErrorAutoReport />
         {children}
+        {/* Persistent "Give Feedback" launcher on every page — captures
+            feedback with near-zero friction. Self-hides on the chat
+            surfaces that pin a composer to the bottom. */}
+        <FeedbackBubble />
         <Footer />
         {/* Microsoft Clarity — loads only when the env var is set, so
             local + preview branches without the key are unaffected.
