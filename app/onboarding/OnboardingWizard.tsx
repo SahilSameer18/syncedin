@@ -8,6 +8,7 @@ import { ContextSources, type Snippet } from "./ContextSources";
 import { SelfDiscovery } from "./SelfDiscovery";
 import { saveTwin } from "./actions";
 import { GoalFollowUpQuestions } from "./GoalFollowUpQuestions";
+import { LoadingScreen } from "../LoadingScreen";
 
 // Parse existing ai_export_blob back into structured snippets so the wizard
 // can rehydrate URL-sourced context across page reloads. Snippets were
@@ -132,6 +133,11 @@ export function OnboardingWizard({
   // completion rate.
   const refineSuggestTried = useRef(false);
   const [refineLoading, setRefineLoading] = useState(false);
+  // Drives the cool full-screen LoadingScreen — shown ONLY during the
+  // save-twin → chat handoff (Jack: "I only want to use that cool loading
+  // screen after someone saves their twin"). Every other route uses a
+  // light skeleton so navigation stays snappy.
+  const [saving, setSaving] = useState(false);
   useEffect(() => {
     if (STEPS[step].key !== "refine") return;
     if (refineSuggestTried.current) return;
@@ -379,6 +385,10 @@ export function OnboardingWizard({
     <form
       action={saveTwin}
       id="onboarding-form"
+      // Real form submit == the "Save Twin And Start Connecting" button.
+      // Flip on the cool full-screen loader for the save → chat handoff;
+      // it stays up through the server action + redirect to /twin.
+      onSubmit={() => setSaving(true)}
       // Hard guard: Enter inside a single-line input must NOT submit the form
       // and bounce the user to /dashboard mid-refine. Textareas keep Enter
       // (it's a newline), explicit submit click still works.
@@ -393,6 +403,30 @@ export function OnboardingWizard({
         }
       }}
     >
+      {saving && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 100,
+            background: "var(--bg)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
+          <LoadingScreen
+            lines={[
+              `Building ${
+                (state.display_name || "your").split(/\s+/)[0]
+              }'s twin…`,
+              "Wiring in everything you just gave it…",
+              "Scanning the network for your best match…",
+              "Opening your home base…"
+            ]}
+          />
+        </div>
+      )}
       <input type="hidden" name="display_name" value={state.display_name} />
       <input type="hidden" name="goals" value={composedGoals} />
       <input

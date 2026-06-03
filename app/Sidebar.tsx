@@ -123,6 +123,7 @@ export function Sidebar({
             <Link
               key={item.href}
               href={item.href}
+              prefetch={true}
               className="synced-nav-link"
               style={{
                 display: "flex",
