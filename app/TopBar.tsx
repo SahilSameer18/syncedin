@@ -25,11 +25,16 @@ export function TopBar({
   avatarUrl,
   portfolioHandle,
   signOutAction,
-  unreadCounts = {}
+  unreadCounts = {},
+  isAdmin = false
 }: {
   userId: string;
   displayName: string;
   avatarUrl: string | null;
+  /** True only for the founder account — gates the Admin nav link. The
+   *  /admin pages are independently hard-gated server-side too, so this
+   *  is just to avoid showing a link that would 404 for everyone else. */
+  isAdmin?: boolean;
   /** profiles.handle — used to build the /u/{handle} portfolio link. If
    *  null, the portfolio menu item is hidden because /u/<UUID> 404s
    *  (the route looks up by handle, not id). */
@@ -68,7 +73,9 @@ export function TopBar({
   const items: Array<{ href: string; label: string }> = [
     { href: "/hypernetwork", label: "Hypernetwork" },
     { href: "/conferences/new", label: "Sync a conference" },
-    { href: "/communities/new", label: "Sync a community" }
+    { href: "/communities/new", label: "Sync a community" },
+    // Founder-only — appended last so it sits at the end of the nav.
+    ...(isAdmin ? [{ href: "/admin/usage", label: "Admin" }] : [])
   ];
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");

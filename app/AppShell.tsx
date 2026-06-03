@@ -40,6 +40,9 @@ export async function AppShell({
   // have a non-nullable reference (TS doesn't carry the narrowing from
   // the redirect check into nested async functions).
   const userId = user.id;
+  // Founder-only flag — gates the Admin nav link. /admin pages are also
+  // hard-gated server-side, so this only controls link visibility.
+  const isAdmin = user.email?.toLowerCase() === "jacksonjezio@gmail.com";
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -349,6 +352,7 @@ export async function AppShell({
           portfolioHandle={(profile as any)?.handle ?? null}
           signOutAction={signOut}
           unreadCounts={unreadCounts}
+          isAdmin={isAdmin}
         />
       </div>
 

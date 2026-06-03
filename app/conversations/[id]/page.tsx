@@ -377,6 +377,7 @@ export default async function ConversationPage({
           portfolioHandle={(profileForSidebar as any)?.handle ?? null}
           signOutAction={signOut}
           unreadCounts={unreadCounts}
+          isAdmin={user.email?.toLowerCase() === "jacksonjezio@gmail.com"}
         />
       </div>
 

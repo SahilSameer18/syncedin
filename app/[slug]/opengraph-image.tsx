@@ -127,116 +127,103 @@ export default async function InviteOgImage({
         style={{
           width: "100%",
           height: "100%",
-          // RESTORED light-mode card (Jack: "the new one is too dark,
-          // not good"). Warm cream → soft lavender gradient matching the
-          // earlier shipped variant. White text on the dark navy version
-          // looked clinical; the lighter ground reads as a personal,
-          // hand-written intro from a friend.
-          background:
-            "linear-gradient(135deg, #fef7ee 0%, #f4ecff 55%, #e6deff 100%)",
+          position: "relative",
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          padding: "70px 90px",
+          padding: "60px 80px",
           fontFamily: "Inter, system-ui, sans-serif"
         }}
       >
-        {/* TOP ROW — real SyncedIn wordmark on the left, recipient avatar
-            on the right (with inviter avatar nested smaller below). This
-            replaces the old "tall stack of logo, then avatars, then
-            headline" layout that ate vertical space and made the body
-            text feel small. Wordmark image is served from /public, so
-            Satori loads it from the deployed URL. */}
+        {/* Custom branded background Jack designed (public/synced-background.png).
+            The "Synced In" wordmark + bot logo are baked into the art, so we
+            no longer paint a CSS wordmark — we only overlay personalization
+            (the recipient's face) + the invite copy. */}
+        <img
+          src={`${SITE_URL}/synced-background.png`}
+          width={1200}
+          height={630}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover"
+          }}
+        />
+
+        {/* TOP ROW — recipient avatar pushed right. Wordmark is in the art. */}
         <div
           style={{
+            position: "relative",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            justifyContent: "flex-end",
             width: "100%"
           }}
         >
-          {/* Wordmark — light card → dark text on the warm cream ground. */}
-          <div
-            style={{
-              fontSize: 56,
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              color: "#1a1530",
-              display: "flex"
-            }}
-          >
-            Synced<span style={{ color: "#6b2dc9" }}>In</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-            {recipientAvatar ? (
-              // Satori fetches this URL server-side at OG-render time.
-              // LinkedIn / IG CDNs often block hotlinking → we route
-              // through a generic-UA fetch with no referer. If the
-              // image hash 404s (LinkedIn cycles its CDN URLs), we
-              // fall back to the initials avatar below the catch.
-              <img
-                src={recipientAvatar}
-                width={120}
-                height={120}
-                style={{
-                  width: 120,
-                  height: 120,
-                  borderRadius: 60,
-                  border: "5px solid #ffffff",
-                  boxShadow: "0 12px 32px -10px rgba(58,77,255,0.5)",
-                  objectFit: "cover"
-                }}
-              />
-            ) : (
-              <div
-                style={{
-                  width: 120,
-                  height: 120,
-                  borderRadius: 60,
-                  border: "5px solid #ffffff",
-                  boxShadow: "0 12px 32px -10px rgba(58,77,255,0.5)",
-                  background:
-                    "linear-gradient(135deg, #1f8bff, #6b2dc9)",
-                  color: "#ffffff",
-                  fontSize: 46,
-                  fontWeight: 800,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}
-              >
-                {initials}
-              </div>
-            )}
-            {inviterAvatar && (
-              <img
-                src={inviterAvatar}
-                width={72}
-                height={72}
-                style={{
-                  width: 72,
-                  height: 72,
-                  borderRadius: 36,
-                  border: "4px solid #ffffff",
-                  boxShadow: "0 8px 24px -8px rgba(139,61,255,0.45)",
-                  objectFit: "cover",
-                  marginLeft: -18
-                }}
-              />
-            )}
-          </div>
+          {recipientAvatar ? (
+            <img
+              src={recipientAvatar}
+              width={104}
+              height={104}
+              style={{
+                width: 104,
+                height: 104,
+                borderRadius: 52,
+                border: "5px solid #ffffff",
+                boxShadow: "0 12px 32px -10px rgba(58,77,255,0.5)",
+                objectFit: "cover"
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                width: 104,
+                height: 104,
+                borderRadius: 52,
+                border: "5px solid #ffffff",
+                boxShadow: "0 12px 32px -10px rgba(58,77,255,0.5)",
+                background: "linear-gradient(135deg, #1f8bff, #6b2dc9)",
+                color: "#ffffff",
+                fontSize: 40,
+                fontWeight: 800,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              {initials}
+            </div>
+          )}
         </div>
 
-        {/* HEADLINE + BODY — deep ink on the cream ground. */}
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        {/* HEADLINE + BODY — bottom-left over the lighter part of the art.
+            A soft white scrim keeps the copy readable wherever the waves
+            brighten or darken behind it. */}
+        <div
+          style={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+            maxWidth: 820,
+            background: "rgba(255,255,255,0.55)",
+            borderRadius: 28,
+            padding: "30px 36px"
+          }}
+        >
           <div
             style={{
-              fontSize: 64,
+              // "{name}, it's time to get SyncedIn" on the top line, then a
+              // bigger, more readable teaser below. Jack: "put it all on that
+              // top line so there's more space, and make the bottom text
+              // bigger — it's hard to read."
+              fontSize: 52,
               fontWeight: 800,
               color: "#1a1530",
-              lineHeight: 1.1,
+              lineHeight: 1.08,
               letterSpacing: "-0.02em",
-              maxWidth: 1020,
               display: "flex"
             }}
           >
@@ -244,11 +231,11 @@ export default async function InviteOgImage({
           </div>
           <div
             style={{
-              marginTop: 28,
-              fontSize: 32,
-              color: "#3a2f5c",
-              lineHeight: 1.35,
-              maxWidth: 1020,
+              marginTop: 20,
+              fontSize: 40,
+              fontWeight: 500,
+              color: "#2a2150",
+              lineHeight: 1.3,
               display: "flex"
             }}
           >
