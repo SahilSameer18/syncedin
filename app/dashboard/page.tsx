@@ -551,6 +551,23 @@ export default async function DashboardPage() {
     { icon: "💌", label: "Referrals", value: completedReferrals, href: "/invite", tint: "#e0526a" },
     { icon: "✨", label: "Twin sync", value: `${syncPct}%`, href: "/onboarding", tint: "#8b5cf6" }
   ];
+  // AI Recommendation hero — the user's highest-sync real conversation right
+  // now (real data via computePairScore). Null if no real conversations yet.
+  const ccTop =
+    realConversations
+      .map((c: any) => {
+        const otherId =
+          c.participant_a === user.id ? c.participant_b : c.participant_a;
+        const ot = (twinByUser.get(otherId) as any) ?? null;
+        return {
+          id: c.id as string,
+          name: (nameById.get(otherId) as string) ?? "Someone",
+          avatar: (avatarById.get(otherId) as string | null) ?? null,
+          sync: computePairScore(twin ?? {}, ot ?? {}),
+          summary: (c.summary as string | null) ?? null
+        };
+      })
+      .sort((a, b) => b.sync - a.sync)[0] ?? null;
   // Kept as a dead reference for the hidden legacy aside below.
   const cloneSyncCard = (
     <aside
@@ -659,6 +676,72 @@ export default async function DashboardPage() {
               </Link>
             ))}
           </div>
+
+          {ccTop && (
+            <Link
+              href={`/conversations/${ccTop.id}`}
+              className="retro-panel retro-panel-hover"
+              style={{
+                display: "flex",
+                gap: 18,
+                alignItems: "center",
+                padding: 20,
+                marginTop: 14,
+                textDecoration: "none",
+                color: "var(--text)",
+                background:
+                  "linear-gradient(135deg, rgba(99,102,241,0.07), rgba(139,92,246,0.07))",
+                borderColor: "var(--amber)"
+              }}
+            >
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: "0.14em",
+                    textTransform: "uppercase",
+                    color: "var(--amber-bright)",
+                    marginBottom: 6
+                  }}
+                >
+                  ✦ AI recommendation · top priority
+                </div>
+                <div style={{ fontSize: 22, fontWeight: 850, letterSpacing: "-0.01em" }}>
+                  {ccTop.name}
+                </div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "var(--text-dim)",
+                    marginTop: 6,
+                    lineHeight: 1.45,
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden"
+                  }}
+                >
+                  {ccTop.summary ||
+                    "Your twin flagged this as your highest-leverage conversation. Open it and lock the next step."}
+                </div>
+                <div style={{ marginTop: 12, display: "inline-flex", gap: 16, fontSize: 13 }}>
+                  <span style={{ color: "var(--green)", fontWeight: 800 }}>
+                    {ccTop.sync}% fit
+                  </span>
+                  <span style={{ color: "var(--amber-bright)", fontWeight: 700 }}>
+                    Open conversation →
+                  </span>
+                </div>
+              </div>
+              <Avatar
+                id={ccTop.id}
+                name={ccTop.name}
+                avatarUrl={ccTop.avatar}
+                size={84}
+              />
+            </Link>
+          )}
         </section>
 
         {!twinComplete && (
