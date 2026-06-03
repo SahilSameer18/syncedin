@@ -290,6 +290,10 @@ export async function POST(req: Request) {
   // Batched conversation-starter generation: one Claude call, returns JSON
   // map of {name → 3-sentence opener}.
   let starters: Record<string, string> = {};
+  // Short personalized OUTBOUND DMs (the message the sender copies + sends),
+  // distinct from the longer landing opener. Jack: "make them a little
+  // custom — not the same thing that's there when you click the link."
+  let outbounds: Record<string, string> = {};
   try {
     // PROMPT v2 — RECIPIENT-FIRST.
     //
@@ -329,24 +333,27 @@ If the recipient is a JOURNALIST / writer / podcaster:
 
 If the Profile is genuinely thin (no headline, no about, no experience), DO NOT fabricate "noticed your professional path" or "your work caught my attention." Instead, open with a HONEST line: "Reaching out cold here — your name came across my radar from {platform}, and I think there might be a real overlap. {one sentence about ${selfName}'s most relevant work}. Worth a conversation?" That's better than fake-personal filler.
 
-Return ONLY valid JSON. Each value must be a PLAIN STRING — NEVER a nested object like {"opener": "..."}. The shape is exactly:
+For EACH recipient you return TWO personalized messages, keyed by their exact name:
+  - "outbound": the SHORT cold DM the sender copies and sends (SMS / DM /
+    WhatsApp). Its ONLY job is to earn a click. 2 to 3 sentences. Lead with
+    ONE specific, true detail about the recipient, give one light line of
+    platform context ("my digital twin already spun up an opener for yours"),
+    and end with a soft curiosity CTA. This is read BEFORE the click — it must
+    NOT duplicate the landing message.
+  - "landing": the longer 5-to-8-sentence five-beat opener (spec below) the
+    recipient reads AFTER clicking through to syncedin.org/<slug>.
+Both must be personalized to THIS recipient and DIFFERENT from each other —
+different length and framing. The outbound teases; the landing delivers.
+
+Return ONLY valid JSON in exactly this shape:
 {
-  "Recipient Name One": "The opener text as a single plain string. No nesting.",
-  "Recipient Name Two": "Another opener as a plain string."
+  "Recipient Name One": { "outbound": "short DM here", "landing": "longer opener here" },
+  "Recipient Name Two": { "outbound": "...", "landing": "..." }
 }
 
-Wrong (do NOT do this):
-{
-  "Lucas Chu": { "opener": "Saw your LinkedIn..." }
-}
-
-Right:
-{
-  "Lucas Chu": "Saw your LinkedIn..."
-}
-
-Each opener follows a five-beat structure. The recipient SEES this on their
-landing page (syncedin.org/<slug>) after clicking through from a short DM —
+The "landing" message follows a five-beat structure. The recipient SEES it on
+their landing page (syncedin.org/<slug>) after clicking through from the
+short outbound DM —
 so they're already past the "is this spam?" filter and are looking for
 substance about themselves and the proposed value. Give them the substance.
 
@@ -445,18 +452,25 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
       // on the landing page verbatim. Coerce every value to a clean
       // first-person string before passing downstream.
       starters = {};
+      outbounds = {};
       for (const [key, val] of Object.entries(parsed)) {
         if (typeof val === "string") {
+          // Old flat shape — treat the bare string as the landing opener.
           starters[key] = val.trim();
         } else if (val && typeof val === "object") {
-          // Try common nested shapes: { opener }, { message }, { text }.
           const v = val as Record<string, unknown>;
-          const candidate =
+          // Landing opener: new "landing" field, or legacy nested shapes.
+          const landing =
+            (typeof v.landing === "string" && v.landing) ||
             (typeof v.opener === "string" && v.opener) ||
             (typeof v.message === "string" && v.message) ||
             (typeof v.text === "string" && v.text) ||
             "";
-          if (candidate) starters[key] = (candidate as string).trim();
+          if (landing) starters[key] = (landing as string).trim();
+          // Short personalized outbound DM.
+          if (typeof v.outbound === "string" && v.outbound.trim()) {
+            outbounds[key] = v.outbound.trim();
+          }
         }
       }
     }
@@ -513,7 +527,11 @@ Return the JSON object now. Remember: BEAT 1 IS ABOUT THEM, not ${selfName}.`;
     // reaching out?" not "what is the platform?" — so the DM gives them
     // just enough to click. The rich personalized prose lives on the
     // landing page they get to next.
-    const outboundMessage = `Hey ${firstName} — ${selfFirst} here. SyncedIn is a new platform where two people's digital twins talk to each other first, so we can surface the most useful win-wins between us before either of us spends a minute on a live call. Your twin will live on this exact page once you spin it up. Curious what it would say to mine.`;
+    const outboundMessage = (
+      outbounds[c.name] && outbounds[c.name].trim()
+        ? outbounds[c.name].trim()
+        : `Hey ${firstName} — ${selfFirst} here. SyncedIn is a new platform where two people's digital twins talk to each other first, so we can surface the most useful win-wins between us before either of us spends a minute on a live call. Your twin will live on this exact page once you spin it up. Curious what it would say to mine.`
+    ).trim();
     // Stash the scraped profile as a highlight so the public landing page
     // can render a "we know who you are" preview.
     const highlights: string[] = [];

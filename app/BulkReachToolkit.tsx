@@ -1349,12 +1349,22 @@ export function BulkReachToolkit({
                 <textarea
                   value={p.starter}
                   onChange={(e) => updateStarter(p.slug, e.target.value)}
-                  rows={4}
+                  // Auto-size to content so a short opener doesn't leave a
+                  // tall blank box (Jack: "there's extra space"). The
+                  // callback ref runs on mount + every edit, sizing the
+                  // field to its text.
+                  ref={(el) => {
+                    if (el) {
+                      el.style.height = "auto";
+                      el.style.height = `${el.scrollHeight}px`;
+                    }
+                  }}
                   className="retro-input mt-1 text-sm w-full"
                   style={{
-                    minHeight: 88,
+                    minHeight: 52,
                     resize: "vertical",
                     lineHeight: 1.5,
+                    overflow: "hidden",
                     fontFamily:
                       'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif'
                   }}
