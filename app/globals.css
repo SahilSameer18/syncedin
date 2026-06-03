@@ -296,19 +296,18 @@ select {
     cursor: not-allowed;
   }
 
-  /* Primary — bright gradient fill, stronger pulsing bloom. */
+  /* Primary — bold indigo→violet gradient (2026 rebrand). Clean, vivid,
+     no muted pulse — matches the Command Center button. */
   .retro-btn-primary {
-    border: 1.5px solid var(--amber-bright);
-    background: linear-gradient(180deg, var(--amber-bright), var(--amber));
+    border: none;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
     color: #ffffff;
-    text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25);
-    animation: retro-glow 2.4s ease-in-out infinite;
+    box-shadow: 0 10px 24px -8px rgba(99, 102, 241, 0.55);
   }
   .retro-btn-primary:hover:not(:disabled) {
-    background: linear-gradient(180deg, #b1cdff, var(--amber-bright));
-    box-shadow: 0 0 56px -2px var(--accent-glow),
-      0 0 0 2px var(--amber-bright);
-    animation: none;
+    background: linear-gradient(135deg, #5b5bf5 0%, #7c3aed 100%);
+    box-shadow: 0 12px 30px -8px rgba(99, 102, 241, 0.7);
+    transform: translateY(-1px);
   }
   @keyframes retro-glow {
     0%,
