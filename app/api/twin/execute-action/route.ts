@@ -28,7 +28,8 @@ type Body = {
     | "send_message_to_conversation"
     | "update_twin_context"
     | "create_invite"
-    | "submit_feedback";
+    | "submit_feedback"
+    | "start_conversation";
   payload: Record<string, any>;
 };
 
@@ -180,7 +181,63 @@ export async function POST(req: Request) {
     });
   }
 
-  // All four conversation write actions need ownership of a
+  // ── START CONVERSATION (creates a conversation, no id needed) ────
+  // Lets the user connect with someone found via search_platform_users
+  // entirely from chat. Reuses an existing conversation if one already
+  // exists between the pair, otherwise inserts a new one.
+  if (type === "start_conversation") {
+    const targetId = String(payload.target_user_id || "").trim();
+    if (!targetId) {
+      return NextResponse.json({ error: "missing_target" }, { status: 400 });
+    }
+    if (targetId === user.id) {
+      return NextResponse.json({ error: "cannot_self" }, { status: 400 });
+    }
+    const { data: target } = await service
+      .from("profiles")
+      .select("id")
+      .eq("id", targetId)
+      .maybeSingle();
+    if (!target) {
+      return NextResponse.json({ error: "user_not_found" }, { status: 404 });
+    }
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+      "https://syncedin.org";
+    // Reuse an existing conversation between the pair if there is one.
+    const { data: existing } = await service
+      .from("conversations")
+      .select("id")
+      .or(
+        `and(participant_a.eq.${user.id},participant_b.eq.${targetId}),and(participant_a.eq.${targetId},participant_b.eq.${user.id})`
+      )
+      .maybeSingle();
+    if (existing) {
+      return NextResponse.json({
+        ok: true,
+        action: "conversation_exists",
+        url: `${origin}/conversations/${(existing as any).id}`
+      });
+    }
+    const { data: created, error: convErr } = await service
+      .from("conversations")
+      .insert({ participant_a: user.id, participant_b: targetId })
+      .select("id")
+      .single();
+    if (convErr || !created) {
+      return NextResponse.json(
+        { error: "save_failed", detail: convErr?.message ?? "insert_failed" },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({
+      ok: true,
+      action: "conversation_started",
+      url: `${origin}/conversations/${(created as any).id}`
+    });
+  }
+
+  // All conversation write actions below need ownership of a
   // conversation_id, so do that check once up front.
   const conversation_id = String(payload.conversation_id || "").trim();
   if (!conversation_id) {

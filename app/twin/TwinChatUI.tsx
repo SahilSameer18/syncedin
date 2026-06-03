@@ -32,7 +32,8 @@ type PendingAction = {
     | "send_message_to_conversation"
     | "update_twin_context"
     | "create_invite"
-    | "submit_feedback";
+    | "submit_feedback"
+    | "start_conversation";
   payload: Record<string, any>;
   /** Set true once the user has approved + the write succeeded. Persisted
    *  back into the message trailer so a reload doesn't re-prompt Approve
@@ -1198,6 +1199,8 @@ function ActionCard({
         return `Invite ${p.name ?? "someone"}`;
       case "submit_feedback":
         return "Send feedback to the team";
+      case "start_conversation":
+        return `Start a conversation with ${p.counterpart_name ?? "them"}`;
       default:
         return action.type;
     }
@@ -1352,6 +1355,16 @@ function ActionCard({
                 style={{ color: "#10b981", textDecoration: "underline" }}
               >
                 {resultUrl}
+              </a>
+            </span>
+          ) : action.type === "start_conversation" && resultUrl ? (
+            <span>
+              ✓ Conversation ready —{" "}
+              <a
+                href={resultUrl}
+                style={{ color: "#10b981", textDecoration: "underline" }}
+              >
+                open it →
               </a>
             </span>
           ) : action.type === "submit_feedback" ? (

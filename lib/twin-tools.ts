@@ -219,6 +219,26 @@ export const TWIN_TOOLS = [
       },
       required: ["message"]
     }
+  },
+  {
+    name: "start_conversation",
+    description:
+      "Start a NEW twin-to-twin conversation with another SyncedIn user. Use right after search_platform_users when the user says 'connect me with them', 'start a conversation with <name>', or picks someone to reach out to. Pass the target_user_id from a search_platform_users match (never invent one). Returns a pending_action the user approves; on approve a conversation is created (or the existing one reused) and the twin hands back a link to it. The twin CAN do this — never tell the user to go to another page to connect.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        target_user_id: {
+          type: "string" as const,
+          description:
+            "UUID of the user to start a conversation with — the user_id from a search_platform_users match."
+        },
+        counterpart_name: {
+          type: "string" as const,
+          description: "That person's name (for the action card label)."
+        }
+      },
+      required: ["target_user_id", "counterpart_name"]
+    }
   }
 ];
 
@@ -238,7 +258,8 @@ export const WRITE_TOOLS = new Set([
   "send_message_to_conversation",
   "update_twin_context",
   "create_invite",
-  "submit_feedback"
+  "submit_feedback",
+  "start_conversation"
 ]);
 
 export type PendingAction = {
@@ -252,7 +273,8 @@ export type PendingAction = {
     | "send_message_to_conversation"
     | "update_twin_context"
     | "create_invite"
-    | "submit_feedback";
+    | "submit_feedback"
+    | "start_conversation";
   /** Full input payload the user's Approve POST will replay. */
   payload: Record<string, unknown>;
 };
