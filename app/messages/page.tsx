@@ -10,7 +10,6 @@ import { ConversationPrefetch } from "./ConversationPrefetch";
 import { startConversationWithUser } from "../dashboard/actions";
 import { computePairScore } from "@/lib/pair-score";
 import { socialsFromBlob } from "@/lib/social-from-blob";
-import { InboxTabs } from "../InboxTabs";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -228,6 +227,29 @@ export default async function MessagesPage() {
     list.push(r);
     respsByConv.set(r.conversation_id, list);
   }
+
+  // "Changed / edited" signal — Jack wants the messages list to show
+  // when a proposal was accepted, denied, OR changed/edited (folding in
+  // what the now-removed /proposals page used to surface). A conversation
+  // counts as "changed" when an AGREEMENT-bearing message was edited.
+  const editedConvIds = new Set<string>();
+  if (convIds.length > 0) {
+    try {
+      const { data: editedMsgs } = await service
+        .from("messages")
+        .select("conversation_id, final_text")
+        .in("conversation_id", convIds)
+        .eq("edited", true);
+      for (const m of (editedMsgs ?? []) as any[]) {
+        if (String(m.final_text ?? "").includes(">>> AGREEMENT:")) {
+          editedConvIds.add(m.conversation_id);
+        }
+      }
+    } catch {
+      /* messages.edited missing in a fork — skip the changed tag */
+    }
+  }
+
   function statusForConv(c: {
     id: string;
     participant_a: string;
@@ -235,7 +257,9 @@ export default async function MessagesPage() {
   }):
     | { kind: "sealed"; label: string; color: string }
     | { kind: "your_turn"; label: string; color: string }
-    | { kind: "waiting"; label: string; color: string }
+    | { kind: "accepted"; label: string; color: string }
+    | { kind: "denied"; label: string; color: string }
+    | { kind: "changed"; label: string; color: string }
     | { kind: "negotiating"; label: string; color: string }
     | null {
     const rs = respsByConv.get(c.id) ?? [];
@@ -243,6 +267,10 @@ export default async function MessagesPage() {
     const otherId =
       c.participant_a === user!.id ? c.participant_b : c.participant_a;
     const theirs = rs.find((r) => r.user_id === otherId);
+    // Denied takes priority — a rejection is the clearest end-state.
+    if (mine?.response === "rejected" || theirs?.response === "rejected") {
+      return { kind: "denied", label: "✕ denied", color: "var(--red, #ef4444)" };
+    }
     if (mine?.response === "accepted" && theirs?.response === "accepted") {
       return { kind: "sealed", label: "✓ deal sealed", color: "var(--green)" };
     }
@@ -256,9 +284,16 @@ export default async function MessagesPage() {
     if (mine?.response === "accepted" && !theirs) {
       const otherName = (nameById.get(otherId) ?? "them") as string;
       return {
-        kind: "waiting",
-        label: `⏳ waiting on ${otherName.split(/\s+/)[0]}`,
-        color: "var(--text-dim)"
+        kind: "accepted",
+        label: `✓ you accepted · waiting on ${otherName.split(/\s+/)[0]}`,
+        color: "var(--green)"
+      };
+    }
+    if (editedConvIds.has(c.id)) {
+      return {
+        kind: "changed",
+        label: "✎ proposal changed",
+        color: "var(--amber-bright)"
       };
     }
     if (rs.length > 0) {
@@ -273,12 +308,12 @@ export default async function MessagesPage() {
 
   return (
     <AppShell>
-      <h1 className="retro-h1 text-3xl">Inbox</h1>
+      <h1 className="retro-h1 text-3xl">Messages</h1>
       <p className="retro-dim text-sm mt-2">
-        Every conversation your twin is having or has had. Sorted by Sync
-        score, so the highest-leverage ones surface first.
+        Every conversation your twin is having or has had — with where each
+        one landed: accepted, denied, changed, or still negotiating. Sorted
+        by Sync score, so the highest-leverage ones surface first.
       </p>
-      <InboxTabs active="messages" />
 
       {sorted.length === 0 ? (
         // Empty state — replace the dead-end "go to dashboard" CTA with

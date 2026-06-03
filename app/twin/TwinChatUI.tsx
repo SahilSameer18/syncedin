@@ -12,7 +12,6 @@ import Link from "next/link";
 const TWIN_INTERNAL_PATHS = new Set([
   "/dashboard",
   "/messages",
-  "/proposals",
   "/twin",
   "/talk",
   "/invite",
@@ -1278,7 +1277,7 @@ function ActionCard({ action }: { action: PendingAction }) {
           ) : action.type === "update_twin_context" ? (
             "✓ Added to your twin's context."
           ) : (
-            "✓ Shipped to the database. You can verify on /proposals."
+            "✓ Shipped to the database. You can verify on /messages."
           )}
         </div>
       ) : (

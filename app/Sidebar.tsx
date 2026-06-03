@@ -51,7 +51,6 @@ export function Sidebar({
     { href: "/twin", label: "Chat", icon: "💬" },
     { href: "/dashboard", label: "Command Center", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "👥" },
-    { href: "/proposals", label: "Proposals", icon: "🤝" },
     { href: "/invite", label: "Invite", icon: "💌" },
     // Talk with Ghosts — Jack's reframing of the invite ask: paste
     // someone's profile, watch the conversation play out with their

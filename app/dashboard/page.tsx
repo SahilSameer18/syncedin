@@ -547,7 +547,7 @@ export default async function DashboardPage() {
   ).length;
   const commandFeed = [
     { icon: "💬", label: "Conversations", value: ccConversations, href: "/messages", tint: "#5b5bf5" },
-    { icon: "🤝", label: "Proposals landed", value: ccProposals, href: "/proposals", tint: "#0f9d6b" },
+    { icon: "🤝", label: "Proposals landed", value: ccProposals, href: "/messages", tint: "#0f9d6b" },
     { icon: "💌", label: "Referrals", value: completedReferrals, href: "/invite", tint: "#e0526a" },
     { icon: "✨", label: "Twin sync", value: `${syncPct}%`, href: "/onboarding", tint: "#8b5cf6" }
   ];
