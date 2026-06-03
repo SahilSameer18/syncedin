@@ -34,6 +34,10 @@ type PendingAction = {
     | "create_invite"
     | "submit_feedback";
   payload: Record<string, any>;
+  /** Set true once the user has approved + the write succeeded. Persisted
+   *  back into the message trailer so a reload doesn't re-prompt Approve
+   *  for an action that already ran. */
+  executed?: boolean;
 };
 
 type ChatRow = {
@@ -562,6 +566,57 @@ export function TwinChatUI({
     setEditText("");
   }
 
+  /**
+   * Persist that an approved action actually ran, so returning to the
+   * chat doesn't re-show the Approve button for it (Jack: "make sure we
+   * don't run into that problem where it forces me to click approve
+   * again when I came back"). Marks the action executed in local state
+   * AND rewrites the stored message body's PENDING_ACTIONS trailer (via
+   * the same /api/twin/chat/edit endpoint message edits use) so the
+   * executed flag survives a reload.
+   */
+  async function markActionExecuted(
+    messageId: string,
+    actionId: string,
+    resultUrl?: string | null
+  ) {
+    let rebuiltBody: string | null = null;
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId || !m.pending_actions) return m;
+        const nextActions = m.pending_actions.map((a) =>
+          a.id === actionId
+            ? {
+                ...a,
+                executed: true,
+                payload: resultUrl
+                  ? { ...a.payload, result_url: resultUrl }
+                  : a.payload
+              }
+            : a
+        );
+        // m.body is the CLEAN body (trailer already split off on load).
+        // Re-append the trailer with the updated (executed) actions so
+        // the persisted copy reflects the new state.
+        rebuiltBody = `${m.body}\n\n<!--PENDING_ACTIONS:${JSON.stringify(
+          nextActions
+        )}-->`;
+        return { ...m, pending_actions: nextActions };
+      })
+    );
+    if (rebuiltBody) {
+      try {
+        await fetch("/api/twin/chat/edit", {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ message_id: messageId, body: rebuiltBody })
+        });
+      } catch {
+        /* local state already updated; persistence is best-effort */
+      }
+    }
+  }
+
   const empty = loaded && messages.length === 0;
 
   return (
@@ -666,6 +721,7 @@ export function TwinChatUI({
             onSave={saveEdit}
             onCancel={cancelEdit}
             saving={savingEdit}
+            onActionExecuted={markActionExecuted}
           />
         ))}
         {sending && (
@@ -906,7 +962,8 @@ function Bubble({
   onChangeEditText,
   onSave,
   onCancel,
-  saving
+  saving,
+  onActionExecuted
 }: {
   m: ChatRow;
   selfName: string;
@@ -917,6 +974,11 @@ function Bubble({
   onSave: () => void;
   onCancel: () => void;
   saving: boolean;
+  onActionExecuted?: (
+    messageId: string,
+    actionId: string,
+    resultUrl?: string | null
+  ) => void;
 }) {
   const mine = m.role === "user";
   return (
@@ -1078,7 +1140,13 @@ function Bubble({
             }}
           >
             {m.pending_actions.map((a) => (
-              <ActionCard key={a.id} action={a} />
+              <ActionCard
+                key={a.id}
+                action={a}
+                onExecuted={(resultUrl) =>
+                  onActionExecuted?.(m.id, a.id, resultUrl)
+                }
+              />
             ))}
           </div>
         )}
@@ -1092,13 +1160,24 @@ function Bubble({
  * flips to a green "✓ shipped" state so the user has unambiguous
  * feedback that the DB actually changed.
  */
-function ActionCard({ action }: { action: PendingAction }) {
+function ActionCard({
+  action,
+  onExecuted
+}: {
+  action: PendingAction;
+  onExecuted?: (resultUrl?: string | null) => void;
+}) {
+  // Initialize to "done" when the action was already executed in a prior
+  // session (persisted in the message trailer) so we never re-prompt
+  // Approve for something that already ran.
   const [state, setState] = useState<"idle" | "running" | "done" | "error">(
-    "idle"
+    action.executed ? "done" : "idle"
   );
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [fetchedPreview, setFetchedPreview] = useState<string | null>(null);
-  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(
+    (action.payload as any)?.result_url ?? null
+  );
   const p = action.payload as any;
 
   const label = (() => {
@@ -1179,8 +1258,11 @@ function ActionCard({ action }: { action: PendingAction }) {
         setErrMsg(j?.detail || j?.error || "Failed to ship.");
         return;
       }
-      if (typeof j?.url === "string") setResultUrl(j.url);
+      const url = typeof j?.url === "string" ? j.url : null;
+      if (url) setResultUrl(url);
       setState("done");
+      // Persist executed state so a page reload doesn't re-prompt Approve.
+      onExecuted?.(url);
     } catch (e: any) {
       setState("error");
       setErrMsg(e?.message || "Network error.");
