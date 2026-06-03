@@ -144,8 +144,29 @@ export default async function LoginPage({
           </p>
         </div>
 
-        {/* Magic link FIRST */}
-        <form className="mt-3 space-y-2">
+        {/* Google FIRST — fastest path (Jack: "I like Google first"). Email +
+            password stay below as alternatives. */}
+        <div className="mt-3 space-y-2">
+          <OAuthButtons
+            invite={searchParams.invite}
+            conference={searchParams.conference}
+          />
+          {false && (
+            <>
+              <GoogleLogo />
+              <AppleLogo />
+            </>
+          )}
+        </div>
+
+        <div className="my-3 flex items-center gap-3">
+          <div className="flex-1 h-px bg-[var(--border)]" />
+          <span className="retro-label">or use your email</span>
+          <div className="flex-1 h-px bg-[var(--border)]" />
+        </div>
+
+        {/* Magic link */}
+        <form className="space-y-2">
           <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
           <input
             type="hidden"
@@ -160,10 +181,7 @@ export default async function LoginPage({
             placeholder="you@domain.com"
             className="retro-input"
           />
-          <button
-            formAction={login}
-            className="retro-btn retro-btn-primary w-full"
-          >
+          <button formAction={login} className="retro-btn w-full">
             Email me a magic link
           </button>
         </form>
@@ -188,29 +206,6 @@ export default async function LoginPage({
             </p>
           </div>
         )}
-
-        <div className="my-3 flex items-center gap-3">
-          <div className="flex-1 h-px bg-[var(--border)]" />
-          <span className="retro-label">or</span>
-          <div className="flex-1 h-px bg-[var(--border)]" />
-        </div>
-
-        <div className="space-y-2">
-          <OAuthButtons
-            invite={searchParams.invite}
-            conference={searchParams.conference}
-          />
-          {/* GoogleLogo/AppleLogo SVGs are referenced inside OAuthButtons
-              now — the local components stay defined above for any
-              non-OAuth surfaces that might want them later, but the
-              compiled output drops dead imports automatically. */}
-          {false && (
-            <>
-              <GoogleLogo />
-              <AppleLogo />
-            </>
-          )}
-        </div>
 
         <div className="my-3 flex items-center gap-3">
           <div className="flex-1 h-px bg-[var(--border)]" />

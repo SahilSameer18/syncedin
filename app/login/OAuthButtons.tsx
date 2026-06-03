@@ -102,7 +102,8 @@ export function OAuthButtons({
         type="button"
         onClick={() => go("google")}
         disabled={busy !== null}
-        className="retro-btn w-full flex items-center justify-center gap-3"
+        className="retro-btn retro-btn-primary w-full flex items-center justify-center gap-3"
+        style={{ background: "#ffffff", color: "#16182a", border: "1px solid var(--border-bright)", boxShadow: "0 6px 18px -8px rgba(0,0,0,0.18)" }}
       >
         <GoogleLogo />
         <span>{busy === "google" ? "Connecting…" : "Continue with Google"}</span>
