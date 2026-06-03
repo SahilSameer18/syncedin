@@ -179,6 +179,46 @@ export const TWIN_TOOLS = [
       properties: {},
       required: []
     }
+  },
+  {
+    name: "create_invite",
+    description:
+      "Create a personalized invite for someone the user wants to bring onto SyncedIn. Use when the user says 'invite my friend', 'invite this person', or gives a name / LinkedIn / X / Instagram URL / email / phone. Returns a pending_action the user approves; on approve a real invite link (syncedin.org/<slug>) is generated. The twin CAN do this — never tell the user to go copy-paste a message themselves.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name: {
+          type: "string" as const,
+          description: "The invitee's name (or best guess from their handle)."
+        },
+        target: {
+          type: "string" as const,
+          description:
+            "A profile URL (LinkedIn/X/Instagram/Facebook), email, phone, or handle for the invitee. Pass whatever the user gave."
+        },
+        note: {
+          type: "string" as const,
+          description:
+            "Optional one-line note on why the user wants to connect with them."
+        }
+      },
+      required: ["name", "target"]
+    }
+  },
+  {
+    name: "submit_feedback",
+    description:
+      "Submit the user's product feedback (bug, idea, request, or anything they want the team to know) straight from chat. Use when the user says 'give feedback', 'report a bug', 'I wish it did X', 'tell Jack that…'. Returns a pending_action the user approves; on approve it's logged to the feedback board.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        message: {
+          type: "string" as const,
+          description: "The feedback text in the user's words."
+        }
+      },
+      required: ["message"]
+    }
   }
 ];
 
@@ -196,7 +236,9 @@ export const WRITE_TOOLS = new Set([
   "accept_proposal",
   "deny_proposal",
   "send_message_to_conversation",
-  "update_twin_context"
+  "update_twin_context",
+  "create_invite",
+  "submit_feedback"
 ]);
 
 export type PendingAction = {
@@ -208,7 +250,9 @@ export type PendingAction = {
     | "accept_proposal"
     | "deny_proposal"
     | "send_message_to_conversation"
-    | "update_twin_context";
+    | "update_twin_context"
+    | "create_invite"
+    | "submit_feedback";
   /** Full input payload the user's Approve POST will replay. */
   payload: Record<string, unknown>;
 };

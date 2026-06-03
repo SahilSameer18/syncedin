@@ -30,7 +30,10 @@ type PendingAction = {
     | "update_proposal_text"
     | "accept_proposal"
     | "deny_proposal"
-    | "send_message_to_conversation";
+    | "send_message_to_conversation"
+    | "update_twin_context"
+    | "create_invite"
+    | "submit_feedback";
   payload: Record<string, any>;
 };
 
@@ -1062,6 +1065,7 @@ function ActionCard({ action }: { action: PendingAction }) {
   );
   const [errMsg, setErrMsg] = useState<string | null>(null);
   const [fetchedPreview, setFetchedPreview] = useState<string | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
   const p = action.payload as any;
 
   const label = (() => {
@@ -1078,6 +1082,10 @@ function ActionCard({ action }: { action: PendingAction }) {
         return `Send message to ${p.counterpart_name ?? "counterpart"}`;
       case "update_twin_context":
         return "Add to your twin's context";
+      case "create_invite":
+        return `Invite ${p.name ?? "someone"}`;
+      case "submit_feedback":
+        return "Send feedback to the team";
       default:
         return action.type;
     }
@@ -1089,6 +1097,9 @@ function ActionCard({ action }: { action: PendingAction }) {
     if (action.type === "send_message_to_conversation")
       return p.text as string;
     if (action.type === "update_twin_context") return p.text as string;
+    if (action.type === "submit_feedback") return p.message as string;
+    if (action.type === "create_invite")
+      return [p.name, p.target, p.note].filter(Boolean).join(" · ") || null;
     return null;
   })();
 
@@ -1135,6 +1146,7 @@ function ActionCard({ action }: { action: PendingAction }) {
         setErrMsg(j?.detail || j?.error || "Failed to ship.");
         return;
       }
+      if (typeof j?.url === "string") setResultUrl(j.url);
       setState("done");
     } catch (e: any) {
       setState("error");
@@ -1215,7 +1227,25 @@ function ActionCard({ action }: { action: PendingAction }) {
             gap: 6
           }}
         >
-          ✓ Shipped to the database. You can verify on /proposals.
+          {action.type === "create_invite" && resultUrl ? (
+            <span style={{ wordBreak: "break-all" }}>
+              ✓ Invite ready —{" "}
+              <a
+                href={resultUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: "#10b981", textDecoration: "underline" }}
+              >
+                {resultUrl}
+              </a>
+            </span>
+          ) : action.type === "submit_feedback" ? (
+            "✓ Feedback sent — thank you."
+          ) : action.type === "update_twin_context" ? (
+            "✓ Added to your twin's context."
+          ) : (
+            "✓ Shipped to the database. You can verify on /proposals."
+          )}
         </div>
       ) : (
         <div style={{ display: "flex", gap: 8 }}>

@@ -441,6 +441,18 @@ export function PendingProposalsRail() {
             icon: "👋",
             label: "Who to reach out to today",
             prompt: "Who are the 3 people I should reach out to today, and what should I say?"
+          },
+          {
+            icon: "💌",
+            label: "Invite someone",
+            prompt:
+              "I want to invite someone to SyncedIn. Ask me for their name and a profile link, email, or handle, then create the invite."
+          },
+          {
+            icon: "💡",
+            label: "Give feedback",
+            prompt:
+              "I want to give the team product feedback. Ask me what it is, then submit it for me."
           }
         ].map((a) => (
           <button

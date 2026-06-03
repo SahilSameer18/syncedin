@@ -26,7 +26,9 @@ type Body = {
     | "accept_proposal"
     | "deny_proposal"
     | "send_message_to_conversation"
-    | "update_twin_context";
+    | "update_twin_context"
+    | "create_invite"
+    | "submit_feedback";
   payload: Record<string, any>;
 };
 
@@ -79,6 +81,103 @@ export async function POST(req: Request) {
       );
     }
     return NextResponse.json({ ok: true, action: "context_updated" });
+  }
+
+  // ── SUBMIT FEEDBACK (no conversation needed) ─────────────────────
+  if (type === "submit_feedback") {
+    const message = String(payload.message || "").trim();
+    if (!message) {
+      return NextResponse.json({ error: "missing_message" }, { status: 400 });
+    }
+    const { error } = await service.from("feedback").insert({
+      user_id: user.id,
+      message,
+      surface: "twin_chat"
+    });
+    if (error) {
+      return NextResponse.json(
+        { error: "save_failed", detail: error.message },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json({ ok: true, action: "feedback_submitted" });
+  }
+
+  // ── CREATE INVITE (no conversation needed) ───────────────────────
+  // Generates a real /<slug> invite from a name + target (URL/email/phone/
+  // handle). Lightweight version of the bulk-reach flow: no scrape, but a
+  // working personalized landing link the twin can hand back in chat.
+  if (type === "create_invite") {
+    const name = String(payload.name || "").trim();
+    const target = String(payload.target || "").trim();
+    if (!name && !target) {
+      return NextResponse.json({ error: "missing_invitee" }, { status: 400 });
+    }
+    const base =
+      (name || target)
+        .toLowerCase()
+        .replace(/^@/, "")
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 40) || "friend";
+    let slug = base;
+    for (let i = 0; i < 6; i++) {
+      const { data: ex } = await service
+        .from("pending_invites")
+        .select("slug")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (!ex) break;
+      slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+    }
+    const isEmail = /\S+@\S+\.\S+/.test(target);
+    const isUrl = /^https?:\/\//.test(target) || /(linkedin|x|twitter|instagram|facebook)\.com/.test(target);
+    const isPhone = /^\+?[0-9][0-9\s().-]{6,}$/.test(target);
+    const { data: meProf } = await service
+      .from("profiles")
+      .select("display_name, email")
+      .eq("id", user.id)
+      .maybeSingle();
+    const selfFirst =
+      (((meProf as any)?.display_name as string) || (user.email ?? "") || "")
+        .split(/\s+/)[0] || "I";
+    const firstName = (name || "there").split(/\s+/)[0];
+    const starter = `${firstName}, ${selfFirst} here. I'm on SyncedIn, where our digital twins talk first to surface the win-win before either of us spends time on a call. Spin yours up in two minutes and see what mine already drafted for you.`;
+    const fullRow: Record<string, unknown> = {
+      slug,
+      inviter_user_id: user.id,
+      person_title: name || target,
+      person_url: isUrl ? target : null,
+      conversation_starter: starter,
+      recipient_email: isEmail ? target.toLowerCase() : null,
+      recipient_phone: isPhone ? target : null,
+      recipient_handle:
+        !isEmail && !isUrl && !isPhone ? target.toLowerCase().replace(/^@/, "") : null
+    };
+    let insErr = (await service.from("pending_invites").insert(fullRow)).error;
+    if (insErr && /column .* does not exist/i.test(insErr.message)) {
+      insErr = (
+        await service.from("pending_invites").insert({
+          slug,
+          inviter_user_id: user.id,
+          person_title: name || target,
+          conversation_starter: starter
+        })
+      ).error;
+    }
+    if (insErr) {
+      return NextResponse.json(
+        { error: "save_failed", detail: insErr.message },
+        { status: 500 }
+      );
+    }
+    const origin =
+      process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || "https://syncedin.org";
+    return NextResponse.json({
+      ok: true,
+      action: "invite_created",
+      url: `${origin}/${slug}`
+    });
   }
 
   // All four conversation write actions need ownership of a
