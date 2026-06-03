@@ -343,10 +343,25 @@ function EditInfoBadge() {
  * conversation is between two clones. When `active` is true (twins are
  * talking), the arc animates; when finished, the arc holds a solid link.
  */
+// Slug for a portfolio URL when the counterpart has no explicit handle.
+// The /u/[handle] page resolves by display_name slug too, so this always
+// lands on a real page — never "nothing". Jack: "generate the portfolio
+// page for everyone automatically."
+function portfolioSlug(name: string, handle?: string | null): string {
+  if (handle && handle.trim()) return handle.trim().toLowerCase();
+  return (name || "someone")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "someone";
+}
+
 function TwinLink({
   self,
   other,
   active,
+  aboutText = null,
+  socials = null,
   // #162 — Read-receipt moved from message body to sender's avatar.
   // "read" = counterpart has opened the convo since my latest message
   // "delivered" = my latest message is in DB but not yet opened by them
@@ -355,10 +370,9 @@ function TwinLink({
 }: {
   self: { id: string; name: string; avatarUrl: string | null };
   // `handle` added so the counterpart avatar can wrap in a Link to
-  // /u/<handle>. Optional — if missing, the avatar renders as a plain
-  // (non-clickable) image so we don't dead-link to a nonexistent
-  // portfolio path. Jack: "let's make their profile page clickable if
-  // I click on the icon of their photo."
+  // /u/<handle>. Optional — if missing, we slug the display name so the
+  // portfolio link still resolves. Jack: "let's make their profile page
+  // clickable if I click on the icon of their photo."
   other: {
     id: string;
     name: string;
@@ -366,8 +380,20 @@ function TwinLink({
     handle?: string | null;
   };
   active: boolean;
+  /** Counterpart's About blurb — shown in the tap-photo popup. */
+  aboutText?: string | null;
+  /** Counterpart socials — shown in the popup. */
+  socials?: {
+    linkedin_url: string | null;
+    x_url?: string | null;
+    instagram_url?: string | null;
+    facebook_url?: string | null;
+    website_url?: string | null;
+  } | null;
   selfReceiptStatus?: "read" | "delivered" | "none";
 }) {
+  const [cardOpen, setCardOpen] = useState(false);
+  const portfolioHref = `/u/${portfolioSlug(other.name, other.handle)}`;
   return (
     <div
       className="flex items-center conv-twin-link"
@@ -453,37 +479,30 @@ function TwinLink({
           )}
         </svg>
       </div>
-      {other.handle ? (
-        <Link
-          href={`/u/${other.handle}`}
-          aria-label={`Open ${other.name}'s portfolio`}
-          title={`Open ${other.name}'s portfolio`}
-          prefetch={true}
-          style={{
-            display: "inline-block",
-            textDecoration: "none",
-            // Subtle scale on hover so the click target reads as
-            // interactive without redesigning the avatar component.
-            transition: "transform 120ms ease",
-            cursor: "pointer"
-          }}
-          onMouseEnter={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.transform =
-              "scale(1.04)";
-          }}
-          onMouseLeave={(e) => {
-            (e.currentTarget as HTMLAnchorElement).style.transform = "";
-          }}
-        >
-          <Avatar
-            id={other.id}
-            name={other.name}
-            avatarUrl={other.avatarUrl}
-            size={40}
-            ringColor="#3a4dff"
-          />
-        </Link>
-      ) : (
+      {/* Tap the counterpart's photo → popup card (works on mobile where
+          there's no room for the About panel). Jack: "when I click
+          someone's profile photo, pop that up and then I can click View
+          Portfolio Page." */}
+      <button
+        type="button"
+        onClick={() => setCardOpen(true)}
+        aria-label={`About ${other.name}`}
+        title={`About ${other.name}`}
+        style={{
+          display: "inline-block",
+          background: "transparent",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          transition: "transform 120ms ease"
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.04)";
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLButtonElement).style.transform = "";
+        }}
+      >
         <Avatar
           id={other.id}
           name={other.name}
@@ -491,6 +510,90 @@ function TwinLink({
           size={40}
           ringColor="#3a4dff"
         />
+      </button>
+
+      {cardOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setCardOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 90,
+            background: "rgba(8,10,20,0.55)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="retro-panel retro-shadow"
+            style={{
+              width: "100%",
+              maxWidth: 360,
+              padding: 20,
+              background: "var(--panel-solid)",
+              borderRadius: 16,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+              textAlign: "left"
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <Avatar
+                id={other.id}
+                name={other.name}
+                avatarUrl={other.avatarUrl}
+                size={52}
+                ringColor="#3a4dff"
+              />
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 16 }}>
+                  {other.name}
+                </div>
+                {socials && (
+                  <div style={{ marginTop: 4 }}>
+                    <SocialIconRow urls={socials} size={14} gap={5} />
+                  </div>
+                )}
+              </div>
+            </div>
+            {aboutText && (
+              <div
+                className="retro-dim"
+                style={{ fontSize: 13, lineHeight: 1.5 }}
+              >
+                {aboutText}
+              </div>
+            )}
+            <Link
+              href={portfolioHref}
+              prefetch={true}
+              className="retro-btn retro-btn-primary"
+              style={{
+                width: "100%",
+                textAlign: "center",
+                textDecoration: "none",
+                padding: "10px 12px",
+                fontWeight: 800
+              }}
+            >
+              View portfolio page →
+            </Link>
+            <button
+              type="button"
+              onClick={() => setCardOpen(false)}
+              className="retro-btn"
+              style={{ width: "100%", padding: "8px 12px", fontSize: 13 }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -1576,6 +1679,8 @@ export function ChatUI({
                     }}
                     active={running}
                     selfReceiptStatus={receipt}
+                    aboutText={summaryResult?.counterpart_summary ?? null}
+                    socials={other.socials ?? null}
                   />
                 );
               })()}
@@ -2015,9 +2120,12 @@ export function ChatUI({
       {/* About the counterpart — Jack: "the About part's useful to keep
           there before even the outcome." Lifted out of the OUTCOME card
           so it reads as its own block ABOVE the outcome in the rail. */}
+      {/* About card — desktop only. On mobile there's no room (Jack), so
+          the counterpart's About + portfolio link live in the tap-photo
+          popup instead. */}
       {summaryResult?.counterpart_summary && (
         <div
-          className="mb-2 retro-panel"
+          className="mb-2 retro-panel hidden lg:block"
           style={{ padding: 12, background: "var(--panel-2)" }}
         >
           <div
