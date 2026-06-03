@@ -49,7 +49,7 @@ export function Sidebar({
   const items: Array<{ href: string; label: string; icon: string }> = [
     // Chat is the home base — first in the nav + the default landing.
     { href: "/twin", label: "Chat", icon: "💬" },
-    { href: "/dashboard", label: "Dashboard", icon: "🏠" },
+    { href: "/dashboard", label: "Command Center", icon: "🏠" },
     { href: "/messages", label: "Messages", icon: "👥" },
     { href: "/proposals", label: "Proposals", icon: "🤝" },
     { href: "/invite", label: "Invite", icon: "💌" },

@@ -36,12 +36,12 @@
   --border-bright: #5b67a0;
   --text: #ffffff;
   --text-dim: #b0b8d0;
-  --amber: #4d8cff; /* primary accent — SyncedIn blue, brighter */
-  --amber-bright: #8ab4ff;
-  --accent-glow: rgba(77, 140, 255, 0.55);
+  --amber: #6d6df8; /* primary accent — indigo (rebrand) */
+  --amber-bright: #9aa0ff;
+  --accent-glow: rgba(109, 109, 248, 0.5);
   --green: #5ee5b2;
   --red: #ff7878;
-  --radius: 12px;
+  --radius: 16px;
   /* iMessage-style chat bubble for the "other" side. Lighter than the
      panel so received messages float clearly off the surface. */
   --bubble-them: #2a3247;
@@ -55,27 +55,28 @@
   --panel-solid: #131829;
 }
 
-/* Light mode — same blue accent, inverted surfaces. */
+/* Light mode — 2026 rebrand: clean "Command Center" aesthetic. Cool-white
+   surfaces, indigo→violet primary accent, soft borders, rounder cards. The
+   whole app inherits this through the tokens. */
 :root[data-theme="light"] {
-  --bg: #eef2fb;
+  --bg: #f7f8fb;
   --panel: #ffffff;
   --panel-solid: #ffffff;
-  --panel-2: #e6ecf8;
-  --border: #c5cee0;
-  --border-bright: #8d9bbe;
-  --text: #0a0c14;
-  --text-dim: #434a5e;
-  --amber: #1f5bff;
-  --amber-bright: #4d7eff;
-  --accent-glow: rgba(31, 91, 255, 0.45);
-  --green: #008a5c;
-  --red: #c62828;
-  --radius: 12px;
-  /* iMessage-style chat bubble for received messages — the canonical
-     iOS light-grey. */
-  --bubble-them: #e5e5ea;
-  --bubble-them-text: #1c1c1e;
-  --bubble-them-text-dim: #6c6c70;
+  --panel-2: #f2f3f9;
+  --border: #e7e9f2;
+  --border-bright: #cfd4e6;
+  --text: #16182a;
+  --text-dim: #6b7280;
+  --amber: #5b5bf5; /* primary accent — indigo (rebrand) */
+  --amber-bright: #818cf8;
+  --accent-glow: rgba(91, 91, 245, 0.32);
+  --green: #0f9d6b;
+  --red: #e0526a;
+  --radius: 16px;
+  /* Received chat bubble — soft cool grey on the new lighter ground. */
+  --bubble-them: #f1f2f7;
+  --bubble-them-text: #16182a;
+  --bubble-them-text-dim: #6b7280;
 }
 
 :root[data-theme="light"] body {
