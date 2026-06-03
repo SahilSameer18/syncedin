@@ -568,6 +568,30 @@ export default async function DashboardPage() {
         };
       })
       .sort((a, b) => b.sync - a.sync)[0] ?? null;
+  // Today's Opportunities — top real users you're NOT yet talking to,
+  // ranked by deterministic pair score. Reuses the already-built
+  // `directory` (substance-gated, dedup'd against existing convos, fresh
+  // joiners floated up). Fit pill: ≥55 High, ≥35 Medium, else Worth a look.
+  const ccOpportunities = directory.slice(0, 3).map((p: any) => {
+    const score = p.connection_score ?? 0;
+    const tier =
+      score >= 55
+        ? { label: "High fit", color: "var(--green)" }
+        : score >= 35
+        ? { label: "Medium fit", color: "var(--amber-bright)" }
+        : { label: "Worth a look", color: "var(--text-dim)" };
+    return {
+      id: p.id as string,
+      name: (p.display_name as string) || (p.email as string) || "Someone",
+      avatar: (p.avatar_url as string | null) ?? null,
+      score,
+      tier,
+      headline:
+        (p.headline_fallback as string) ||
+        (p.goals as string | null)?.split("\n")[0]?.slice(0, 90) ||
+        "On SyncedIn, building their twin."
+    };
+  });
   // Kept as a dead reference for the hidden legacy aside below.
   const cloneSyncCard = (
     <aside
@@ -741,6 +765,114 @@ export default async function DashboardPage() {
                 size={84}
               />
             </Link>
+          )}
+
+          {/* TODAY'S OPPORTUNITIES — top real matches not yet in a
+              conversation. Real pair scores; one-tap "connect" via the
+              startConversationWithUser server action. */}
+          {ccOpportunities.length > 0 && (
+            <div style={{ marginTop: 26 }}>
+              <div
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--amber-bright)",
+                  marginBottom: 12
+                }}
+              >
+                Today's opportunities
+              </div>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns:
+                    "repeat(auto-fit, minmax(240px, 1fr))",
+                  gap: 14
+                }}
+              >
+                {ccOpportunities.map((o) => (
+                  <div
+                    key={o.id}
+                    className="retro-panel"
+                    style={{
+                      padding: 16,
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 12
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12
+                      }}
+                    >
+                      <Avatar
+                        id={o.id}
+                        name={o.name}
+                        avatarUrl={o.avatar}
+                        size={44}
+                      />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 800,
+                            letterSpacing: "-0.01em",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis"
+                          }}
+                        >
+                          {o.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: o.tier.color,
+                            letterSpacing: "0.02em"
+                          }}
+                        >
+                          {o.score}% · {o.tier.label}
+                        </div>
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 13,
+                        color: "var(--text-dim)",
+                        lineHeight: 1.4,
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        minHeight: 36
+                      }}
+                    >
+                      {o.headline}
+                    </div>
+                    <form action={startConversationWithUser}>
+                      <input type="hidden" name="userId" value={o.id} />
+                      <button
+                        type="submit"
+                        className="retro-btn retro-btn-primary"
+                        style={{
+                          width: "100%",
+                          fontSize: 13,
+                          padding: "9px 12px"
+                        }}
+                      >
+                        Connect →
+                      </button>
+                    </form>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
         </section>
 
