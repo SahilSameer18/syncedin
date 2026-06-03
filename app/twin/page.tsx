@@ -3,6 +3,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { TwinChatUI } from "./TwinChatUI";
 import { PendingProposalsRail } from "./PendingProposalsRail";
+import { pickBestFirstMatch } from "@/lib/matchmaking";
 
 /**
  * Talk to your own twin (#159). A 1:1 chat surface where the user can
@@ -12,7 +13,11 @@ import { PendingProposalsRail } from "./PendingProposalsRail";
  */
 export const dynamic = "force-dynamic";
 
-export default async function TwinPage() {
+export default async function TwinPage({
+  searchParams
+}: {
+  searchParams?: { welcome?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user }
@@ -29,6 +34,30 @@ export default async function TwinPage() {
     ((profile as any)?.display_name as string) ||
     ((profile as any)?.email as string)?.split("@")[0] ||
     "you";
+
+  // First-arrival welcome — the twin greets the user, orients them, and
+  // names the best match it found. We compute the match server-side so the
+  // greeting can be specific. Best-effort; greeting still fires without it.
+  const isWelcome = (searchParams?.welcome ?? "") === "1";
+  let welcomeMatch: string | null = null;
+  if (isWelcome) {
+    try {
+      const m = await pickBestFirstMatch(user.id);
+      if ((m as any)?.counterpartId) {
+        const { data: cp } = await service
+          .from("profiles")
+          .select("display_name, handle")
+          .eq("id", (m as any).counterpartId)
+          .maybeSingle();
+        welcomeMatch =
+          ((cp as any)?.display_name as string) ||
+          ((cp as any)?.handle as string) ||
+          null;
+      }
+    } catch {
+      /* greeting falls back to a generic match offer */
+    }
+  }
 
   return (
     <AppShell>
@@ -60,7 +89,11 @@ export default async function TwinPage() {
           }}
         >
           <div style={{ minWidth: 0 }}>
-            <TwinChatUI selfName={selfName} />
+            <TwinChatUI
+              selfName={selfName}
+              welcome={isWelcome}
+              welcomeMatch={welcomeMatch}
+            />
           </div>
           <div className="twin-rail" style={{ minWidth: 0 }}>
             <PendingProposalsRail />

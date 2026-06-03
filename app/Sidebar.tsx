@@ -47,13 +47,10 @@ export function Sidebar({
   // conversation surface: dashboard, messages, proposals, invite, poll,
   // personal intelligence, feedback.
   const items: Array<{ href: string; label: string; icon: string }> = [
+    // Chat is the home base — first in the nav + the default landing.
+    { href: "/twin", label: "Chat", icon: "💬" },
     { href: "/dashboard", label: "Dashboard", icon: "🏠" },
-    { href: "/messages", label: "Messages", icon: "💬" },
-    // #159 — Chat with your own twin. Jack: 'rename Talk to your twin →
-    // Chat. This should function like the new dashboard.' The /twin
-    // route is unchanged; only the sidebar label + icon swap to make
-    // it read as the primary chat surface, not a side-quest.
-    { href: "/twin", label: "Chat", icon: "🤖" },
+    { href: "/messages", label: "Messages", icon: "👥" },
     { href: "/proposals", label: "Proposals", icon: "🤝" },
     { href: "/invite", label: "Invite", icon: "💌" },
     // Talk with Ghosts — Jack's reframing of the invite ask: paste

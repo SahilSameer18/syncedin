@@ -205,7 +205,12 @@ export async function saveTwin(formData: FormData) {
               console.warn("[onboarding] first-match auto-start failed", e);
             }
           })();
-          redirect(`/conversations/${convId}?first_match=1`);
+          // Land in the twin chat (home base) where the twin greets the
+          // user, explains what they can do, and surfaces this match —
+          // a warmer onboarding than dropping cold into the thread. The
+          // conversation above is already created + in motion in the
+          // background. Jack: "have their twin greet them."
+          redirect(`/twin?welcome=1`);
         }
       }
     }
@@ -219,5 +224,5 @@ export async function saveTwin(formData: FormData) {
   // (very early platform), when the user already has a conversation, or
   // when the match flow errored. ?saved=1 lets the dashboard scroll to
   // top + show a confirmation.
-  redirect("/dashboard?saved=1");
+  redirect("/twin?welcome=1");
 }

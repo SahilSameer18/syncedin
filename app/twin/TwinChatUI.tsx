@@ -311,7 +311,17 @@ const COMPOSER_HEIGHT = 96; // approximate height of the bottom composer
 // so the scroller floor sits ABOVE the chip strip with a small gap.
 const CHIPS_HEIGHT = 44;
 
-export function TwinChatUI({ selfName }: { selfName: string }) {
+export function TwinChatUI({
+  selfName,
+  welcome = false,
+  welcomeMatch = null
+}: {
+  selfName: string;
+  /** First arrival after building the twin — triggers a twin-led greeting. */
+  welcome?: boolean;
+  /** Name of the best match found for the greeting, if any. */
+  welcomeMatch?: string | null;
+}) {
   const [messages, setMessages] = useState<ChatRow[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -352,6 +362,30 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
       alive = false;
     };
   }, []);
+
+  // First-arrival greeting — the twin introduces itself, orients the user,
+  // and names the best match it found. Injected once when the thread loads
+  // empty (welcome flow after building the twin). Ephemeral orientation
+  // message; not persisted as training data. Jack: "have their twin greet
+  // them — 'Hey, it's me, your twin. Here's someone I found…'"
+  const greetedRef = useRef(false);
+  useEffect(() => {
+    if (!welcome || !loaded || greetedRef.current) return;
+    greetedRef.current = true;
+    if (messages.length > 0) return;
+    const matchLine = welcomeMatch
+      ? `And I already scanned the network — the person I'd most want you to meet is **${welcomeMatch}**. Want me to start that conversation?`
+      : `Want me to find your single best match on the platform right now?`;
+    const body = `Hey, it's me — your twin. 👋\n\nI'm built from everything you just gave me, and I'm already working for you. A few things we can do together:\n- Find the right people and pre-negotiate the win-win before you ever spend time on a call\n- Triage your proposals, draft messages, and update my context as you go\n- Read the network's pulse, create invites, and give feedback, all from here\n\n${matchLine}`;
+    setMessages([
+      {
+        id: `welcome-${Date.now()}`,
+        role: "assistant",
+        body,
+        created_at: new Date().toISOString()
+      } as ChatRow
+    ]);
+  }, [welcome, loaded, welcomeMatch, messages.length]);
 
   // Auto-scroll on new message / typing indicator. On the very first
   // post-load paint we jump instantly (no smooth animation) so the
