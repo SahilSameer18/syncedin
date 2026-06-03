@@ -68,9 +68,11 @@ export default async function LoginPage({
     detail?: string;
     invite?: string;
     conference?: string;
+    exists?: string;
   };
 }) {
   const sent = searchParams.sent === "1";
+  const exists = searchParams.exists === "1";
   const detail = searchParams.detail
     ? decodeURIComponent(searchParams.detail)
     : null;
@@ -170,6 +172,21 @@ export default async function LoginPage({
           <p className="mt-3 text-sm retro-green text-center">
             ✓ Check your inbox — the link works in any browser.
           </p>
+        )}
+
+        {exists && (
+          <div
+            className="mt-3 p-3 retro-panel"
+            style={{ borderColor: "var(--amber)" }}
+          >
+            <p className="text-sm retro-amber font-semibold">
+              You already have an account
+            </p>
+            <p className="mt-1 text-xs retro-dim break-words">
+              We just emailed a sign-in link to that address — open it in any
+              browser to get straight in. Or sign in with your password below.
+            </p>
+          </div>
         )}
 
         <div className="my-3 flex items-center gap-3">

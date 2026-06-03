@@ -6,6 +6,7 @@ import { Avatar } from "../Avatar";
 import { ProposalRowBody } from "./ProposalRowBody";
 import { SocialIconRow } from "../SocialIconRow";
 import { socialsFromBlob } from "@/lib/social-from-blob";
+import { stripGifMarkdown } from "@/lib/giphy";
 
 /**
  * /proposals — dedicated view of every conversation's END proposal.
@@ -198,9 +199,11 @@ export default async function ProposalsPage({
       const text = (m.final_text ?? "").toString();
       const marker = text.match(/>>>\s*AGREEMENT:?\s*/i);
       if (marker) {
-        const agreement = text
-          .slice(marker.index! + marker[0].length)
-          .trim();
+        // Scrub any GIF/image markdown the twin loop let bleed into the
+        // closing AGREEMENT — GIFs belong in the transcript, not here.
+        const agreement = stripGifMarkdown(
+          text.slice(marker.index! + marker[0].length)
+        );
         if (agreement) {
           fullTextByConv.set(m.conversation_id, agreement);
           seen.add(m.conversation_id);
@@ -210,7 +213,7 @@ export default async function ProposalsPage({
     // For convs without a marker, fall back to the conversation's summary.
     for (const c of rows) {
       if (!fullTextByConv.has(c.id) && c.summary) {
-        fullTextByConv.set(c.id, c.summary);
+        fullTextByConv.set(c.id, stripGifMarkdown(c.summary));
       }
     }
   }
@@ -510,7 +513,8 @@ export default async function ProposalsPage({
                       | string
                       | null
                       | undefined;
-                    if (!cs || !cs.trim()) return null;
+                    const csClean = stripGifMarkdown(cs);
+                    if (!csClean.trim()) return null;
                     return (
                       <div
                         style={{
@@ -520,7 +524,7 @@ export default async function ProposalsPage({
                           color: "var(--text-dim)"
                         }}
                       >
-                        {cs}
+                        {csClean}
                       </div>
                     );
                   })()}
@@ -530,9 +534,11 @@ export default async function ProposalsPage({
                       would re-render the whole heavy server tree). */}
                   <ProposalRowBody
                     conversationId={c.id}
-                    initialSummary={c.summary ?? ""}
+                    initialSummary={stripGifMarkdown(c.summary)}
                     initialFullText={
-                      fullTextByConv.get(c.id) ?? c.summary ?? ""
+                      fullTextByConv.get(c.id) ??
+                      stripGifMarkdown(c.summary) ??
+                      ""
                     }
                     alreadyAccepted={myResp?.response === "accepted"}
                     alreadyRejected={myResp?.response === "rejected"}

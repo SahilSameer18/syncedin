@@ -81,6 +81,29 @@ export async function pickGif(opts: {
 }
 
 /**
+ * Strip GIF / image markdown and bare Giphy URLs out of any text that is
+ * NOT the live conversation transcript. GIFs are a conversation-only
+ * flourish (see maybeGifTrigger) — they must never appear in a proposal,
+ * outcome summary, "proposed final destination", or agreement body. The
+ * twin-generation loop occasionally lets the `![alt](url)` reaction syntax
+ * bleed into the closing AGREEMENT text; this scrubs it at every display
+ * surface so previously-stored agreements are cleaned too, not just newly
+ * generated ones. Idempotent and safe on null/empty input.
+ */
+export function stripGifMarkdown(text: string | null | undefined): string {
+  if (!text) return "";
+  return text
+    // ![alt](url) markdown image syntax — the GIF reaction format
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+    // any bare giphy.com / media*.giphy.com URL left dangling
+    .replace(/https?:\/\/(?:[a-z0-9-]+\.)?giphy\.com\/\S+/gi, "")
+    // tidy up the whitespace / blank lines the removal leaves behind
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
  * Heuristic gating: should this twin reply include a GIF?
  *
  * Used by the twin-generation loop to keep GIF use SPARSE (Jack's ask:

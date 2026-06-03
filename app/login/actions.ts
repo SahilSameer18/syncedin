@@ -94,6 +94,37 @@ export async function signUpWithPassword(formData: FormData) {
     password,
     options: { emailRedirectTo: callbackUrl(formData) }
   });
+
+  // ── Existing-account recovery (task #328) ─────────────────────────────────
+  // A returning user who tries "Create account" with an email that already
+  // exists used to get trapped. Supabase signals the collision two different
+  // ways depending on the "Confirm email" setting:
+  //   1. Confirm-email OFF → signUp returns an error whose message contains
+  //      "already registered". Old code dumped that raw string as a dead-end.
+  //   2. Confirm-email ON (enumeration protection) → signUp returns NO error
+  //      and NO session, with an obfuscated user whose `identities` array is
+  //      empty. Old code said "check your inbox" for a mail that never came.
+  // In BOTH cases, recover the user instead of stranding them: fire a magic
+  // sign-in link to the existing address and route to a clear, actionable
+  // state. (signInWithOtp delivers to existing users without leaking
+  // existence, so this is safe under enumeration protection too.)
+  const existsByError =
+    !!error && /already (been )?registered|already exists/i.test(error.message);
+  const existsBySilence =
+    !error &&
+    !data.session &&
+    !!data.user &&
+    (data.user.identities?.length ?? 0) === 0;
+
+  if (existsByError || existsBySilence) {
+    // Best-effort recovery link — ignore its result so we never dead-end.
+    await supabase.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: callbackUrl(formData) }
+    });
+    redirect("/login?exists=1");
+  }
+
   if (error) {
     const detail = encodeURIComponent(error.message);
     redirect(`/login?error=password_failed&detail=${detail}`);

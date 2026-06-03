@@ -494,15 +494,21 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           display: "flex",
           flexDirection: "column",
           gap: 10,
-          padding: "4px 4px 12px",
+          // Fill all the way down to the viewport bottom. The chip strip
+          // and composer are position:fixed and overlay the lower region,
+          // so we clear them with paddingBottom rather than shrinking the
+          // scroller's height. The OLD approach subtracted COMPOSER_HEIGHT
+          // + CHIPS_HEIGHT from the height — that left a dead band of page
+          // background between the scroller floor and the docked chip strip
+          // (the "gray box" Jack flagged) and clipped the last Approve card
+          // at the scroller's short floor. Filling + padding removes the
+          // gap AND guarantees the last card always clears the dock.
+          padding: "4px 4px 0",
+          paddingBottom: `calc(${COMPOSER_HEIGHT}px + ${CHIPS_HEIGHT}px + 16px + env(safe-area-inset-bottom, 0px))`,
           // Independent scroll context.
           overflowY: "auto",
           overscrollBehavior: "contain",
-          // Height: viewport minus topbar minus intro minus composer
-          // AND chips. Without subtracting CHIPS_HEIGHT the last
-          // message could scroll into the same pixels the floating
-          // chip pills occupy → chip background masked the chat.
-          height: `calc(100dvh - 64px - 210px - ${COMPOSER_HEIGHT}px - ${CHIPS_HEIGHT}px - env(safe-area-inset-bottom, 0px))`,
+          height: "calc(100dvh - 64px - 210px)",
           minHeight: 300,
           // Solid background so messages don't render over the page
           // bg when the scroller has its own bounds.

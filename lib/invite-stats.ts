@@ -22,6 +22,19 @@ const BONUS_REFERRALS_BY_EMAIL: Record<string, number> = {
 };
 
 /**
+ * Manual credit by profile HANDLE — the most robust lever for Jack.
+ * His web account's auth email is ambiguous (Google identity vs the
+ * jacksonjezio alias vs a second account), so the email map kept
+ * missing and his count showed 0 despite the override being live.
+ * The handle is stable and visible (syncedin.org/u/jackson-jesionowski),
+ * so crediting by handle guarantees the founder account reads 10
+ * regardless of which email Supabase has on file. Lower-cased keys.
+ */
+const BONUS_REFERRALS_BY_HANDLE: Record<string, number> = {
+  "jackson-jesionowski": 10
+};
+
+/**
  * Resolve a userId → bonus referral count.
  *
  * Triple-lookup chain because of a real bug Jack hit: the original
@@ -70,16 +83,22 @@ async function bonusReferralsFor(userId: string): Promise<number> {
     return BONUS_REFERRALS_BY_USER_ID[userId];
   }
   const service = createServiceClient();
-  // 2. profiles.email lookup — fast, but the field is sparse.
+  // 2. profiles.email + handle lookup — one query, two signals. The
+  //    handle is the more reliable match for Jack (email is sparse /
+  //    ambiguous across his accounts), so we check it too.
   try {
     const { data } = await service
       .from("profiles")
-      .select("email")
+      .select("email, handle")
       .eq("id", userId)
       .maybeSingle();
     const email = ((data as any)?.email || "").toLowerCase().trim();
     if (email && BONUS_REFERRALS_BY_EMAIL[email]) {
       return BONUS_REFERRALS_BY_EMAIL[email];
+    }
+    const handle = ((data as any)?.handle || "").toLowerCase().trim();
+    if (handle && BONUS_REFERRALS_BY_HANDLE[handle]) {
+      return BONUS_REFERRALS_BY_HANDLE[handle];
     }
   } catch {
     /* fall through */
