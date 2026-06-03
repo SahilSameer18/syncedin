@@ -1368,13 +1368,20 @@ export function ChatUI({
   }
 
   // Pull the agreement (if any) from the last message for the summary card.
-  const lastAgreement = (() => {
+  const markerAgreement = (() => {
     for (let i = messages.length - 1; i >= 0; i--) {
       const { agreement } = splitAgreement(messages[i].final_text);
       if (agreement) return agreement;
     }
     return null;
   })();
+  // Fall back to the computed OUTCOME when the twins reached a deal without
+  // emitting the formal >>> AGREEMENT marker (common now that messages are
+  // shorter/outcome-first). This makes the Accept / Reject / Counter (edit)
+  // card render for ANY conversation with an outcome — Jack: "there's no
+  // ability to accept the outcome that came, or edit it."
+  const lastAgreement =
+    markerAgreement ?? (summaryResult?.summary?.trim() || null);
 
   const bothAccepted =
     myResponse?.response === "accepted" &&
