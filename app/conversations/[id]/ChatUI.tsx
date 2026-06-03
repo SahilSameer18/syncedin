@@ -932,6 +932,13 @@ export function ChatUI({
   const startedRef = useRef(false);
 
   useEffect(() => {
+    // Don't yank the viewport to the bottom while the user is editing a
+    // message in the middle of the thread. A new twin message arriving
+    // (messages.length change) or a running tick would otherwise scroll
+    // them away from the textarea they're typing in. Jack: "I'm in edit
+    // mode … it shouldn't pull me down to the bottom when a new
+    // conversation fires."
+    if (editingId) return;
     scrollerRef.current?.scrollTo({
       top: scrollerRef.current.scrollHeight,
       behavior: "smooth"

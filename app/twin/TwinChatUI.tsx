@@ -53,14 +53,45 @@ function splitPendingActions(body: string): {
   body: string;
   actions: PendingAction[];
 } {
-  const m = body.match(/\n\n<!--PENDING_ACTIONS:(\[[\s\S]+?\])-->\s*$/);
-  if (!m) return { body, actions: [] };
-  try {
-    const actions = JSON.parse(m[1]) as PendingAction[];
-    return { body: body.slice(0, m.index).trimEnd(), actions };
-  } catch {
-    return { body, actions: [] };
+  // The model has emitted malformed marker variants — missing the `-->`
+  // close, a stray trailing `→`, no leading blank line, trailing
+  // whitespace. The old strict regex (required `\n\n` … `-->` … end-of-
+  // string) matched NONE of those, so the raw marker rendered as visible
+  // text AND every Approve card was dropped (so accepts couldn't register).
+  // Robust approach: (a) always strip from the marker onward so it never
+  // shows, and (b) recover the actions by bracket-balancing the JSON array
+  // even when the wrapper is malformed.
+  const start = body.search(/<!--\s*PENDING_ACTIONS\s*:/i);
+  if (start === -1) return { body, actions: [] };
+
+  const cleanBody = body.slice(0, start).trimEnd();
+  let actions: PendingAction[] = [];
+
+  const arrStart = body.indexOf("[", start);
+  if (arrStart !== -1) {
+    let depth = 0;
+    let end = -1;
+    for (let i = arrStart; i < body.length; i++) {
+      const ch = body[i];
+      if (ch === "[") depth++;
+      else if (ch === "]") {
+        depth--;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    if (end !== -1) {
+      try {
+        const parsed = JSON.parse(body.slice(arrStart, end + 1));
+        if (Array.isArray(parsed)) actions = parsed as PendingAction[];
+      } catch {
+        /* malformed JSON — marker still stripped above */
+      }
+    }
   }
+  return { body: cleanBody, actions };
 }
 
 /**
@@ -366,11 +397,17 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
         return;
       }
       if (j.assistant) {
+        // Defensively strip any embedded PENDING_ACTIONS marker from the
+        // live reply (the server sometimes returns it inline). Prefer the
+        // server's parsed actions; fall back to what we recover from body.
+        const split = splitPendingActions(j.assistant.body || "");
+        const serverActions = (j.pending_actions as PendingAction[]) || [];
         setMessages((prev) => [
           ...prev,
           {
             ...j.assistant,
-            pending_actions: (j.pending_actions as PendingAction[]) || []
+            body: split.body,
+            pending_actions: serverActions.length ? serverActions : split.actions
           }
         ]);
       }
@@ -407,15 +444,17 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
         setErr(j?.detail || j?.error || "Couldn't reach your twin.");
         return;
       }
+      const split = splitPendingActions(j.assistant?.body ?? "(no reply)");
+      const serverActions = (j.pending_actions as PendingAction[]) || [];
       setMessages((prev) => [
         ...prev,
         {
           id: j.assistant?.id ?? `a-${Date.now()}`,
           role: "assistant",
-          body: j.assistant?.body ?? "(no reply)",
+          body: split.body || "(no reply)",
           created_at:
             j.assistant?.created_at ?? new Date().toISOString(),
-          pending_actions: (j.pending_actions as PendingAction[]) || []
+          pending_actions: serverActions.length ? serverActions : split.actions
         }
       ]);
     } catch (e: any) {
