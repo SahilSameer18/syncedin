@@ -48,15 +48,15 @@ export async function generateMetadata({
     let lookupId = params.id;
     if (!UUID_RE.test(params.id)) {
       const m = params.id.match(/-([0-9a-f]{8})$/i);
-      const shortId = m ? m[1] : null;
+      const shortId = m ? m[1].toLowerCase() : null;
       if (shortId) {
-        const { data: hit } = await service
-          .from("polls")
-          .select("id")
-          .ilike("id", `${shortId}%`)
-          .limit(1)
-          .maybeSingle();
-        if (hit && (hit as any).id) lookupId = (hit as any).id;
+        // `id` is a uuid column; Postgres ilike doesn't work on uuid, so
+        // match the 8-char prefix in JS over the small set of poll ids.
+        const { data: ids } = await service.from("polls").select("id");
+        const hit = ((ids ?? []) as Array<{ id: string }>).find((r) =>
+          (r.id || "").toLowerCase().startsWith(shortId)
+        );
+        if (hit) lookupId = hit.id;
       }
     }
     const { data } = await service
@@ -174,21 +174,18 @@ export default async function PollDetailPage({
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   let lookupId = params.id;
   if (!UUID_RE.test(params.id)) {
-    // Slug path — pull the last 8 hex chars after the final dash.
+    // Slug path — pull the last 8 hex chars after the final dash. `id` is a
+    // uuid column and Postgres ilike doesn't work on uuid (it errored → null
+    // → every poll 404'd), so match the prefix in JS over the small poll set.
     const m = params.id.match(/-([0-9a-f]{8})$/i);
-    const shortId = m ? m[1] : null;
-    if (shortId) {
-      const { data: hit } = await service
-        .from("polls")
-        .select("id")
-        .ilike("id", `${shortId}%`)
-        .limit(1)
-        .maybeSingle();
-      if (hit && (hit as any).id) {
-        lookupId = (hit as any).id;
-      } else {
-        notFound();
-      }
+    const shortId = m ? m[1].toLowerCase() : null;
+    if (!shortId) notFound();
+    const { data: ids } = await service.from("polls").select("id");
+    const hit = ((ids ?? []) as Array<{ id: string }>).find((r) =>
+      (r.id || "").toLowerCase().startsWith(shortId)
+    );
+    if (hit) {
+      lookupId = hit.id;
     } else {
       notFound();
     }
