@@ -147,13 +147,14 @@ export function Sidebar({
               <span
                 className="synced-nav-icon"
                 style={{
-                  width: 18,
-                  height: 18,
+                  width: 24,
+                  height: 24,
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 12,
-                  fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+                  // Bigger menu emoji — Jack liked the Quick-Actions icon
+                  // size, so the nav adopts it.
+                  fontSize: 18,
                   color: active ? "var(--amber-bright)" : "var(--text-dim)"
                 }}
               >

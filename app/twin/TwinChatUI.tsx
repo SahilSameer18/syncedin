@@ -720,14 +720,14 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
           className="twin-chips-row"
         >
           {[
-            "Accept proposals first",
-            "Who to reach out today",
-            "Draft a follow-up",
-            "My top match this week",
-            "Prioritize my inbox",
-            "Show pending proposals",
-            "Search platform users"
-          ].map((q) => (
+            { e: "✅", q: "Accept proposals first" },
+            { e: "📇", q: "Who to reach out today" },
+            { e: "✍️", q: "Draft a follow-up" },
+            { e: "🎯", q: "My top match this week" },
+            { e: "📥", q: "Prioritize my inbox" },
+            { e: "🤝", q: "Show pending proposals" },
+            { e: "🔍", q: "Search platform users" }
+          ].map(({ e, q }) => (
             <button
               key={q}
               type="button"
@@ -735,8 +735,11 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
               disabled={sending}
               style={{
                 flexShrink: 0,
-                padding: "4px 10px",
-                fontSize: 11.5,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 12px",
+                fontSize: 12,
                 fontWeight: 600,
                 borderRadius: 999,
                 border: "1px solid var(--border)",
@@ -745,9 +748,12 @@ export function TwinChatUI({ selfName }: { selfName: string }) {
                 cursor: sending ? "default" : "pointer",
                 whiteSpace: "nowrap",
                 opacity: sending ? 0.5 : 1,
-                height: 26
+                height: 28
               }}
             >
+              <span style={{ fontSize: 15, lineHeight: 1 }} aria-hidden>
+                {e}
+              </span>
               {q}
             </button>
           ))}
