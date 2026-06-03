@@ -119,7 +119,9 @@ export default async function AdminUsagePage() {
     invClaimedR,
     convTotalR,
     emailTotalR,
-    email7R
+    email7R,
+    returning7R,
+    olderUsersR
   ] = await Promise.all([
     service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false),
     service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", true),
@@ -133,7 +135,11 @@ export default async function AdminUsagePage() {
     service.from("pending_invites").select("slug", { count: "exact", head: true }).not("claimed_by_user_id", "is", null),
     service.from("conversations").select("id", { count: "exact", head: true }),
     service.from("notification_log").select("id", { count: "exact", head: true }),
-    service.from("notification_log").select("id", { count: "exact", head: true }).gte("sent_at", iso7)
+    service.from("notification_log").select("id", { count: "exact", head: true }).gte("sent_at", iso7),
+    // Returning users: joined >7d ago AND active in the last 7d. A coarse
+    // retention proxy — true cohort retention needs event history (PostHog).
+    service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false).lt("created_at", iso7).gte("last_active_at", iso7),
+    service.from("profiles").select("id", { count: "exact", head: true }).eq("is_test_persona", false).lt("created_at", iso7)
   ]);
 
   const totalUsers = totalUsersR.count ?? 0;
@@ -149,6 +155,8 @@ export default async function AdminUsagePage() {
   const convTotal = convTotalR.count ?? 0;
   const emailTotal = emailTotalR.count ?? 0;
   const email7 = email7R.count ?? 0;
+  const returning7 = returning7R.count ?? 0;
+  const olderUsers = olderUsersR.count ?? 0;
 
   // ── Raw data for charts + the unified user table ──────────────────────────
   const [
@@ -156,6 +164,7 @@ export default async function AdminUsagePage() {
     { data: invRows },
     { data: profileRows },
     { data: signupRows },
+    { data: inviteCreatedRows },
     { data: emailRows }
   ] = await Promise.all([
     service.from("messages").select("sender_user_id, sent_at").limit(20000),
@@ -166,6 +175,7 @@ export default async function AdminUsagePage() {
       .eq("is_test_persona", false)
       .limit(1000),
     service.from("profiles").select("created_at").eq("is_test_persona", false).gte("created_at", iso30),
+    service.from("pending_invites").select("created_at").gte("created_at", iso30),
     service.from("notification_log").select("kind").order("sent_at", { ascending: false }).limit(1000)
   ]);
 
@@ -213,6 +223,10 @@ export default async function AdminUsagePage() {
     30
   );
   const activitySeries = dailyBuckets(msgTimestamps, 30);
+  const invitesSeries = dailyBuckets(
+    ((inviteCreatedRows ?? []) as Array<{ created_at: string }>).map((r) => r.created_at),
+    30
+  );
 
   const emailByKind = new Map<string, number>();
   for (const r of (emailRows ?? []) as Array<{ kind: string }>) {
@@ -239,6 +253,11 @@ export default async function AdminUsagePage() {
         <Stat label="New (7d / 30d)" value={`${new7} / ${new30}`} />
         <Stat label="Conversations" value={convTotal} />
         <Stat label="Emails (7d / all)" value={`${email7} / ${emailTotal}`} />
+        <Stat
+          label="Returning (7d)"
+          value={`${returning7} / ${olderUsers}`}
+          sub={`${pct(returning7, olderUsers)} of pre-week users came back`}
+        />
       </div>
 
       {/* ── Time-series charts ── */}
@@ -250,6 +269,11 @@ export default async function AdminUsagePage() {
       <h2 className="retro-h1 text-xl mt-8">Platform activity (messages) · last 30 days</h2>
       <div className="mt-3 retro-panel" style={{ padding: 16 }}>
         <BarChart data={activitySeries} color="var(--amber-bright)" />
+      </div>
+
+      <h2 className="retro-h1 text-xl mt-8">Invites created · last 30 days</h2>
+      <div className="mt-3 retro-panel" style={{ padding: 16 }}>
+        <BarChart data={invitesSeries} color="#9333ea" />
       </div>
 
       {/* ── Referral funnel ── */}
