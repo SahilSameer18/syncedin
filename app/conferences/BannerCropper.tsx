@@ -26,13 +26,19 @@ export function BannerCropper({
   const fileRef = useRef<HTMLInputElement>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const [img, setImg] = useState<HTMLImageElement | null>(null);
-  const [frameW, setFrameW] = useState(460);
+  // Real, measured frame dimensions. The frame's HEIGHT is locked to the
+  // 1200:630 aspect via CSS (aspectRatio), and we measure the actual
+  // rendered box so the crop math matches exactly what's on screen — the
+  // earlier version computed height from a stale width, so the preview
+  // box and the saved image had different aspect ratios.
+  const [frame, setFrame] = useState({ w: 460, h: Math.round(460 * RATIO) });
+  const frameW = frame.w;
+  const frameH = frame.h;
   const [zoom, setZoom] = useState(1);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const [err, setErr] = useState<string | null>(null);
   const drag = useRef<{ x: number; y: number } | null>(null);
 
-  const frameH = Math.round(frameW * RATIO);
   const coverScale = img
     ? Math.max(frameW / img.naturalWidth, frameH / img.naturalHeight)
     : 1;
@@ -47,18 +53,29 @@ export function BannerCropper({
     };
   }
 
-  // Re-center when a new image loads or zoom changes.
+  // Re-center when a new image loads or zoom/frame changes.
   useEffect(() => {
     if (!img) return;
     setPos(clamp((frameW - dispW) / 2, (frameH - dispH) / 2));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [img, zoom, frameW]);
+  }, [img, zoom, frameW, frameH]);
 
-  // Measure the frame width so the crop math matches what's on screen.
+  // Measure the ACTUAL rendered frame box (width + height). Height is
+  // locked to the 1200:630 aspect by CSS, so we read both real values and
+  // run the crop math against them — guaranteeing the preview frame and
+  // the saved image share the exact same crop. Re-measures on resize.
   useEffect(() => {
     if (!img) return;
     const el = frameRef.current;
-    if (el) setFrameW(el.clientWidth);
+    if (!el) return;
+    const measure = () =>
+      setFrame({ w: el.clientWidth, h: el.clientHeight });
+    // rAF so we read AFTER the aspect-ratio layout settles.
+    requestAnimationFrame(measure);
+    const ro =
+      typeof ResizeObserver !== "undefined" ? new ResizeObserver(measure) : null;
+    ro?.observe(el);
+    return () => ro?.disconnect();
   }, [img]);
 
   function pick(file: File) {
@@ -145,7 +162,7 @@ export function BannerCropper({
               position: "relative",
               width: "100%",
               maxWidth: 480,
-              height: frameH,
+              aspectRatio: "1200 / 630",
               overflow: "hidden",
               borderRadius: 12,
               border: "1px solid var(--border-bright)",
