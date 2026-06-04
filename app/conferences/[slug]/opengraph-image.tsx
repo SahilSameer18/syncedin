@@ -107,18 +107,25 @@ export default async function OgImage({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Satori requires explicit display:flex on any element with
+                more than one child — a div mixing the "Synced" text node
+                with the <span>In</span> errored the whole image (the
+                preview then fell back to the favicon). Two spans in a flex
+                row is safe. */}
             <div
               style={{
+                display: "flex",
                 fontSize: 30,
                 fontWeight: 800,
-                color: "#ffffff",
                 letterSpacing: "-0.01em"
               }}
             >
-              Synced<span style={{ color: "#f59e0b" }}>In</span>
+              <span style={{ color: "#ffffff" }}>Synced</span>
+              <span style={{ color: "#f59e0b" }}>In</span>
             </div>
             <div
               style={{
+                display: "flex",
                 fontSize: 18,
                 fontWeight: 700,
                 color: "rgba(255,255,255,0.8)",
