@@ -183,7 +183,7 @@ export function MemberCard({
             color: "var(--green)"
           }}
         >
-          ⚡ Your potential collaboration
+          🧊 The rest of the iceberg
         </div>
         {isSelf ? (
           <div style={{ marginTop: 6, fontSize: 12, color: "var(--text-dim)" }}>
@@ -197,8 +197,9 @@ export function MemberCard({
             >
               Sign up
             </Link>{" "}
-            and your twin auto-generates the invisible win-win you and{" "}
-            {name.split(/\s+/)[0]} could explore.
+            and your context merges with {name.split(/\s+/)[0]}&apos;s —
+            auto-generating your shared potential and surfacing the
+            collaborations and win-win opportunities worth exploring.
           </div>
         ) : collab ? (
           <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5, color: "var(--text)" }}>

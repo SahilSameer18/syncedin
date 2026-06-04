@@ -688,18 +688,18 @@ export default async function ConferencePage({
         style={{ padding: 22 }}
       >
         <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
-          what {ownerName} is building here
+          what SyncedIn enables
         </div>
         <p
           className="mt-2"
           style={{ fontSize: 15.5, lineHeight: 1.6, color: "var(--text)", maxWidth: 760 }}
         >
-          {conf.name} plugs into one super-powered network that spans{" "}
-          {kind === "community" ? "communities" : "conferences"}, group
-          chats, and events. Your digital twin reads everyone&apos;s context
-          and quietly maps the <strong>highest-reward paths of connection</strong>{" "}
-          across the whole room — the win-wins no one would have found one DM
-          at a time.
+          <strong>Transparency and networking between groups, conferences,
+          and communities.</strong> {conf.name} plugs into one super-powered
+          network that spans communities, conferences, and group chats. Your
+          digital twin reads everyone&apos;s context and quietly maps the{" "}
+          <strong>highest-reward paths of connection</strong> across the
+          whole room — the win-wins no one would have found one DM at a time.
         </p>
         <p
           className="mt-3"
