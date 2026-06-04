@@ -34,7 +34,16 @@ platform :ios do
       build_number: latest + 1
     )
 
-    # Archive with our existing manual provisioning profile.
+    # Automatic, Apple-managed signing driven by the App Store Connect API
+    # key — no manual .p12 cert or downloaded provisioning profile needed
+    # (the account already uses Xcode-managed signing). gym passes the API
+    # key to xcodebuild and -allowProvisioningUpdates lets Apple create/
+    # reuse the managed distribution cert + App Store profile on the fly.
+    update_code_signing_settings(
+      path: "ios/App/App.xcodeproj",
+      use_automatic_signing: true,
+      team_id: "XCUTNS56DG"
+    )
     build_app(
       workspace: "ios/App/App.xcworkspace",
       scheme: "App",
@@ -43,10 +52,9 @@ platform :ios do
       output_directory: "build/ios",
       output_name: "SyncedIn.ipa",
       clean: true,
+      xcargs: "-allowProvisioningUpdates",
       export_options: {
-        provisioningProfiles: {
-          "org.syncedin.app" => "SyncedIn App Store"
-        }
+        signingStyle: "automatic"
       }
     )
 
@@ -64,7 +72,7 @@ platform :ios do
   # Format the last 5 commits as the TestFlight "What to Test" notes so
   # testers see what changed since the last upload.
   def build_changelog
-    log = `git log -5 --pretty=format:"• %s"`
+    log = `git log -5 --pretty=format:"• %s" 2>/dev/null`.to_s.strip
     log.empty? ? "Bug fixes and improvements." : log
   end
 end

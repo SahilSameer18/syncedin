@@ -78,31 +78,10 @@ jobs:
           cd ios/App
           pod install --repo-update
 
-      - name: Install Apple signing assets
-        env:
-          IOS_DIST_CERTIFICATE_BASE64: ${{ secrets.IOS_DIST_CERTIFICATE_BASE64 }}
-          IOS_DIST_CERTIFICATE_PASSWORD: ${{ secrets.IOS_DIST_CERTIFICATE_PASSWORD }}
-          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-        run: |
-          # Create temp keychain, import .p12 distribution cert
-          KEYCHAIN=$RUNNER_TEMP/syncedin.keychain-db
-          security create-keychain -p "ci-temp-pass" "$KEYCHAIN"
-          security set-keychain-settings -lut 21600 "$KEYCHAIN"
-          security unlock-keychain -p "ci-temp-pass" "$KEYCHAIN"
-
-          CERT_PATH=$RUNNER_TEMP/dist.p12
-          echo "$IOS_DIST_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
-          security import "$CERT_PATH" \
-            -P "$IOS_DIST_CERTIFICATE_PASSWORD" \
-            -A -t cert -f pkcs12 -k "$KEYCHAIN"
-          security list-keychain -d user -s "$KEYCHAIN" $(security list-keychains -d user | xargs)
-          security set-key-partition-list -S apple-tool:,apple: -s -k "ci-temp-pass" "$KEYCHAIN" >/dev/null
-
-          # Install provisioning profile
-          PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
-          mkdir -p "$PROFILE_DIR"
-          PROFILE_PATH="$PROFILE_DIR/SyncedIn_App_Store.mobileprovision"
-          echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
+      # No manual .p12 / provisioning profile step — signing is now
+      # Apple-managed via the App Store Connect API key (see the ios lane's
+      # automatic signing + -allowProvisioningUpdates). Only the 3 API-key
+      # secrets below are required.
 
       - name: Build + upload to TestFlight via Fastlane
         env:
