@@ -368,7 +368,7 @@ export function OnboardingWizard({
       ) : (
         <button
           type="submit"
-          disabled={!state.display_name.trim() || !state.goals.trim()}
+          disabled={!state.display_name.trim() || !state.goals.trim() || !state.deal_preferences.trim()}
           className={
             compact
               ? "retro-btn retro-btn-primary text-xs"
@@ -587,7 +587,7 @@ export function OnboardingWizard({
               key="save-twin-top"
               type="submit"
               disabled={
-                !state.display_name.trim() || !state.goals.trim()
+                !state.display_name.trim() || !state.goals.trim() || !state.deal_preferences.trim()
               }
               className="retro-btn retro-btn-primary text-xs"
               style={{ padding: "6px 14px" }}
@@ -975,7 +975,7 @@ export function OnboardingWizard({
                 key="save-twin-final"
                 type="submit"
                 disabled={
-                  !state.display_name.trim() || !state.goals.trim()
+                  !state.display_name.trim() || !state.goals.trim() || !state.deal_preferences.trim()
                 }
                 className="retro-btn retro-btn-primary"
                 style={{ padding: "10px 18px", marginTop: 6 }}

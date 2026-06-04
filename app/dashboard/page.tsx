@@ -12,6 +12,7 @@ import { SummaryBackfill } from "./SummaryBackfill";
 import { DiscoverSearch } from "./DiscoverSearch";
 import { ScrollTopOnSaved } from "./ScrollTopOnSaved";
 import { Avatar } from "../Avatar";
+import { deriveIceberg } from "@/lib/iceberg";
 import { AppShell } from "../AppShell";
 import { ClientDate } from "../ClientDate";
 import { computePairScore } from "@/lib/pair-score";
@@ -580,16 +581,24 @@ export default async function DashboardPage() {
         : score >= 35
         ? { label: "Medium fit", color: "var(--amber-bright)" }
         : { label: "Worth a look", color: "var(--text-dim)" };
+    // Structured About / Wants / Offers from their twin (Jack: "display
+    // better info on people" — the old single headline line pulled junk).
+    const t = (twinByUser.get(p.id) as any) ?? {};
+    const ice = deriveIceberg({
+      portfolio_about: null,
+      goals: t.goals ?? p.goals ?? null,
+      deal_preferences: t.deal_preferences ?? null,
+      ai_export_blob: t.ai_export_blob ?? null
+    });
     return {
       id: p.id as string,
       name: (p.display_name as string) || (p.email as string) || "Someone",
       avatar: (p.avatar_url as string | null) ?? null,
       score,
       tier,
-      headline:
-        (p.headline_fallback as string) ||
-        (p.goals as string | null)?.split("\n")[0]?.slice(0, 90) ||
-        "On SyncedIn, building their twin."
+      about: ice.about,
+      wants: ice.wants,
+      offers: ice.offers
     };
   });
   // Kept as a dead reference for the hidden legacy aside below.
@@ -841,19 +850,44 @@ export default async function DashboardPage() {
                         </div>
                       </div>
                     </div>
-                    <div
-                      style={{
-                        fontSize: 13,
-                        color: "var(--text-dim)",
-                        lineHeight: 1.4,
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        minHeight: 36
-                      }}
-                    >
-                      {o.headline}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6, minHeight: 36 }}>
+                      {([
+                        { label: "About", value: o.about },
+                        { label: "Wants / needs", value: o.wants },
+                        { label: "Offers", value: o.offers }
+                      ] as { label: string; value: string | null }[])
+                        .filter((r) => r.value)
+                        .map((r) => (
+                          <div key={r.label}>
+                            <span
+                              style={{
+                                fontSize: 10,
+                                fontWeight: 800,
+                                letterSpacing: "0.08em",
+                                textTransform: "uppercase",
+                                color: "var(--text-dim)"
+                              }}
+                            >
+                              {r.label}:{" "}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 12.5,
+                                color: "var(--text)",
+                                lineHeight: 1.4
+                              }}
+                            >
+                              {(r.value as string).length > 110
+                                ? `${(r.value as string).slice(0, 110).trim()}…`
+                                : r.value}
+                            </span>
+                          </div>
+                        ))}
+                      {!o.about && !o.wants && !o.offers && (
+                        <span style={{ fontSize: 12.5, color: "var(--text-dim)", fontStyle: "italic" }}>
+                          Twin still forming.
+                        </span>
+                      )}
                     </div>
                     <form action={startConversationWithUser}>
                       <input type="hidden" name="userId" value={o.id} />

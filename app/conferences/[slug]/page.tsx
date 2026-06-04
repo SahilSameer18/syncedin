@@ -18,69 +18,7 @@ import { QuickJoinForm } from "./QuickJoinForm";
 import { MemberAdminControls } from "./MemberAdminControls";
 import { OgPreviewControl } from "./OgPreviewControl";
 import { socialsFromBlob } from "@/lib/social-from-blob";
-
-/**
- * Derive the "Tip of their self iceberg" framework (Jack) from a member's
- * twin: about / wants-needs / offers. Heuristic + fast (no LLM) so the
- * page stays snappy even with many members. Each field degrades to null
- * when there's no signal, and the card hides empty rows.
- */
-function deriveIceberg(src: {
-  portfolio_about: string | null;
-  goals: string | null;
-  deal_preferences: string | null;
-  ai_export_blob: string | null;
-}): { about: string | null; wants: string | null; offers: string | null } {
-  const clean = (s: string | null | undefined, max = 320): string | null => {
-    const t = (s ?? "").toString().replace(/\s+/g, " ").trim();
-    if (t.length < 3) return null;
-    return t.length > max ? `${t.slice(0, max).trim()}…` : t;
-  };
-  // Pull a labeled section out of the structured AI-export blob (the
-  // onboarding prompt produces headed sections like "WHAT I HAVE THAT I
-  // CAN GIVE"). Returns the first paragraph under any matching heading.
-  const section = (blob: string | null, kw: RegExp): string | null => {
-    if (!blob) return null;
-    const lines = blob.split(/\r?\n/);
-    for (let i = 0; i < lines.length; i++) {
-      if (kw.test(lines[i])) {
-        const body: string[] = [];
-        for (let j = i + 1; j < lines.length && body.length < 4; j++) {
-          const l = lines[j].trim();
-          if (!l) {
-            if (body.length) break;
-            continue;
-          }
-          if (/^#{1,6}\s|^\d+\.\s|^[A-Z][A-Z \-/]{6,}$/.test(l)) break; // next heading
-          body.push(l.replace(/^[-*•]\s*/, ""));
-        }
-        const joined = body.join(" ").trim();
-        if (joined.length > 8) return joined;
-      }
-    }
-    return null;
-  };
-  // Field semantics (from the onboarding wizard):
-  //   - goals            = what they're working on / pursuing  → about + wants
-  //   - deal_preferences = the "what can you OFFER" field      → offers
-  // The earlier mapping had these crossed (offers read from the blob and
-  // came up empty, deal_preferences showed under "wants"), which is why
-  // the community card was "missing offers".
-  const about =
-    clean(src.portfolio_about) ||
-    clean(section(src.ai_export_blob, /working on|about me|who i am/i), 220) ||
-    clean(src.goals, 220);
-  const wants =
-    clean(src.goals, 220) ||
-    clean(
-      section(src.ai_export_blob, /intros|looking for|want to meet|needle|need/i),
-      220
-    );
-  const offers =
-    clean(src.deal_preferences, 240) ||
-    clean(section(src.ai_export_blob, /can give|i can offer|what i have|offer/i), 220);
-  return { about, wants, offers };
-}
+import { deriveIceberg } from "@/lib/iceberg";
 
 // Render fresh every request — without this the page is statically
 // cached, so a newly uploaded banner / freshly joined members don't show
