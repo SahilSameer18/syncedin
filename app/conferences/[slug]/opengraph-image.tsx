@@ -84,14 +84,16 @@ export default async function OgImage({
             }}
           />
         )}
-        {/* Darkening overlay so text always reads */}
+        {/* Darkening overlay so text always reads on ANY banner — light
+            or dark, busy or plain. Heavier at top (wordmark) and bottom
+            (title) with a lighter middle so the image still shows. */}
         <div
           style={{
             position: "absolute",
             inset: 0,
             display: "flex",
             background:
-              "linear-gradient(180deg, rgba(8,11,24,0.35) 0%, rgba(8,11,24,0.82) 100%)"
+              "linear-gradient(180deg, rgba(6,8,18,0.62) 0%, rgba(6,8,18,0.30) 38%, rgba(6,8,18,0.55) 70%, rgba(6,8,18,0.92) 100%)"
           }}
         />
         {/* Content */}
@@ -117,11 +119,12 @@ export default async function OgImage({
                 display: "flex",
                 fontSize: 30,
                 fontWeight: 800,
-                letterSpacing: "-0.01em"
+                letterSpacing: "-0.01em",
+                textShadow: "0 2px 10px rgba(0,0,0,0.55)"
               }}
             >
               <span style={{ color: "#ffffff" }}>Synced</span>
-              <span style={{ color: "#f59e0b" }}>In</span>
+              <span style={{ color: "#ffc94d" }}>In</span>
             </div>
             <div
               style={{
@@ -146,7 +149,8 @@ export default async function OgImage({
                 lineHeight: 1.05,
                 letterSpacing: "-0.02em",
                 maxWidth: 1000,
-                display: "flex"
+                display: "flex",
+                textShadow: "0 3px 18px rgba(0,0,0,0.65)"
               }}
             >
               {name}
@@ -157,12 +161,12 @@ export default async function OgImage({
                   display: "flex",
                   alignItems: "center",
                   padding: "14px 30px",
-                  borderRadius: 14,
-                  background:
-                    "linear-gradient(135deg, #ffb800 0%, #f59e0b 100%)",
+                  borderRadius: 12,
+                  background: "#ffffff",
                   color: "#0b0f1e",
                   fontSize: 30,
-                  fontWeight: 800
+                  fontWeight: 800,
+                  boxShadow: "0 6px 20px rgba(0,0,0,0.35)"
                 }}
               >
                 Join →
@@ -171,7 +175,8 @@ export default async function OgImage({
                 style={{
                   fontSize: 30,
                   fontWeight: 700,
-                  color: "#ffffff"
+                  color: "#ffffff",
+                  textShadow: "0 2px 12px rgba(0,0,0,0.7)"
                 }}
               >
                 Sync with the network.
