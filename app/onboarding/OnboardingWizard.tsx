@@ -116,6 +116,31 @@ export function OnboardingWizard({
     initialParsed.current.aiDump
   );
 
+  // Prefill from the /generate-free-portfolio funnel (and quick-join):
+  // if the visitor pasted their personal intelligence before signing up,
+  // we stashed it in localStorage. On first mount, seed the AI dump +
+  // name so their portfolio/twin builds from it instead of a blank form.
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
+    try {
+      const raw = localStorage.getItem("syncedin-portfolio-seed");
+      if (!raw) return;
+      const seed = JSON.parse(raw) as { name?: string; dump?: string };
+      if (seed?.dump && (initial.ai_export_blob || "").trim().length < 20) {
+        setAiDump((d) => (d.trim().length < 20 ? seed.dump! : d));
+      }
+      if (seed?.name && !(initial.display_name || "").trim()) {
+        setState((s) => (s.display_name.trim() ? s : { ...s, display_name: seed.name! }));
+      }
+      localStorage.removeItem("syncedin-portfolio-seed");
+    } catch {
+      /* ignore */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Keep ai_export_blob in state synchronized with snippets + aiDump
   // so the hidden form input always submits the latest combined blob.
   useEffect(() => {
