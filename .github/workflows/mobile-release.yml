@@ -34,6 +34,7 @@ on:
       - "android/**"
       - "capacitor.config.ts"
       - "package.json"
+      - "fastlane/**"
       - ".github/workflows/mobile-release.yml"
   workflow_dispatch:
     inputs:
