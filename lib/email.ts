@@ -297,7 +297,20 @@ export function renderEmailHtml(opts: {
     : "";
 
   return `<!doctype html>
-<html><body style="margin:0;padding:0;background:#0b0f17;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e7eaf0;">
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- This email is DESIGNED dark. Opt OUT of automatic dark-mode color
+     inversion (Gmail/Apple Mail) — that inversion was flipping the white
+     hero heading to near-black while leaving the bright gradient behind
+     it untouched, which is what made the "new match" email look broken.
+     "only light" tells clients to render exactly as authored. -->
+<meta name="color-scheme" content="only light">
+<meta name="supported-color-schemes" content="only light">
+<style>:root{color-scheme:only light;supported-color-schemes:only light;}</style>
+</head>
+<body style="margin:0;padding:0;background:#0b0f17;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e7eaf0;color-scheme:only light;">
 ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;font-size:1px;color:#0b0f17;">${escaped(preheader)}</div>` : ""}
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:#0b0f17;padding:24px 16px 32px 16px;">
   <tr><td align="center">
@@ -325,7 +338,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;f
               ? `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.18em;color:rgba(255,255,255,0.85);text-transform:uppercase;margin:0 0 10px 0;">${escaped(kicker)}</div>`
               : ""
           }
-          <h1 style="margin:0;font-size:24px;font-weight:800;color:#ffffff;line-height:1.25;letter-spacing:-0.01em;">${escaped(heading)}</h1>
+          <h1 style="margin:0;font-size:24px;font-weight:800;color:#ffffff;line-height:1.25;letter-spacing:-0.01em;text-shadow:0 1px 6px rgba(0,0,0,0.35);">${escaped(heading)}</h1>
         </td>
       </tr>
 
@@ -336,8 +349,8 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;f
           ${previewQuoteHtml}
           ${
             ctaText && ctaUrl
-              ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 4px 0;"><tr><td style="border-radius:10px;background:#f59e0b;background-image:linear-gradient(135deg,#ffb800 0%,#f59e0b 100%);">
-                  <a href="${escaped(ctaUrl)}" style="display:inline-block;padding:13px 22px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:14px;font-weight:800;color:#0b0f17;text-decoration:none;border-radius:10px;letter-spacing:-0.005em;">${escaped(ctaText)} →</a>
+              ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 4px 0;"><tr><td style="border-radius:12px;background:#6366f1;background-image:linear-gradient(135deg,#6366f1 0%,#8b5cf6 100%);">
+                  <a href="${escaped(ctaUrl)}" style="display:inline-block;padding:14px 26px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;font-weight:800;color:#ffffff;text-decoration:none;border-radius:12px;letter-spacing:-0.005em;">${escaped(ctaText)} →</a>
                 </td></tr></table>`
               : ""
           }

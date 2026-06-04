@@ -354,6 +354,25 @@ export async function notifyNewMessage(opts: {
       .maybeSingle();
     if (recentLog) return;
 
+    // Don't double-email a brand-new connection. When someone's twin just
+    // matched (new_match email) and the twins immediately start talking,
+    // the first auto-message would otherwise fire a SECOND "sent something
+    // new" email seconds later. If a new_match notification for THIS
+    // counterpart went out in the last hour, skip the message alert — the
+    // match email already pointed them at the conversation. Jack: "got a
+    // double email, should only send one."
+    const sinceMatch = new Date(Date.now() - 60 * 60_000).toISOString();
+    const { data: recentMatch } = await service
+      .from("notification_log")
+      .select("id")
+      .eq("user_id", recipientId)
+      .eq("kind", "new_match")
+      .eq("subject_id", opts.senderUserId)
+      .gte("sent_at", sinceMatch)
+      .limit(1)
+      .maybeSingle();
+    if (recentMatch) return;
+
     const sender = await loadRecipient(opts.senderUserId);
     const senderName =
       sender?.profile.display_name || sender?.profile.email || "Your twin";
