@@ -68,8 +68,13 @@ platform :ios do
       output_directory: "build/ios",
       output_name: "SyncedIn.ipa",
       clean: true,
+      # Archive needs the auth key explicitly (gym does NOT auto-inject it
+      # here). The export step DOES get the key auto-injected by gym from the
+      # app_store_connect_api_key context, so we must NOT repeat it in
+      # export_xcargs or xcodebuild errors: "-authenticationKeyPath may only
+      # be provided once". Export only needs -allowProvisioningUpdates.
       xcargs: "-allowProvisioningUpdates #{auth_args}",
-      export_xcargs: "-allowProvisioningUpdates #{auth_args}",
+      export_xcargs: "-allowProvisioningUpdates",
       export_options: {
         signingStyle: "automatic"
       }
