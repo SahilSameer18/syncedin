@@ -16,6 +16,7 @@ import { BannerUpload } from "./BannerUpload";
 import { GroupLimitControl } from "./GroupLimitControl";
 import { QuickJoinForm } from "./QuickJoinForm";
 import { MemberAdminControls } from "./MemberAdminControls";
+import { OgPreviewControl } from "./OgPreviewControl";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 
 /**
@@ -833,7 +834,14 @@ export default async function ConferencePage({
             already see what a deal between you would look like. Every
             invite carries the {conf.name} {kindLabel} tag.
           </p>
-          <div className="mt-4">
+          <div className="mt-5">
+            <OgPreviewControl
+              slug={conf.slug}
+              initialTemplate={String((conf as any).brand_meta?.og_template ?? "")}
+              hasBanner={!!(conf as any).cover_url}
+            />
+          </div>
+          <div className="mt-6">
             <BulkReachToolkit appUrl={joinUrl} variant="card" />
           </div>
         </section>
