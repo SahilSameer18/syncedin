@@ -14,6 +14,7 @@ import { HostBriefEditor } from "./HostBriefEditor";
 import { MemberCard } from "./MemberCard";
 import { BannerUpload } from "./BannerUpload";
 import { GroupLimitControl } from "./GroupLimitControl";
+import { QuickJoinForm } from "./QuickJoinForm";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 
 /**
@@ -758,23 +759,32 @@ export default async function ConferencePage({
           AND INVITE PART FOCUS ON VALUE TO THE USER." Visitors see
           why-join first, then the join button. */}
       {!user && (
-        <section className="mt-8 retro-panel p-6">
-          <div className="retro-label">join {conf.name}</div>
-          <p
-            className="mt-2 text-base"
-            style={{ color: "var(--text-dim)" }}
-          >
-            Sign up below. You&apos;ll only see and be seen by other{" "}
-            {kind === "community" ? "members" : "attendees"} of this{" "}
-            {kindLabel}.
-          </p>
-          <Link
-            href={`/login?${kind}=${slug}`}
-            className="retro-btn retro-btn-primary mt-4 inline-block"
-          >
-            + Sign up &amp; join
-          </Link>
-        </section>
+        <>
+          {/* Low-friction quick-join: paste who you are, see your matches
+              instantly, then convert to an account. */}
+          <QuickJoinForm
+            slug={slug}
+            signupHref={`/login?${kind}=${slug}`}
+            roomName={conf.name}
+          />
+          <section className="mt-6 retro-panel p-6">
+            <div className="retro-label">join {conf.name}</div>
+            <p
+              className="mt-2 text-base"
+              style={{ color: "var(--text-dim)" }}
+            >
+              Or sign up directly. You&apos;ll only see and be seen by other{" "}
+              {kind === "community" ? "members" : "attendees"} of this{" "}
+              {kindLabel}.
+            </p>
+            <Link
+              href={`/login?${kind}=${slug}`}
+              className="retro-btn retro-btn-primary mt-4 inline-block"
+            >
+              + Sign up &amp; join
+            </Link>
+          </section>
+        </>
       )}
 
       {user && !isMember && !isOwner && (
