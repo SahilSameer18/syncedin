@@ -103,7 +103,11 @@ platform :android do
       }
     )
 
-    # Upload to Play Console Internal Testing track.
+    # Upload to Play Console Internal Testing track. We now ALSO push the
+    # store-listing hi-res icon (fastlane/metadata/android/en-US/images/
+    # icon.png) so the Play Store page stops showing the auto-generated
+    # "infinity" placeholder. Text metadata + screenshots stay skipped, so
+    # only the icon image is touched.
     upload_to_play_store(
       package_name: "org.syncedin.app",
       track: "internal",
@@ -111,7 +115,7 @@ platform :android do
       aab: "android/app/build/outputs/bundle/release/app-release.aab",
       skip_upload_apk: true,
       skip_upload_metadata: true,
-      skip_upload_images: true,
+      skip_upload_images: false,
       skip_upload_screenshots: true,
       release_status: "completed"
     )
