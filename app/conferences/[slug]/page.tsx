@@ -15,6 +15,7 @@ import { MemberCard } from "./MemberCard";
 import { BannerUpload } from "./BannerUpload";
 import { GroupLimitControl } from "./GroupLimitControl";
 import { QuickJoinForm } from "./QuickJoinForm";
+import { PotentialReveal } from "../../communities/PotentialReveal";
 import { MemberAdminControls } from "./MemberAdminControls";
 import { OgPreviewControl } from "./OgPreviewControl";
 import { socialsFromBlob } from "@/lib/social-from-blob";
@@ -384,7 +385,7 @@ export default async function ConferencePage({
       )}
 
       {/* HERO */}
-      <section className="mt-8 grid lg:grid-cols-[1fr_240px] gap-8 items-start">
+      <section className="mt-8">
         <div className="min-w-0">
           <div className="retro-label">{kindLabel}</div>
           {/* #156 — custom branding: when the host pasted a website URL,
@@ -473,36 +474,29 @@ export default async function ConferencePage({
           )}
         </div>
 
-        {/* QR for in-person check-in (visible to everyone — shareable).
-            Now also a click target so desktop visitors can join without a
-            phone (Jack: "make the QR click/scan to join"). */}
-        <Link
-          href={`${urlPrefix}/${slug}/join`}
-          prefetch={true}
-          aria-label={`Join ${conf.name}`}
-          className="retro-panel retro-panel-hover"
-          style={{
-            padding: 12,
-            display: "grid",
-            placeItems: "center",
-            textDecoration: "none",
-            cursor: "pointer"
-          }}
+      </section>
+
+      {/* WHAT THIS IS + animation — leads the page so a visitor instantly
+          gets what SyncedIn does and why to join (Jack: "really quickly
+          explain what this is, why they should join. Show the value."). */}
+      <section className="mt-6 retro-panel" style={{ padding: 22 }}>
+        <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
+          what SyncedIn enables
+        </div>
+        <p
+          className="mt-2"
+          style={{ fontSize: 15.5, lineHeight: 1.6, color: "var(--text)", maxWidth: 760 }}
         >
-          <img
-            src={qrUrl}
-            alt={`QR code to join ${conf.name}`}
-            width={200}
-            height={200}
-            style={{ borderRadius: 6, display: "block" }}
-          />
-          <div
-            className="retro-dim text-[10px] mt-2 text-center"
-            style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}
-          >
-            click / scan to join
-          </div>
-        </Link>
+          <strong>Transparency and networking between groups, conferences,
+          and communities.</strong> {conf.name} plugs into one super-powered
+          network. Your digital twin reads everyone&apos;s context and quietly
+          maps the <strong>highest-reward paths of connection</strong> across
+          the whole room — the win-wins no one would have found one DM at a
+          time. Inside, you see who&apos;s here — what each person is working
+          on, wants, and offers — and your twin surfaces the specific
+          collaboration worth exploring with each of them.
+        </p>
+        <PotentialReveal />
       </section>
 
       {/* PUBLIC MEMBER PREVIEW — full summary cards (avatar + name +
@@ -691,45 +685,50 @@ export default async function ConferencePage({
         kindLabel={kindLabel}
       />
 
-      {/* WHAT THIS IS — the network thesis, below the speed-of-light
-          visual. Jack: explain it builds a super-powered network spanning
-          communities → conferences → group chats, surfaces the highest-
-          reward paths of connection, and lets everyone see who's in a
-          room. */}
-      <section
-        className="mt-8 retro-panel"
-        style={{ padding: 22 }}
-      >
-        <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
-          what SyncedIn enables
-        </div>
-        <p
-          className="mt-2"
-          style={{ fontSize: 15.5, lineHeight: 1.6, color: "var(--text)", maxWidth: 760 }}
-        >
-          <strong>Transparency and networking between groups, conferences,
-          and communities.</strong> {conf.name} plugs into one super-powered
-          network that spans communities, conferences, and group chats. Your
-          digital twin reads everyone&apos;s context and quietly maps the{" "}
-          <strong>highest-reward paths of connection</strong> across the
-          whole room — the win-wins no one would have found one DM at a time.
-        </p>
-        <p
-          className="mt-3"
-          style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-dim)", maxWidth: 760 }}
-        >
-          Inside, you can see exactly who&apos;s here — what each person is
-          working on, what they want, and what they offer — and your twin
-          surfaces the specific collaboration worth exploring with each of
-          them. The more rooms you&apos;re in, the denser and more valuable
-          your network becomes.
-        </p>
-      </section>
 
-      {/* SHARE — moved below the value blocks (Jack: "move the share with
-          attendees link below the animation"). */}
-      <div className="mt-6">
-        <ShareUrlBox url={joinUrl} conferenceName={conf.name} />
+      {/* SHARE + QR — moved down the page (Jack: "the QR code can go
+          below"). QR is a click/scan join target; stacks under the share
+          box on mobile, side-by-side on desktop. */}
+      <div
+        className="mt-6"
+        style={{
+          display: "flex",
+          gap: 16,
+          flexWrap: "wrap",
+          alignItems: "flex-start"
+        }}
+      >
+        <div style={{ flex: "1 1 280px", minWidth: 0 }}>
+          <ShareUrlBox url={joinUrl} conferenceName={conf.name} />
+        </div>
+        <Link
+          href={`${urlPrefix}/${slug}/join`}
+          prefetch={true}
+          aria-label={`Join ${conf.name}`}
+          className="retro-panel retro-panel-hover"
+          style={{
+            padding: 12,
+            display: "grid",
+            placeItems: "center",
+            textDecoration: "none",
+            cursor: "pointer",
+            flex: "0 0 auto"
+          }}
+        >
+          <img
+            src={qrUrl}
+            alt={`QR code to join ${conf.name}`}
+            width={160}
+            height={160}
+            style={{ borderRadius: 6, display: "block" }}
+          />
+          <div
+            className="retro-dim text-[10px] mt-2 text-center"
+            style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}
+          >
+            click / scan to join
+          </div>
+        </Link>
       </div>
 
       {/* CTAs based on viewer state — moved BELOW the value blocks

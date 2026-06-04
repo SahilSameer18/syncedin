@@ -3,6 +3,11 @@ import { createServiceClient } from "@/lib/supabase/server";
 
 // Service client needs the node runtime.
 export const runtime = "nodejs";
+// Render per-request so a freshly-picked template (banner-only / clean
+// card) shows immediately instead of serving a cached image. Jack: "when
+// I click 'clean card' or 'banner only' it doesn't actually change."
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 export const alt = "Join this room on SyncedIn";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
