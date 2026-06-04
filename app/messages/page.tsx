@@ -11,6 +11,7 @@ import { startConversationWithUser } from "../dashboard/actions";
 import { computePairScore } from "@/lib/pair-score";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 import { InlineActions } from "./InlineActions";
+import { EditableOutcome } from "./EditableOutcome";
 
 export const metadata = {
   title: "Messages · SyncedIn"
@@ -528,12 +529,9 @@ export default async function MessagesPage() {
                         {c.counterpart_summary}
                       </div>
                     )}
-                    {c.summary && (
-                      <div className="text-xs mt-1.5">
-                        <span className="retro-dim">outcome: </span>
-                        {c.summary}
-                      </div>
-                    )}
+                    {/* Outcome moved OUT of this Link into an editable
+                        textbox below (a textarea can't live inside an
+                        <a>). */}
                     <div className="retro-dim text-[11px] mt-1">
                       <ClientDate value={c.created_at} />
                     </div>
@@ -544,19 +542,27 @@ export default async function MessagesPage() {
                     locked={c.excitement_locked}
                   />
                 </div>
-                {/* Proposal actions — Accept / Deny-with-reason, brought
-                    over from the removed /proposals page. Shown only when
-                    a proposal exists (the conversation has a summary). */}
+                {/* Editable outcome + proposal actions. Outcome is an
+                    in-place textbox (auto-saves on blur); locks once
+                    accepted. */}
                 {c.summary &&
                   (() => {
                     const rs = respsByConv.get(c.id) ?? [];
                     const mine = rs.find((r) => r.user_id === user.id);
+                    const accepted = mine?.response === "accepted";
                     return (
-                      <InlineActions
-                        conversationId={c.id}
-                        alreadyAccepted={mine?.response === "accepted"}
-                        alreadyRejected={mine?.response === "rejected"}
-                      />
+                      <>
+                        <EditableOutcome
+                          conversationId={c.id}
+                          initialText={c.summary as string}
+                          accepted={accepted}
+                        />
+                        <InlineActions
+                          conversationId={c.id}
+                          alreadyAccepted={accepted}
+                          alreadyRejected={mine?.response === "rejected"}
+                        />
+                      </>
                     );
                   })()}
               </div>
