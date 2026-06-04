@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { BannerCropper } from "./BannerCropper";
 
 /**
  * RoomImageUploads — logo (profile photo) + banner pickers for the
@@ -33,15 +34,33 @@ export function RoomImageUploads() {
           w={256}
           h={256}
         />
-        <Picker
-          label="Banner (also the share image)"
-          shape="wide"
-          value={banner}
-          onChange={setBanner}
-          w={1200}
-          h={630}
-          grow
-        />
+        <div style={{ flex: "1 1 260px" }}>
+          <div className="text-sm font-semibold" style={{ marginBottom: 6 }}>
+            Banner{" "}
+            <span style={{ color: "var(--text-dim)", fontWeight: 400 }}>
+              (also the share image) (optional)
+            </span>
+          </div>
+          {banner && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={banner}
+              alt="banner preview"
+              style={{
+                width: "100%",
+                maxWidth: 480,
+                borderRadius: 12,
+                display: "block",
+                marginBottom: 6,
+                border: "1px solid var(--border)"
+              }}
+            />
+          )}
+          <BannerCropper
+            currentUrl={banner || null}
+            onCropped={setBanner}
+          />
+        </div>
       </div>
     </div>
   );
