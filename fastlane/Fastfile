@@ -44,6 +44,12 @@ platform :ios do
       use_automatic_signing: true,
       team_id: "XCUTNS56DG"
     )
+    # Pass the API key to gym so it forwards
+    # -authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID
+    # to xcodebuild. Without this, -allowProvisioningUpdates has no
+    # credentials to talk to the developer portal and the archive dies with
+    # "No Accounts" / "No profiles for 'org.syncedin.app' were found" — the
+    # CI runner has no Apple ID logged in, so the API key IS the account.
     build_app(
       workspace: "ios/App/App.xcworkspace",
       scheme: "App",
@@ -52,6 +58,7 @@ platform :ios do
       output_directory: "build/ios",
       output_name: "SyncedIn.ipa",
       clean: true,
+      api_key: api_key,
       xcargs: "-allowProvisioningUpdates",
       export_options: {
         signingStyle: "automatic"
