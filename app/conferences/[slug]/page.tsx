@@ -515,10 +515,21 @@ export default async function ConferencePage({
           </div>
         </div>
 
-        {/* QR for in-person check-in (visible to everyone — shareable) */}
-        <div
-          className="retro-panel"
-          style={{ padding: 12, display: "grid", placeItems: "center" }}
+        {/* QR for in-person check-in (visible to everyone — shareable).
+            Now also a click target so desktop visitors can join without a
+            phone (Jack: "make the QR click/scan to join"). */}
+        <Link
+          href={`${urlPrefix}/${slug}/join`}
+          prefetch={true}
+          aria-label={`Join ${conf.name}`}
+          className="retro-panel retro-panel-hover"
+          style={{
+            padding: 12,
+            display: "grid",
+            placeItems: "center",
+            textDecoration: "none",
+            cursor: "pointer"
+          }}
         >
           <img
             src={qrUrl}
@@ -531,9 +542,9 @@ export default async function ConferencePage({
             className="retro-dim text-[10px] mt-2 text-center"
             style={{ letterSpacing: "0.08em", textTransform: "uppercase" }}
           >
-            scan to join
+            click / scan to join
           </div>
-        </div>
+        </Link>
       </section>
 
       {/* PUBLIC MEMBER PREVIEW — full summary cards (avatar + name +
