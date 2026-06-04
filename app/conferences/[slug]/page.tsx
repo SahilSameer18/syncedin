@@ -4,12 +4,76 @@ import type { Metadata } from "next";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../../Wordmark";
 import { Avatar } from "../../Avatar";
+import { SocialIconRow } from "../../SocialIconRow";
 import { startConversationWithUser } from "../../dashboard/actions";
 import { BulkReachToolkit } from "../../BulkReachToolkit";
 import { ShareUrlBox } from "./ShareUrlBox";
 import { ScrollTopOnFlag } from "../../ScrollTopOnFlag";
 import { NetworkDensityCompare } from "../../communities/NetworkDensityCompare";
 import { HostBriefEditor } from "./HostBriefEditor";
+import { MemberCard } from "./MemberCard";
+import { socialsFromBlob } from "@/lib/social-from-blob";
+
+/**
+ * Derive the "Tip of their self iceberg" framework (Jack) from a member's
+ * twin: about / wants-needs / offers. Heuristic + fast (no LLM) so the
+ * page stays snappy even with many members. Each field degrades to null
+ * when there's no signal, and the card hides empty rows.
+ */
+function deriveIceberg(src: {
+  portfolio_about: string | null;
+  goals: string | null;
+  deal_preferences: string | null;
+  ai_export_blob: string | null;
+}): { about: string | null; wants: string | null; offers: string | null } {
+  const clean = (s: string | null | undefined, max = 320): string | null => {
+    const t = (s ?? "").toString().replace(/\s+/g, " ").trim();
+    if (t.length < 3) return null;
+    return t.length > max ? `${t.slice(0, max).trim()}…` : t;
+  };
+  // Pull a labeled section out of the structured AI-export blob (the
+  // onboarding prompt produces headed sections like "WHAT I HAVE THAT I
+  // CAN GIVE"). Returns the first paragraph under any matching heading.
+  const section = (blob: string | null, kw: RegExp): string | null => {
+    if (!blob) return null;
+    const lines = blob.split(/\r?\n/);
+    for (let i = 0; i < lines.length; i++) {
+      if (kw.test(lines[i])) {
+        const body: string[] = [];
+        for (let j = i + 1; j < lines.length && body.length < 4; j++) {
+          const l = lines[j].trim();
+          if (!l) {
+            if (body.length) break;
+            continue;
+          }
+          if (/^#{1,6}\s|^\d+\.\s|^[A-Z][A-Z \-/]{6,}$/.test(l)) break; // next heading
+          body.push(l.replace(/^[-*•]\s*/, ""));
+        }
+        const joined = body.join(" ").trim();
+        if (joined.length > 8) return joined;
+      }
+    }
+    return null;
+  };
+  const about =
+    clean(src.portfolio_about) ||
+    clean(src.goals, 220) ||
+    clean(section(src.ai_export_blob, /working on|about me|who i am/i), 220);
+  const wants =
+    clean(src.deal_preferences, 220) ||
+    clean(
+      section(
+        src.ai_export_blob,
+        /intros|looking for|want to meet|needle|need/i
+      ),
+      220
+    );
+  const offers = clean(
+    section(src.ai_export_blob, /can give|i can offer|what i have|offer/i),
+    220
+  );
+  return { about, wants, offers };
+}
 
 export async function generateMetadata({
   params
@@ -94,6 +158,12 @@ export default async function ConferencePage({
     goals: string | null;
     portfolio_about: string | null;
     handle: string | null;
+    // Iceberg framework (Jack): about / wants-needs / offers derived from
+    // the member's twin so each card reads as a real person, not a name.
+    about: string | null;
+    wants: string | null;
+    offers: string | null;
+    socials: ReturnType<typeof socialsFromBlob>;
   };
   let publicMembers: PublicMember[] = [];
   // Full directory (still gated on isMember) — reuses publicMembers
@@ -115,7 +185,9 @@ export default async function ConferencePage({
       try {
         const { data } = await service
           .from("profiles")
-          .select("id, display_name, email, avatar_url, handle, portfolio_about")
+          .select(
+            "id, display_name, email, avatar_url, handle, portfolio_about, linkedin_url, x_url, instagram_url, facebook_url, website_url"
+          )
           .in("id", ids);
         profs = data ?? [];
       } catch {
@@ -125,22 +197,52 @@ export default async function ConferencePage({
           .in("id", ids);
         profs = data ?? [];
       }
-      const { data: twins } = await service
-        .from("twin_profiles")
-        .select("user_id, goals")
-        .in("user_id", ids);
-      const goalById = new Map(
-        (twins ?? []).map((t: any) => [t.user_id, t.goals as string | null])
+      let twins: any[] = [];
+      try {
+        const { data } = await service
+          .from("twin_profiles")
+          .select("user_id, goals, deal_preferences, ai_export_blob")
+          .in("user_id", ids);
+        twins = data ?? [];
+      } catch {
+        const { data } = await service
+          .from("twin_profiles")
+          .select("user_id, goals")
+          .in("user_id", ids);
+        twins = data ?? [];
+      }
+      const twinById = new Map(
+        (twins ?? []).map((t: any) => [t.user_id, t])
       );
-      publicMembers = profs.map((p: any) => ({
-        id: p.id,
-        display_name: p.display_name,
-        email: p.email,
-        avatar_url: p.avatar_url ?? null,
-        goals: goalById.get(p.id) ?? null,
-        portfolio_about: p.portfolio_about ?? null,
-        handle: p.handle ?? null
-      }));
+      publicMembers = profs.map((p: any) => {
+        const t = twinById.get(p.id) ?? {};
+        const goals = (t.goals as string | null) ?? null;
+        const dealPrefs = (t.deal_preferences as string | null) ?? null;
+        const blob = (t.ai_export_blob as string | null) ?? null;
+        const iceberg = deriveIceberg({
+          portfolio_about: p.portfolio_about ?? null,
+          goals,
+          deal_preferences: dealPrefs,
+          ai_export_blob: blob
+        });
+        return {
+          id: p.id,
+          display_name: p.display_name,
+          email: p.email,
+          avatar_url: p.avatar_url ?? null,
+          goals,
+          portfolio_about: p.portfolio_about ?? null,
+          handle: p.handle ?? null,
+          about: iceberg.about,
+          wants: iceberg.wants,
+          offers: iceberg.offers,
+          socials: socialsFromBlob(p, {
+            ai_export_blob: blob,
+            goals,
+            deal_preferences: dealPrefs
+          })
+        };
+      });
       if (isMember) members = publicMembers;
     }
   }
@@ -413,97 +515,70 @@ export default async function ConferencePage({
               {sorted.map((m) => {
                 const isHost = m.id === conf.owner_user_id;
                 const name = m.display_name ?? m.email ?? "Member";
-                const summary =
-                  ((m as any).portfolio_about ?? "").toString().trim() ||
-                  ((m as any).goals ?? "").toString().trim();
-                return (
-                  <div
-                    key={m.id}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 10,
-                      padding: 14,
-                      borderRadius: 14,
-                      background: "var(--panel-solid)",
-                      border: isHost
-                        ? "1px solid var(--amber)"
-                        : "1px solid var(--border)"
-                    }}
-                  >
-                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                      <Avatar
-                        id={m.id}
-                        name={name}
-                        avatarUrl={m.avatar_url}
-                        size={44}
-                      />
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div
-                          style={{
-                            fontWeight: 700,
-                            fontSize: 14,
-                            color: "var(--text)",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap"
-                          }}
-                        >
-                          {name}
-                        </div>
-                        {isHost && (
-                          <div
-                            style={{
-                              fontSize: 9,
-                              fontWeight: 800,
-                              letterSpacing: "0.12em",
-                              textTransform: "uppercase",
-                              color: "var(--amber-bright)",
-                              marginTop: 2
-                            }}
-                          >
-                            host
+                // Owner editing their OWN card keeps the inline brief
+                // editor (global-vs-this-room scope, #15).
+                if (isHost && isOwner) {
+                  return (
+                    <div
+                      key={m.id}
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 10,
+                        padding: 16,
+                        borderRadius: 14,
+                        background: "var(--panel-solid)",
+                        border: "1px solid var(--amber)"
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                        <Avatar id={m.id} name={name} avatarUrl={m.avatar_url} size={44} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 800, fontSize: 15, color: "var(--text)" }}>
+                            {name}
                           </div>
-                        )}
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+                            <span
+                              style={{
+                                fontSize: 9,
+                                fontWeight: 800,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                color: "var(--amber-bright)"
+                              }}
+                            >
+                              host
+                            </span>
+                            {(m as any).socials && (
+                              <SocialIconRow urls={(m as any).socials} size={13} gap={4} />
+                            )}
+                          </div>
+                        </div>
                       </div>
+                      <HostBriefEditor slug={conf.slug} initialBrief={resolvedHostBrief} />
                     </div>
-                    {isHost && isOwner ? (
-                      // Owner sees an inline editor with the global-vs-
-                      // this-room scope choice (#15).
-                      <HostBriefEditor
-                        slug={conf.slug}
-                        initialBrief={resolvedHostBrief}
-                      />
-                    ) : (isHost ? resolvedHostBrief : summary) ? (
-                      <div
-                        style={{
-                          fontSize: 12,
-                          lineHeight: 1.5,
-                          color: "var(--text-dim)",
-                          display: "-webkit-box",
-                          WebkitLineClamp: 4,
-                          WebkitBoxOrient: "vertical",
-                          overflow: "hidden"
-                        }}
-                      >
-                        {isHost ? resolvedHostBrief : summary}
-                      </div>
-                    ) : null}
-                    {(m as any).handle && (
-                      <Link
-                        href={`/u/${(m as any).handle}`}
-                        style={{
-                          fontSize: 11,
-                          fontWeight: 700,
-                          color: "#1f8bff",
-                          textDecoration: "none",
-                          marginTop: "auto"
-                        }}
-                      >
-                        view full portfolio →
-                      </Link>
-                    )}
-                  </div>
+                  );
+                }
+                return (
+                  <MemberCard
+                    key={m.id}
+                    id={m.id}
+                    name={name}
+                    avatarUrl={m.avatar_url}
+                    handle={(m as any).handle ?? null}
+                    isHost={isHost}
+                    about={
+                      isHost
+                        ? resolvedHostBrief || (m as any).about || null
+                        : (m as any).about ?? null
+                    }
+                    wants={(m as any).wants ?? null}
+                    offers={(m as any).offers ?? null}
+                    socials={(m as any).socials ?? null}
+                    viewerSignedIn={!!user}
+                    isSelf={!!user && user.id === m.id}
+                    signupHref={`/login?${kind}=${slug}`}
+                  />
                 );
               })}
             </div>
