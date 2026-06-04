@@ -697,10 +697,10 @@ export function TwinChatUI({
           >
             <div
               className="text-sm"
-              style={{ color: "var(--text-dim)", lineHeight: 1.55 }}
+              style={{ color: "var(--text)", lineHeight: 1.55, fontWeight: 600 }}
             >
               This is your private dojo with your twin. Every reply is
-              editable — click any bubble to refine it. Your edits train
+              editable. Tap any bubble to refine it, and your edits train
               future twin replies. Try:
             </div>
             <ul
@@ -716,7 +716,7 @@ export function TwinChatUI({
                 move this week?&quot;
               </li>
               <li>
-                &quot;Rewrite my goals — be sharper, less hedged.&quot;
+                &quot;Rewrite my goals to be sharper and less hedged.&quot;
               </li>
               <li>
                 &quot;Stop sounding so formal in my conversations.&quot;

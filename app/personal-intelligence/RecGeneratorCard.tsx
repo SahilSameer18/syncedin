@@ -253,7 +253,7 @@ export function RecGeneratorCard({
             disabled={busy}
             className="pi-gen-btn"
           >
-            {busy ? "generating…" : `✨ generate ${kind} for me`}
+            {busy ? "recommending…" : `✨ recommend ${kind} for me`}
           </button>
           <button
             type="button"
@@ -432,8 +432,8 @@ export function RecGeneratorCard({
             style={{ marginTop: 12 }}
           >
             {busy
-              ? "generating…"
-              : `✨ generate more (${items.length} so far)`}
+              ? "recommending…"
+              : `✨ recommend more (${items.length} so far)`}
           </button>
           {(Object.values(ratings).some((v) => v === 1) ||
             Object.values(ratings).some((v) => v === -1)) && (

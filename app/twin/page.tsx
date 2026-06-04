@@ -71,10 +71,11 @@ export default async function TwinPage({
         <h1 className="retro-h1 text-xl sm:text-2xl leading-tight">
           Chat with your twin.{" "}
           <span
-            className="font-normal text-sm sm:text-base align-middle"
-            style={{ color: "var(--text-dim)" }}
+            className="text-sm sm:text-base align-middle"
+            style={{ color: "var(--text)", fontWeight: 600 }}
           >
-            Your home base — ask who to reach out to, triage proposals, draft anything.
+            Your home base. Ask who to reach out to, triage proposals, draft
+            anything.
           </span>
         </h1>
 
