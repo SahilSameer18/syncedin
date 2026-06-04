@@ -443,27 +443,13 @@ export default async function ConferencePage({
               lets call it signs up so far." Same number; clearer for
               both community + conference contexts since neither is an
               event until people actually sign up. */}
-          <div className="mt-5 grid grid-cols-3 gap-2 max-w-md">
+          {/* Just the signup count — Jack: "we don't need to show possible
+              pairings or your status." */}
+          <div className="mt-5" style={{ maxWidth: 200 }}>
             <Stat
               n={attendeeCount ?? 0}
               label="signed up so far"
               accent="var(--amber-bright)"
-            />
-            <Stat
-              n={pairsAt(attendeeCount ?? 0)}
-              label="possible pairings"
-              accent="var(--text-dim)"
-            />
-            <Stat
-              n={isMember ? "in" : isOwner ? "host" : "—"}
-              label="your status"
-              accent={
-                isOwner
-                  ? "var(--amber-bright)"
-                  : isMember
-                  ? "var(--green)"
-                  : "var(--text-dim)"
-              }
             />
           </div>
 
@@ -475,11 +461,7 @@ export default async function ConferencePage({
                   <strong style={{ color: "var(--amber-bright)" }}>
                     {Math.max(0, memberLimit - (attendeeCount ?? 0))}
                   </strong>{" "}
-                  of {memberLimit} spots left — at the limit that&apos;s{" "}
-                  <strong style={{ color: "var(--text)" }}>
-                    {pairsAt(memberLimit).toLocaleString()}
-                  </strong>{" "}
-                  possible pairings.
+                  of {memberLimit} spots left.
                 </span>
               )}
               {isOwner && (
