@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { createCommunity } from "./actions";
+import { RoomImageUploads } from "../../conferences/RoomImageUploads";
 import { NetworkDensity } from "../NetworkDensity";
 import { AppShell } from "../../AppShell";
 import { BrandScrapeFields } from "../../conferences/BrandScrapeFields";
@@ -298,6 +299,7 @@ export default async function NewCommunityPage() {
               className="retro-input mt-1"
             />
           </label>
+          <RoomImageUploads />
           <button type="submit" className="retro-btn retro-btn-primary mt-2">
             + Create community
           </button>

@@ -4,6 +4,7 @@ import { createConference } from "./actions";
 import { AppShell } from "../../AppShell";
 import { NetworkDensity } from "../../communities/NetworkDensity";
 import { BrandScrapeFields } from "../BrandScrapeFields";
+import { RoomImageUploads } from "../RoomImageUploads";
 
 export default async function NewConferencePage() {
   const supabase = createClient();
@@ -150,6 +151,7 @@ export default async function NewConferencePage() {
               className="retro-input mt-1"
             />
           </label>
+          <RoomImageUploads />
           <button type="submit" className="retro-btn retro-btn-primary mt-2">
             + Create conference
           </button>

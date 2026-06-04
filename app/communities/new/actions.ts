@@ -47,13 +47,19 @@ export async function createCommunity(formData: FormData) {
   // Brand-scrape fields (#156) — populated client-side by BrandScrapeFields.
   const website_url =
     String(formData.get("website_url") ?? "").trim() || null;
-  const logo_url = String(formData.get("logo_url") ?? "").trim() || null;
+  // Prefer an explicitly uploaded profile photo over the brand-scraped
+  // logo. cover_upload is the creator's banner (also the OG image).
+  const logo_url =
+    String(formData.get("logo_upload") ?? "").trim() ||
+    String(formData.get("logo_url") ?? "").trim() ||
+    null;
+  const cover_url = String(formData.get("cover_upload") ?? "").trim() || null;
   const brand_color =
     String(formData.get("brand_color") ?? "").trim() || null;
   const og_image_url =
     String(formData.get("og_image_url") ?? "").trim() || null;
 
-  const row = {
+  const row: Record<string, unknown> = {
     slug,
     name,
     description: String(formData.get("description") ?? "").trim() || null,
@@ -64,11 +70,18 @@ export async function createCommunity(formData: FormData) {
     kind: "community" as const,
     website_url,
     logo_url,
+    cover_url,
     brand_color,
     brand_meta: og_image_url ? { og_image_url } : null
   };
 
-  const { error: insErr } = await service.from("conferences").insert(row);
+  let { error: insErr } = await service.from("conferences").insert(row);
+  // If a column is missing on this DB, drop the optional ones and retry
+  // so room creation never hard-fails on a schema gap.
+  if (insErr && /column .* does not exist/i.test(insErr.message)) {
+    const { cover_url: _c, brand_meta: _b, website_url: _w, ...minimal } = row;
+    insErr = (await service.from("conferences").insert(minimal)).error;
+  }
   if (insErr) {
     console.error("[communities/new] insert failed", insErr);
     redirect("/communities/new?error=create_failed");
