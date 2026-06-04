@@ -76,6 +76,12 @@ function deriveIceberg(src: {
   return { about, wants, offers };
 }
 
+// Render fresh every request — without this the page is statically
+// cached, so a newly uploaded banner / freshly joined members don't show
+// up until a redeploy (Jack: "I uploaded a banner but I don't see it").
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function generateMetadata({
   params
 }: {
@@ -182,35 +188,53 @@ export default async function ConferencePage({
     if (ids.length > 0) {
       // Profiles + portfolio_about + handle. Wrap in try so missing
       // columns on prod don't blank the page.
+      // NOTE: Supabase does NOT throw on a missing column — it returns
+      // { data: null, error }. So we must inspect `error` and fall back,
+      // not rely on try/catch (the old try/catch silently left profs=[]
+      // whenever an optional column like portfolio_about / x_url didn't
+      // exist on prod → the whole member network vanished). Step down
+      // through column sets until one succeeds.
       let profs: any[] = [];
-      try {
-        const { data } = await service
+      {
+        const full = await service
           .from("profiles")
           .select(
             "id, display_name, email, avatar_url, handle, portfolio_about, linkedin_url, x_url, instagram_url, facebook_url, website_url"
           )
           .in("id", ids);
-        profs = data ?? [];
-      } catch {
-        const { data } = await service
-          .from("profiles")
-          .select("id, display_name, email, avatar_url")
-          .in("id", ids);
-        profs = data ?? [];
+        if (!full.error && full.data) {
+          profs = full.data;
+        } else {
+          const mid = await service
+            .from("profiles")
+            .select("id, display_name, email, avatar_url, handle, portfolio_about")
+            .in("id", ids);
+          if (!mid.error && mid.data) {
+            profs = mid.data;
+          } else {
+            const basic = await service
+              .from("profiles")
+              .select("id, display_name, email, avatar_url")
+              .in("id", ids);
+            profs = basic.data ?? [];
+          }
+        }
       }
       let twins: any[] = [];
-      try {
-        const { data } = await service
+      {
+        const full = await service
           .from("twin_profiles")
           .select("user_id, goals, deal_preferences, ai_export_blob")
           .in("user_id", ids);
-        twins = data ?? [];
-      } catch {
-        const { data } = await service
-          .from("twin_profiles")
-          .select("user_id, goals")
-          .in("user_id", ids);
-        twins = data ?? [];
+        if (!full.error && full.data) {
+          twins = full.data;
+        } else {
+          const basic = await service
+            .from("twin_profiles")
+            .select("user_id, goals")
+            .in("user_id", ids);
+          twins = basic.data ?? [];
+        }
       }
       const twinById = new Map(
         (twins ?? []).map((t: any) => [t.user_id, t])
@@ -267,11 +291,34 @@ export default async function ConferencePage({
   }
 
   // Owner profile (lookup so we can render "hosted by ..." nicely)
-  const { data: ownerProfile } = await service
-    .from("profiles")
-    .select("display_name, email, avatar_url, portfolio_about")
-    .eq("id", conf.owner_user_id)
-    .maybeSingle();
+  // Same missing-column resilience as the member fetch — if
+  // portfolio_about doesn't exist on prod, the select errors (no throw)
+  // and ownerProfile would be null → "hosted by the host". Fall back.
+  let ownerProfile:
+    | {
+        display_name: string | null;
+        email: string | null;
+        avatar_url: string | null;
+        portfolio_about?: string | null;
+      }
+    | null = null;
+  {
+    const full = await service
+      .from("profiles")
+      .select("display_name, email, avatar_url, portfolio_about")
+      .eq("id", conf.owner_user_id)
+      .maybeSingle();
+    if (!full.error && full.data) {
+      ownerProfile = full.data as any;
+    } else {
+      const basic = await service
+        .from("profiles")
+        .select("display_name, email, avatar_url")
+        .eq("id", conf.owner_user_id)
+        .maybeSingle();
+      ownerProfile = (basic.data as any) ?? null;
+    }
+  }
   const ownerName =
     ownerProfile?.display_name || ownerProfile?.email || "the host";
   // Host brief (#15): a per-room override (conferences.host_brief, may be
@@ -489,11 +536,6 @@ export default async function ConferencePage({
         </div>
       </section>
 
-      {/* SHARE URL */}
-      <div className="mt-8">
-        <ShareUrlBox url={joinUrl} conferenceName={conf.name} />
-      </div>
-
       {/* PUBLIC MEMBER PREVIEW — full summary cards (avatar + name +
           host badge + goals line + portfolio link). Visible to EVERY
           visitor including external ones. Owner pinned first. Jack:
@@ -624,6 +666,47 @@ export default async function ConferencePage({
         totalCount={attendeeCount ?? 0}
         kindLabel={kindLabel}
       />
+
+      {/* WHAT THIS IS — the network thesis, below the speed-of-light
+          visual. Jack: explain it builds a super-powered network spanning
+          communities → conferences → group chats, surfaces the highest-
+          reward paths of connection, and lets everyone see who's in a
+          room. */}
+      <section
+        className="mt-8 retro-panel"
+        style={{ padding: 22 }}
+      >
+        <div className="retro-label" style={{ color: "var(--amber-bright)" }}>
+          what {ownerName} is building here
+        </div>
+        <p
+          className="mt-2"
+          style={{ fontSize: 15.5, lineHeight: 1.6, color: "var(--text)", maxWidth: 760 }}
+        >
+          {conf.name} plugs into one super-powered network that spans{" "}
+          {kind === "community" ? "communities" : "conferences"}, group
+          chats, and events. Your digital twin reads everyone&apos;s context
+          and quietly maps the <strong>highest-reward paths of connection</strong>{" "}
+          across the whole room — the win-wins no one would have found one DM
+          at a time.
+        </p>
+        <p
+          className="mt-3"
+          style={{ fontSize: 14, lineHeight: 1.6, color: "var(--text-dim)", maxWidth: 760 }}
+        >
+          Inside, you can see exactly who&apos;s here — what each person is
+          working on, what they want, and what they offer — and your twin
+          surfaces the specific collaboration worth exploring with each of
+          them. The more rooms you&apos;re in, the denser and more valuable
+          your network becomes.
+        </p>
+      </section>
+
+      {/* SHARE — moved below the value blocks (Jack: "move the share with
+          attendees link below the animation"). */}
+      <div className="mt-6">
+        <ShareUrlBox url={joinUrl} conferenceName={conf.name} />
+      </div>
 
       {/* CTAs based on viewer state — moved BELOW the value blocks
           (preview + density) per Jack: "lets move the already in the
