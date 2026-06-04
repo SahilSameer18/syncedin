@@ -319,8 +319,9 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;f
          immediately recognizable as SyncedIn in the preview pane. -->
     <table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;margin:0 0 14px 0;">
       <tr><td align="left" style="padding:0 6px;">
-        <a href="https://syncedin.org" style="text-decoration:none;color:inherit;">
-          <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.01em;color:#ffffff;">Synced</span><span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.01em;color:#f59e0b;">In</span>
+        <a href="https://syncedin.org" style="text-decoration:none;color:inherit;display:inline-block;">
+          <img src="https://syncedin.org/icons/icon-192.png" width="26" height="26" alt="SyncedIn" style="vertical-align:middle;border-radius:6px;margin-right:8px;display:inline-block;" />
+          <span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.01em;color:#ffffff;vertical-align:middle;">Synced</span><span style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;font-weight:800;letter-spacing:-0.01em;color:#a5b4fc;vertical-align:middle;">In</span>
         </a>
       </td></tr>
     </table>
@@ -330,7 +331,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;f
 
       <!-- HERO BAND -->
       <tr>
-        <td align="center" style="padding:32px 28px 28px 28px;background:#1f59ff;background-image:linear-gradient(135deg,#1f59ff 0%,#6b2dc9 65%,#9333ea 100%);">
+        <td align="center" style="padding:32px 28px 28px 28px;background:#6366f1;background-image:linear-gradient(135deg,#6366f1 0%,#7c5cf0 55%,#8b5cf6 100%);">
           ${avatarPairHtml}
           ${syncChipHtml}
           ${
