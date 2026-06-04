@@ -60,23 +60,25 @@ function deriveIceberg(src: {
     }
     return null;
   };
+  // Field semantics (from the onboarding wizard):
+  //   - goals            = what they're working on / pursuing  → about + wants
+  //   - deal_preferences = the "what can you OFFER" field      → offers
+  // The earlier mapping had these crossed (offers read from the blob and
+  // came up empty, deal_preferences showed under "wants"), which is why
+  // the community card was "missing offers".
   const about =
     clean(src.portfolio_about) ||
-    clean(src.goals, 220) ||
-    clean(section(src.ai_export_blob, /working on|about me|who i am/i), 220);
+    clean(section(src.ai_export_blob, /working on|about me|who i am/i), 220) ||
+    clean(src.goals, 220);
   const wants =
-    clean(src.deal_preferences, 220) ||
+    clean(src.goals, 220) ||
     clean(
-      section(
-        src.ai_export_blob,
-        /intros|looking for|want to meet|needle|need/i
-      ),
+      section(src.ai_export_blob, /intros|looking for|want to meet|needle|need/i),
       220
     );
-  const offers = clean(
-    section(src.ai_export_blob, /can give|i can offer|what i have|offer/i),
-    220
-  );
+  const offers =
+    clean(src.deal_preferences, 240) ||
+    clean(section(src.ai_export_blob, /can give|i can offer|what i have|offer/i), 220);
   return { about, wants, offers };
 }
 
