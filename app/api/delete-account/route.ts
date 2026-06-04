@@ -37,6 +37,34 @@ export async function POST() {
   // Each step is now an explicit await with its own try/catch.
   type Step = [string, () => PromiseLike<unknown>];
   const steps: Step[] = [
+    // Reassign any rooms this user HOSTS to the next signed-up member
+    // BEFORE deleting their profile — otherwise the owner FK cascade
+    // would delete the whole community/conference. Jack: "we shouldn't
+    // delete the page. We should just make the next signed up person the
+    // host."
+    ["reassign_owned_rooms", async () => {
+      const { data: owned } = await service
+        .from("conferences")
+        .select("slug")
+        .eq("owner_user_id", userId);
+      for (const room of (owned ?? []) as Array<{ slug: string }>) {
+        const { data: next } = await service
+          .from("conference_members")
+          .select("user_id, joined_at")
+          .eq("conference_slug", room.slug)
+          .neq("user_id", userId)
+          .order("joined_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if ((next as any)?.user_id) {
+          await service
+            .from("conferences")
+            .update({ owner_user_id: (next as any).user_id })
+            .eq("slug", room.slug);
+        }
+        // No other members → nothing to hand off; the empty room cascades.
+      }
+    }],
     ["twin_profiles", () =>
       service.from("twin_profiles").delete().eq("user_id", userId)],
     ["pending_invites:inviter", () =>

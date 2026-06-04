@@ -15,6 +15,7 @@ import { MemberCard } from "./MemberCard";
 import { BannerUpload } from "./BannerUpload";
 import { GroupLimitControl } from "./GroupLimitControl";
 import { QuickJoinForm } from "./QuickJoinForm";
+import { MemberAdminControls } from "./MemberAdminControls";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 
 /**
@@ -872,12 +873,21 @@ export default async function ConferencePage({
                       </div>
                     )}
                   </div>
-                  <button
-                    type="submit"
-                    className="retro-btn retro-btn-primary text-xs shrink-0"
-                  >
-                    + connect
-                  </button>
+                  <div className="shrink-0 flex flex-col items-end gap-1.5">
+                    <button
+                      type="submit"
+                      className="retro-btn retro-btn-primary text-xs"
+                    >
+                      + connect
+                    </button>
+                    {isOwner && (
+                      <MemberAdminControls
+                        slug={conf.slug}
+                        userId={m.id}
+                        name={m.display_name ?? m.email ?? "this member"}
+                      />
+                    )}
+                  </div>
                 </form>
               ))}
           </div>
