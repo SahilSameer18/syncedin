@@ -44,12 +44,22 @@ platform :ios do
       use_automatic_signing: true,
       team_id: "XCUTNS56DG"
     )
-    # Pass the API key to gym so it forwards
+    # gym (build_app) has no api_key option, so we hand xcodebuild the App
+    # Store Connect key directly: write the .p8 to disk and pass
     # -authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID
-    # to xcodebuild. Without this, -allowProvisioningUpdates has no
-    # credentials to talk to the developer portal and the archive dies with
+    # alongside -allowProvisioningUpdates. Without this the archive dies with
     # "No Accounts" / "No profiles for 'org.syncedin.app' were found" — the
     # CI runner has no Apple ID logged in, so the API key IS the account.
+    # Both the archive (xcargs) and the export (export_xcargs) need it.
+    key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"]
+    issuer_id = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"]
+    key_path = File.expand_path("AuthKey_#{key_id}.p8", __dir__)
+    File.write(key_path, ENV["APP_STORE_CONNECT_API_KEY_CONTENT"])
+    auth_args =
+      "-authenticationKeyPath #{key_path} " \
+      "-authenticationKeyID #{key_id} " \
+      "-authenticationKeyIssuerID #{issuer_id}"
+
     build_app(
       workspace: "ios/App/App.xcworkspace",
       scheme: "App",
@@ -58,8 +68,8 @@ platform :ios do
       output_directory: "build/ios",
       output_name: "SyncedIn.ipa",
       clean: true,
-      api_key: api_key,
-      xcargs: "-allowProvisioningUpdates",
+      xcargs: "-allowProvisioningUpdates #{auth_args}",
+      export_xcargs: "-allowProvisioningUpdates #{auth_args}",
       export_options: {
         signingStyle: "automatic"
       }
