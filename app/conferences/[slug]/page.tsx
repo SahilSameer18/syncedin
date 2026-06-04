@@ -613,7 +613,62 @@ export default async function ConferencePage({
                           </div>
                         </div>
                       </div>
-                      <HostBriefEditor slug={conf.slug} initialBrief={resolvedHostBrief} />
+                      {/* Show the host exactly what their card displays to
+                          everyone — derived About / Wants / Offers — and let
+                          them edit the About (Jack: "show me what it's
+                          already going to show and let me edit that"). */}
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 800,
+                            letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                            color: "var(--text-dim)",
+                            marginBottom: 4
+                          }}
+                        >
+                          About — editable
+                        </div>
+                        <HostBriefEditor
+                          slug={conf.slug}
+                          initialBrief={
+                            resolvedHostBrief || (m as any).about || ""
+                          }
+                        />
+                      </div>
+                      {((m as any).wants || (m as any).offers) && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+                          {(["wants", "offers"] as const).map((k) => {
+                            const v = (m as any)[k] as string | null;
+                            if (!v) return null;
+                            // Skip wants if it's identical to the About above.
+                            if (k === "wants" && v === (m as any).about) return null;
+                            return (
+                              <div key={k}>
+                                <span
+                                  style={{
+                                    fontSize: 10,
+                                    fontWeight: 800,
+                                    letterSpacing: "0.1em",
+                                    textTransform: "uppercase",
+                                    color: "var(--text-dim)"
+                                  }}
+                                >
+                                  {k === "wants" ? "Wants / needs" : "Offers"}:{" "}
+                                </span>
+                                <span style={{ fontSize: 13, color: "var(--text)", lineHeight: 1.45 }}>
+                                  {v}
+                                </span>
+                              </div>
+                            );
+                          })}
+                          <span style={{ fontSize: 11, color: "var(--text-dim)" }}>
+                            Wants &amp; offers come from your twin — edit them in
+                            onboarding.
+                          </span>
+                        </div>
+                      )}
                     </div>
                   );
                 }
