@@ -12,6 +12,7 @@ import { ScrollTopOnFlag } from "../../ScrollTopOnFlag";
 import { NetworkDensityCompare } from "../../communities/NetworkDensityCompare";
 import { HostBriefEditor } from "./HostBriefEditor";
 import { MemberCard } from "./MemberCard";
+import { BannerUpload } from "./BannerUpload";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 
 /**
@@ -352,6 +353,34 @@ export default async function ConferencePage({
           Share the link below — anyone who joins through it becomes a
           member of {conf.name}.
         </p>
+      )}
+
+      {/* BANNER — creator-uploaded cover image (also the OG/share image).
+          Full-bleed within the page column; owner gets the upload control
+          beneath it. */}
+      {(conf as any).cover_url && (
+        <div
+          style={{
+            marginTop: 20,
+            borderRadius: 18,
+            overflow: "hidden",
+            border: "1px solid var(--border)",
+            aspectRatio: "1200 / 400"
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={(conf as any).cover_url}
+            alt={`${conf.name} banner`}
+            style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          />
+        </div>
+      )}
+      {isOwner && (
+        <BannerUpload
+          slug={conf.slug}
+          initialUrl={(conf as any).cover_url ?? null}
+        />
       )}
 
       {/* HERO */}
