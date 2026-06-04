@@ -114,7 +114,7 @@ export default async function PersonalIntelligencePage() {
         "A visual map of where you've been, where the network thinks you're headed, and the highest-leverage next moves to get there.",
       accent: "#22c55e",
       icon: "🗺️",
-      unlockAt: 3
+      unlockAt: 0
     },
     {
       key: "images",
@@ -124,7 +124,7 @@ export default async function PersonalIntelligencePage() {
         "Viral-style portrait series built from your real context — your background, your work, your style. Pick a prompt, get a set you can post anywhere.",
       accent: "#1f8bff",
       icon: "🎨",
-      unlockAt: 3
+      unlockAt: 0
     },
     {
       key: "merch",
@@ -134,7 +134,7 @@ export default async function PersonalIntelligencePage() {
         "Auto-generated t-shirt + hoodie + sticker designs from your twin's archetype. Print-ready files, no design skill needed.",
       accent: "#6b2dc9",
       icon: "👕",
-      unlockAt: 5
+      unlockAt: 0
     },
     {
       key: "creative",
@@ -144,7 +144,7 @@ export default async function PersonalIntelligencePage() {
         "Starter outline for a memoir, novel, or screenplay built from the most distinctive parts of your story. Three structural options to pick from.",
       accent: "#ec4899",
       icon: "✍️",
-      unlockAt: 7
+      unlockAt: 0
     },
     {
       key: "business",
@@ -154,7 +154,7 @@ export default async function PersonalIntelligencePage() {
         "If you mentioned a business in your twin context, we sketch the potential huge-success path: TAM, GTM, the 18-month milestone arc.",
       accent: "#10b981",
       icon: "🚀",
-      unlockAt: 10
+      unlockAt: 0
     },
     {
       key: "song",
@@ -164,7 +164,7 @@ export default async function PersonalIntelligencePage() {
         "Generated track that captures your story arc — tempo, lyrics, and feel pulled from your twin context. Shareable as a personal anthem.",
       accent: "#d83bff",
       icon: "🎵",
-      unlockAt: 10
+      unlockAt: 0
     }
   ];
 
@@ -351,9 +351,9 @@ export default async function PersonalIntelligencePage() {
         }
       `}</style>
 
-      {/* Referral progress strip — tells the user where their next
-          unlock is. Jack: "Upgrades happen from making multiple invites
-          for people to join." */}
+      {/* Everything here is FREE — no invite gating (Jack: "let's make
+          free, no invites"). Inviting is optional and just grows the
+          network. */}
       <div
         style={{
           marginBottom: 14,
@@ -368,25 +368,8 @@ export default async function PersonalIntelligencePage() {
           flexWrap: "wrap"
         }}
       >
-        <div style={{ fontSize: 13 }}>
-          <strong style={{ color: "var(--text)" }}>{referrals}</strong>{" "}
-          <span style={{ color: "var(--text-dim)" }}>
-            successful invite{referrals === 1 ? "" : "s"} so far
-          </span>
-          {(() => {
-            const next = cards.find((c) => c.unlockAt > referrals);
-            if (!next) return null;
-            return (
-              <span style={{ color: "var(--text-dim)" }}>
-                {" · "}
-                next unlock at{" "}
-                <strong style={{ color: "var(--text)" }}>
-                  {next.unlockAt}
-                </strong>{" "}
-                ({next.icon} {next.title.split(" ").slice(0, 3).join(" ")}…)
-              </span>
-            );
-          })()}
+        <div style={{ fontSize: 13, color: "var(--text)", fontWeight: 600 }}>
+          ✨ Everything here is free — generate anything below.
         </div>
         <a
           href="/invite"
@@ -396,14 +379,13 @@ export default async function PersonalIntelligencePage() {
             padding: "7px 14px",
             borderRadius: 999,
             background:
-              "linear-gradient(135deg, #1f8bff 0%, #6b2dc9 100%)",
+              "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
             color: "#fff",
             textDecoration: "none",
-            boxShadow:
-              "0 6px 18px -6px rgba(31, 139, 255, 0.45)"
+            boxShadow: "0 6px 18px -6px rgba(99,102,241,0.45)"
           }}
         >
-          💌 send more invites
+          💌 invite friends
         </a>
       </div>
 

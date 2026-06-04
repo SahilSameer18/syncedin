@@ -62,7 +62,7 @@ export function PortfolioBuildButton() {
           opacity: busy ? 0.6 : 1
         }}
       >
-        {busy ? "building…" : "✨ build my portfolio (1 click)"}
+        {busy ? "Building…" : "✨ Build my portfolio"}
       </button>
       {err && (
         <p style={{ fontSize: 11, color: "#ef4444", margin: 0 }}>
