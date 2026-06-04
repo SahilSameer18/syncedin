@@ -184,9 +184,11 @@ export function LandingHandleHero({
     <section className="lh-hero">
       <style>{`
         .lh-hero {
-          max-width: 720px;
+          max-width: 860px;
           margin: 0 auto;
-          padding: 56px 24px 80px;
+          /* Pull the hero up + give it room to breathe wide — Jack: "still
+             so much white space ... maximize that first landing view." */
+          padding: 24px 24px 72px;
           color: var(--text);
         }
         .lh-proof {
@@ -216,18 +218,19 @@ export function LandingHandleHero({
         .lh-stars { color: #fbbf24; letter-spacing: 1px; font-size: 13px; }
 
         .lh-h1 {
-          font-size: clamp(40px, 6vw, 64px);
+          font-size: clamp(44px, 7vw, 78px);
           font-weight: 900;
-          letter-spacing: -0.025em;
-          line-height: 1.02;
+          letter-spacing: -0.03em;
+          line-height: 1.0;
           margin: 0;
           color: var(--text);
         }
         .lh-sub {
           margin-top: 22px;
-          font-size: 17px;
+          font-size: 19px;
           line-height: 1.5;
           color: var(--text-dim);
+          max-width: 640px;
         }
         .lh-sub strong { color: var(--text); font-weight: 700; }
 

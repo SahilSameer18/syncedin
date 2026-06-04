@@ -158,10 +158,10 @@ export default async function HomePage() {
             Jack "Landing page logo too small on desktop." */}
         <header className="lh-topbar">
           <span className="lh-mark-desktop">
-            <Wordmark size="md" href={null} />
+            <Wordmark size="lg" href={null} />
           </span>
           <span className="lh-mark-mobile">
-            <Wordmark size="sm" href={null} />
+            <Wordmark size="md" href={null} />
           </span>
           <nav className="lh-topbar-links">
             <a href="/article">How it works</a>
