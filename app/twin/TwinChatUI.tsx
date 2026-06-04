@@ -400,9 +400,23 @@ export function TwinChatUI({
     const el = scrollerRef.current;
     if (!el) return;
     if (!didInitialScrollRef.current && loaded) {
-      // First scroll after history hydrated — go instantly to bottom.
-      el.scrollTo({ top: el.scrollHeight, behavior: "auto" });
+      // First scroll after history hydrated — go to the bottom. Deferred
+      // across frames + a couple of retries because bubbles, action cards
+      // and markdown finish laying out AFTER this effect fires; scrolling
+      // immediately used scrollHeight before it settled, landing the user
+      // mid-history. Jack: "it should load on the bottom — right now it
+      // loads to the middle."
       didInitialScrollRef.current = true;
+      const toBottom = () => {
+        const e2 = scrollerRef.current;
+        if (e2) e2.scrollTo({ top: e2.scrollHeight, behavior: "auto" });
+      };
+      requestAnimationFrame(() => {
+        toBottom();
+        requestAnimationFrame(toBottom);
+      });
+      setTimeout(toBottom, 150);
+      setTimeout(toBottom, 420);
       return;
     }
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });

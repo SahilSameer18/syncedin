@@ -1300,31 +1300,6 @@ export function ChatUI({
     setMenu({ id, x: e.clientX, y: e.clientY, canEdit });
   }
 
-  // Mobile equivalent of right-click: press-and-hold a bubble for ~500ms
-  // to open the same menu. A single ref-keyed timer per gesture so a fast
-  // tap (touchend before threshold) doesn't open the menu.
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function startLongPress(
-    e: React.TouchEvent,
-    id: string,
-    canEdit: boolean
-  ) {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    const t = e.touches[0];
-    if (!t) return;
-    const x = t.clientX;
-    const y = t.clientY;
-    longPressTimer.current = setTimeout(() => {
-      setMenu({ id, x, y, canEdit });
-    }, 500);
-  }
-  function cancelLongPress() {
-    if (longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }
-
   async function copyMessage(id: string) {
     const m = messages.find((x) => x.id === id);
     if (!m) return;
@@ -1864,14 +1839,28 @@ export function ChatUI({
                 <>
                   <div
                     onContextMenu={(e) => openMenu(e, m.id, mine)}
-                    onDoubleClick={
-                      mine ? () => startEdit(m.id) : undefined
+                    // Tap your own bubble to edit — matches the twin chat
+                    // (Jack likes that flow). Selection-guarded so
+                    // highlighting to copy never triggers edit. The old
+                    // 500ms long-press timer was removed: it fought iOS's
+                    // native text selection and made the bubble "jump" on
+                    // press. Native long-press copy now works again.
+                    onClick={
+                      mine
+                        ? () => {
+                            const sel =
+                              typeof window !== "undefined"
+                                ? window.getSelection()
+                                : null;
+                            if (sel && sel.toString().trim().length > 0)
+                              return;
+                            startEdit(m.id);
+                          }
+                        : undefined
                     }
-                    onTouchStart={(e) => startLongPress(e, m.id, mine)}
-                    onTouchEnd={cancelLongPress}
-                    onTouchMove={cancelLongPress}
-                    onTouchCancel={cancelLongPress}
-                    className="inline-block max-w-[80%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap cursor-default select-text"
+                    className={`inline-block max-w-[80%] px-3.5 py-2 text-[15px] leading-snug whitespace-pre-wrap select-text ${
+                      mine ? "cursor-pointer" : "cursor-default"
+                    }`}
                     style={{
                       fontFamily: MSG_FONT,
                       borderRadius: 18,
@@ -1879,14 +1868,11 @@ export function ChatUI({
                       color: mine ? "#ffffff" : "var(--bubble-them-text, #1c1c1e)",
                       borderBottomRightRadius: mine ? 5 : 18,
                       borderBottomLeftRadius: mine ? 18 : 5,
-                      // iOS / Android long-press selects text by default;
-                      // suppress that so our 500ms timer wins instead.
-                      WebkitTouchCallout: "none",
                       WebkitUserSelect: "text"
                     }}
                     title={
                       mine
-                        ? "Double-click, right-click, or long-press to edit"
+                        ? "Tap to edit · right-click to copy"
                         : "Right-click or long-press to copy"
                     }
                   >
