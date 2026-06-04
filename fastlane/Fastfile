@@ -81,16 +81,15 @@ end
 platform :android do
   desc "Build AAB + upload to Play Console Internal Testing"
   lane :beta do
-    # Auto-bump versionCode in build.gradle (same idea as iOS).
-    # google_play_track_version_codes pulls the highest versionCode that
-    # already exists across ANY track (so we never collide with promoted
-    # production builds either).
+    # versionCode = current Unix epoch seconds. This is always strictly
+    # increasing (time only moves forward) and is globally unique across
+    # EVERY Play track + draft, so we can never collide with a code that's
+    # already been used (the failure mode of querying a single track's max
+    # and adding 1 — a code can exist in a draft/other track and 'max+1'
+    # still collides). Epoch seconds in this era (~1.78e9) sit well under
+    # Play's 2.1e9 versionCode ceiling, with headroom past 2030.
     play_json = "fastlane/play-service-account.json"
-    next_code = google_play_track_version_codes(
-      package_name: "org.syncedin.app",
-      track: "internal",
-      json_key: play_json
-    ).max.to_i + 1
+    next_code = Time.now.to_i
 
     android_set_version_code(
       version_code: next_code,
