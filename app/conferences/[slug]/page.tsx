@@ -13,6 +13,7 @@ import { NetworkDensityCompare } from "../../communities/NetworkDensityCompare";
 import { HostBriefEditor } from "./HostBriefEditor";
 import { MemberCard } from "./MemberCard";
 import { BannerUpload } from "./BannerUpload";
+import { GroupLimitControl } from "./GroupLimitControl";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 
 /**
@@ -345,6 +346,15 @@ export default async function ConferencePage({
     | "community";
   const urlPrefix = kind === "community" ? "/communities" : "/conferences";
   const kindLabel = kind === "community" ? "community" : "conference";
+  // Optional member cap (stored in brand_meta, no migration). Drives the
+  // "pairings at the limit" pressure line. Jack: a limit "gives some
+  // pressure for people to join."
+  const memberLimit: number | null = (() => {
+    const m = (conf as any).brand_meta?.member_limit;
+    return typeof m === "number" && m > 0 ? m : null;
+  })();
+  const pairsAt = (n: number) => Math.max(0, Math.round((n * (n - 1)) / 2));
+
   const joinUrl = `${appUrl}${urlPrefix}/${slug}`;
   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
     joinUrl
@@ -497,7 +507,7 @@ export default async function ConferencePage({
               accent="var(--amber-bright)"
             />
             <Stat
-              n={Math.max(0, (attendeeCount ?? 1) * ((attendeeCount ?? 1) - 1)) / 2}
+              n={pairsAt(attendeeCount ?? 0)}
               label="possible pairings"
               accent="var(--text-dim)"
             />
@@ -513,6 +523,29 @@ export default async function ConferencePage({
               }
             />
           </div>
+
+          {/* Group-limit pressure line + owner control. */}
+          {(memberLimit || isOwner) && (
+            <div className="mt-3 text-sm" style={{ color: "var(--text-dim)" }}>
+              {memberLimit && (
+                <span>
+                  <strong style={{ color: "var(--amber-bright)" }}>
+                    {Math.max(0, memberLimit - (attendeeCount ?? 0))}
+                  </strong>{" "}
+                  of {memberLimit} spots left — at the limit that&apos;s{" "}
+                  <strong style={{ color: "var(--text)" }}>
+                    {pairsAt(memberLimit).toLocaleString()}
+                  </strong>{" "}
+                  possible pairings.
+                </span>
+              )}
+              {isOwner && (
+                <div className="mt-1">
+                  <GroupLimitControl slug={conf.slug} initialLimit={memberLimit} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* QR for in-person check-in (visible to everyone — shareable).
