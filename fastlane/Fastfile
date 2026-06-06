@@ -34,31 +34,58 @@ platform :ios do
       build_number: latest + 1
     )
 
-    # Automatic, Apple-managed signing driven by the App Store Connect API
-    # key — no manual .p12 cert or downloaded provisioning profile needed
-    # (the account already uses Xcode-managed signing). gym passes the API
-    # key to xcodebuild and -allowProvisioningUpdates lets Apple create/
-    # reuse the managed distribution cert + App Store profile on the fly.
+    # Self-contained MANUAL signing via the App Store Connect API key. We do
+    # NOT use xcodebuild cloud-managed signing (-allowProvisioningUpdates):
+    # that requires an Admin-role key and dies with "Cloud signing permission
+    # error / No signing certificate 'iOS Distribution' found". Instead we:
+    #   1. make a throwaway CI keychain,
+    #   2. fetch/create the Apple Distribution certificate into it via the API
+    #      key (get_certificates),
+    #   3. fetch/create the App Store provisioning profile via the API key
+    #      (get_provisioning_profile),
+    #   4. point the project at that exact cert + profile (manual signing),
+    #   5. archive + export with signingStyle "manual".
+    # This is fully headless and needs no Apple ID logged in on the runner.
+    keychain_name = "syncedin-ci.keychain"
+    keychain_password = "ci-#{Time.now.to_i}"
+    delete_keychain(name: keychain_name) if File.exist?(
+      File.expand_path("~/Library/Keychains/#{keychain_name}-db")
+    )
+    create_keychain(
+      name: keychain_name,
+      password: keychain_password,
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false
+    )
+    keychain_path = File.expand_path("~/Library/Keychains/#{keychain_name}-db")
+
+    # Apple Distribution certificate (development: false). force: false reuses
+    # an existing cert if its private key is already present, else creates one.
+    get_certificates(
+      api_key: api_key,
+      development: false,
+      keychain_path: keychain_path,
+      keychain_password: keychain_password
+    )
+
+    # App Store provisioning profile for the bundle id.
+    get_provisioning_profile(
+      api_key: api_key,
+      app_identifier: "org.syncedin.app",
+      platform: "ios"
+    )
+    profile_name = ENV["sigh_org.syncedin.app_appstore_profile-name"]
+
     update_code_signing_settings(
       path: "ios/App/App.xcodeproj",
-      use_automatic_signing: true,
-      team_id: "XCUTNS56DG"
+      use_automatic_signing: false,
+      team_id: "XCUTNS56DG",
+      bundle_identifier: "org.syncedin.app",
+      code_sign_identity: "Apple Distribution",
+      profile_name: profile_name
     )
-    # gym (build_app) has no api_key option, so we hand xcodebuild the App
-    # Store Connect key directly: write the .p8 to disk and pass
-    # -authenticationKeyPath/-authenticationKeyID/-authenticationKeyIssuerID
-    # alongside -allowProvisioningUpdates. Without this the archive dies with
-    # "No Accounts" / "No profiles for 'org.syncedin.app' were found" — the
-    # CI runner has no Apple ID logged in, so the API key IS the account.
-    # Both the archive (xcargs) and the export (export_xcargs) need it.
-    key_id = ENV["APP_STORE_CONNECT_API_KEY_ID"]
-    issuer_id = ENV["APP_STORE_CONNECT_API_KEY_ISSUER_ID"]
-    key_path = File.expand_path("AuthKey_#{key_id}.p8", __dir__)
-    File.write(key_path, ENV["APP_STORE_CONNECT_API_KEY_CONTENT"])
-    auth_args =
-      "-authenticationKeyPath #{key_path} " \
-      "-authenticationKeyID #{key_id} " \
-      "-authenticationKeyIssuerID #{issuer_id}"
 
     build_app(
       workspace: "ios/App/App.xcworkspace",
@@ -68,15 +95,11 @@ platform :ios do
       output_directory: "build/ios",
       output_name: "SyncedIn.ipa",
       clean: true,
-      # Archive needs the auth key explicitly (gym does NOT auto-inject it
-      # here). The export step DOES get the key auto-injected by gym from the
-      # app_store_connect_api_key context, so we must NOT repeat it in
-      # export_xcargs or xcodebuild errors: "-authenticationKeyPath may only
-      # be provided once". Export only needs -allowProvisioningUpdates.
-      xcargs: "-allowProvisioningUpdates #{auth_args}",
-      export_xcargs: "-allowProvisioningUpdates",
       export_options: {
-        signingStyle: "automatic"
+        signingStyle: "manual",
+        provisioningProfiles: {
+          "org.syncedin.app" => profile_name
+        }
       }
     )
 
