@@ -34,6 +34,8 @@ on:
       - "android/**"
       - "capacitor.config.ts"
       - "package.json"
+      - "Gemfile"
+      - "Gemfile.lock"
       - "fastlane/**"
       - ".github/workflows/mobile-release.yml"
   workflow_dispatch:
