@@ -124,7 +124,13 @@ platform :ios do
       platform: "ios",
       force: true
     )
-    profile_name = ENV["sigh_org.syncedin.app_appstore_profile-name"]
+    # Read the profile name from lane_context — the canonical source. The
+    # raw ENV["sigh_..._profile-name"] lookup came back nil on CI, which left
+    # the project with Manual signing and NO profile ("App requires a
+    # provisioning profile" at archive).
+    profile_name = lane_context[SharedValues::SIGH_NAME].to_s
+    UI.user_error!("sigh did not produce a profile name") if profile_name.empty?
+    UI.success("Using provisioning profile: #{profile_name}")
 
     update_code_signing_settings(
       path: "ios/App/App.xcodeproj",
@@ -143,6 +149,9 @@ platform :ios do
       output_directory: "build/ios",
       output_name: "SyncedIn.ipa",
       clean: true,
+      # Belt and braces: force the specifier on the xcodebuild command line
+      # too, so the archive can never run Manual-with-no-profile again.
+      xcargs: "PROVISIONING_PROFILE_SPECIFIER='#{profile_name}'",
       export_options: {
         signingStyle: "manual",
         provisioningProfiles: {
