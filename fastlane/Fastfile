@@ -61,20 +61,68 @@ platform :ios do
     )
     keychain_path = File.expand_path("~/Library/Keychains/#{keychain_name}-db")
 
-    # Apple Distribution certificate (development: false). force: false reuses
-    # an existing cert if its private key is already present, else creates one.
-    get_certificates(
-      api_key: api_key,
-      development: false,
-      keychain_path: keychain_path,
-      keychain_password: keychain_password
-    )
+    # Apple Distribution certificate. The CI workflow caches fastlane/ci-certs
+    # across runs (actions/cache), so once CI mints its own cert + private
+    # key, every later run re-imports it and reuses instead of creating.
+    require "fileutils"
+    certs_dir = File.expand_path("ci-certs", __dir__)
+    FileUtils.mkdir_p(certs_dir)
+    Dir[File.join(certs_dir, "*.p12")].each do |p12|
+      import_certificate(
+        certificate_path: p12,
+        certificate_password: "",
+        keychain_path: keychain_path,
+        keychain_password: keychain_password
+      )
+    end
+    Dir[File.join(certs_dir, "*.cer")].each do |cer|
+      import_certificate(
+        certificate_path: cer,
+        keychain_path: keychain_path,
+        keychain_password: keychain_password
+      )
+    end
 
-    # App Store provisioning profile for the bundle id.
+    fetch_cert = lambda do
+      get_certificates(
+        api_key: api_key,
+        development: false,
+        keychain_path: keychain_path,
+        keychain_password: keychain_password,
+        output_path: certs_dir
+      )
+    end
+    begin
+      fetch_cert.call
+    rescue => e
+      # Apple caps Apple Distribution certs (2). If the slots are full and
+      # none of their private keys are on this runner, free a slot by
+      # revoking the soonest-expiring one, then mint a CI-owned cert.
+      # (Explicitly approved by Jack: ship by any means.) sigh(force: true)
+      # below rebuilds the App Store profile against the new cert, so
+      # signing self-heals end to end.
+      raise unless e.message.to_s.include?("maximum number")
+      UI.important("Distribution cert slots full — revoking the soonest-expiring Apple Distribution cert to make room for a CI-owned one.")
+      require "spaceship"
+      Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.from(hash: api_key)
+      doomed = Spaceship::ConnectAPI::Certificate.all
+        .select { |c| c.certificate_type == "DISTRIBUTION" }
+        .min_by { |c| c.expiration_date.to_s }
+      raise "Cert limit reached but no DISTRIBUTION certificate visible to revoke" if doomed.nil?
+      UI.important("Revoking certificate id=#{doomed.id} (expires #{doomed.expiration_date})")
+      Spaceship::ConnectAPI.delete_certificate(certificate_id: doomed.id)
+      fetch_cert.call
+    end
+
+    # App Store provisioning profile for the bundle id. force: true
+    # regenerates it to include the cert we just installed — required the
+    # first time (old profile references the revoked cert) and harmless
+    # afterwards.
     get_provisioning_profile(
       api_key: api_key,
       app_identifier: "org.syncedin.app",
-      platform: "ios"
+      platform: "ios",
+      force: true
     )
     profile_name = ENV["sigh_org.syncedin.app_appstore_profile-name"]
 

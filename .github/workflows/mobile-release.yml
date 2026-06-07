@@ -80,10 +80,17 @@ jobs:
           cd ios/App
           pod install --repo-update
 
-      # No manual .p12 / provisioning profile step — signing is now
-      # Apple-managed via the App Store Connect API key (see the ios lane's
-      # automatic signing + -allowProvisioningUpdates). Only the 3 API-key
-      # secrets below are required.
+      # Persist the CI-owned distribution cert + private key across runs so
+      # the ios lane reuses it instead of minting (and eventually exhausting)
+      # new Apple Distribution certs. Always-miss key + restore-keys means
+      # the newest certs dir is restored at start and re-saved every run.
+      - name: Cache iOS distribution cert
+        uses: actions/cache@v4
+        with:
+          path: fastlane/ci-certs
+          key: ios-dist-cert-v1-${{ github.run_id }}
+          restore-keys: |
+            ios-dist-cert-v1-
 
       - name: Build + upload to TestFlight via Fastlane
         env:
