@@ -80,6 +80,17 @@ jobs:
           cd ios/App
           pod install --repo-update
 
+      # Apple rejects uploads built with older SDKs (the runner's default
+      # Xcode 16.4 / iOS 18.5 SDK got: "SDK version issue ... must be built
+      # with the iOS XX SDK or later"). Select the newest non-beta Xcode on
+      # the runner so the archive always uses a current SDK.
+      - name: Select latest Xcode
+        run: |
+          LATEST=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          echo "Selecting $LATEST"
+          sudo xcode-select -s "$LATEST/Contents/Developer"
+          xcodebuild -version
+
       # Persist the CI-owned distribution cert + private key across runs so
       # the ios lane reuses it instead of minting (and eventually exhausting)
       # new Apple Distribution certs. Split restore/save (instead of plain
