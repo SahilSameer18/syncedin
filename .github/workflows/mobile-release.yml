@@ -82,10 +82,13 @@ jobs:
 
       # Persist the CI-owned distribution cert + private key across runs so
       # the ios lane reuses it instead of minting (and eventually exhausting)
-      # new Apple Distribution certs. Always-miss key + restore-keys means
-      # the newest certs dir is restored at start and re-saved every run.
-      - name: Cache iOS distribution cert
-        uses: actions/cache@v4
+      # new Apple Distribution certs. Split restore/save (instead of plain
+      # actions/cache) because the combined action only saves when the job
+      # SUCCEEDS — a failure after cert creation would lose the new private
+      # key and force a revoke-and-mint churn on the next run. The save step
+      # below runs with if: always().
+      - name: Restore iOS distribution cert
+        uses: actions/cache/restore@v4
         with:
           path: fastlane/ci-certs
           key: ios-dist-cert-v1-${{ github.run_id }}
@@ -98,6 +101,15 @@ jobs:
           APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ISSUER_ID }}
           APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
         run: bundle exec fastlane ios beta
+
+      # Save the cert+key even if the build failed — losing a freshly minted
+      # private key forces another revoke-and-mint cycle next run.
+      - name: Save iOS distribution cert
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: fastlane/ci-certs
+          key: ios-dist-cert-v1-${{ github.run_id }}
 
   # ----- Android --------------------------------------------------------
   android:
