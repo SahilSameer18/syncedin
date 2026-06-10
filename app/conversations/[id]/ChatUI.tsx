@@ -1,5 +1,15 @@
 "use client";
 
+// Honest narration for the closed-doors pass: one real API call runs
+// while these rotate. They describe exactly what the call is asked to do.
+const NEG_LINES = [
+  "Exchanging full context, twin to twin…",
+  "Mapping the highest-purpose overlap…",
+  "Pressure-testing against deal-breakers…",
+  "Deciding who does what, by when…",
+  "Writing you the short version…"
+];
+
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import type { Message } from "@/lib/types";
@@ -400,10 +410,9 @@ function TwinLink({
       style={{ gap: 0, position: "relative", height: 44 }}
       aria-label={`${self.name} ↔ ${other.name}`}
     >
-      {/* #162 — wrap the self Avatar in a position:relative shell so we
-          can drop a tiny ✓ / ✓✓ badge on its bottom-right corner. The
-          badge color matches WhatsApp convention: dim grey for delivered,
-          brand amber for read. */}
+      {/* Read receipts belong to MESSAGES (the per-bubble ✓/✓✓), not to
+          the user's own face. Jack: "the read receipt shouldn't be on my
+          avatar at all." Plain avatar here. */}
       <div style={{ position: "relative", flex: "0 0 auto" }}>
         <Avatar
           id={self.id}
@@ -412,36 +421,6 @@ function TwinLink({
           size={40}
           ringColor="var(--amber-bright)"
         />
-        {selfReceiptStatus !== "none" && (
-          <span
-            aria-label={selfReceiptStatus === "read" ? "read" : "delivered"}
-            title={selfReceiptStatus === "read" ? "read" : "delivered"}
-            style={{
-              position: "absolute",
-              right: -4,
-              bottom: -2,
-              minWidth: 18,
-              height: 14,
-              padding: "0 4px",
-              borderRadius: 8,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: 10,
-              lineHeight: 1,
-              fontWeight: 700,
-              letterSpacing: "-0.04em",
-              background: "var(--bg)",
-              border: "1px solid var(--border)",
-              color:
-                selfReceiptStatus === "read"
-                  ? "var(--amber-bright)"
-                  : "var(--text-dim)"
-            }}
-          >
-            {selfReceiptStatus === "read" ? "✓✓" : "✓"}
-          </span>
-        )}
       </div>
       <div
         style={{
@@ -1156,6 +1135,21 @@ export function ChatUI({
   // dedicated "propose destination" button can trigger the wrap-up turn
   // without waiting for the twin to decide on its own — twins were ending
   // conversations too fast before this gate existed.
+  // Closed-doors negotiation state (fresh conversations): the twins
+  // exchange full context privately in one pass; the humans only see
+  // the distilled exchange. NEG_LINES narrate honestly while the single
+  // real API call runs.
+  const [negotiating, setNegotiating] = useState(false);
+  const [negLine, setNegLine] = useState(0);
+  useEffect(() => {
+    if (!negotiating) return;
+    const t = setInterval(
+      () => setNegLine((i) => (i + 1) % NEG_LINES.length),
+      1800
+    );
+    return () => clearInterval(t);
+  }, [negotiating]);
+
   const runLoop = useCallback(async (opts?: { proposeNow?: boolean }) => {
     const forceNext = done || !!opts?.proposeNow;
     setRunning(true);
@@ -1276,6 +1270,40 @@ export function ChatUI({
     }
   }, [conversationId]);
 
+  const closedDoors = useCallback(async () => {
+    setNegotiating(true);
+    setNegLine(0);
+    setError(null);
+    try {
+      const res = await fetch("/api/closed-doors", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId })
+      });
+      if (!res.ok) throw new Error(await readError(res));
+      const json = await res.json();
+      if (!Array.isArray(json.messages) || json.messages.length === 0) {
+        throw new Error("empty distilled exchange");
+      }
+      setMessages(json.messages);
+      setDone(true);
+      setNextTurnUserId(null);
+      // Outcome summary + excitement score from the existing pipeline so
+      // /messages and /proposals stay consistent.
+      fetch("/api/summarize-conversation", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId })
+      }).catch(() => {});
+    } catch {
+      // Any hiccup: fall back to the classic turn-by-turn loop so the
+      // conversation still happens.
+      runLoop();
+    } finally {
+      setNegotiating(false);
+    }
+  }, [conversationId, runLoop]);
+
   // On mount:
   //  - if the conversation isn't finished, auto-run it
   //  - if it IS finished, make sure a summary + excitement score exist
@@ -1284,7 +1312,14 @@ export function ChatUI({
     if (startedRef.current) return;
     startedRef.current = true;
     if (!done) {
-      runLoop();
+      // Fresh conversation: negotiate behind closed doors, render only
+      // the distilled exchange. Mid-flight conversations keep the
+      // turn-by-turn loop.
+      if (messages.length === 0) {
+        closedDoors();
+      } else {
+        runLoop();
+      }
     } else {
       fetch("/api/summarize-conversation", {
         method: "POST",
@@ -1708,11 +1743,13 @@ export function ChatUI({
                 </div>
                 <div className="conv-status-line retro-dim text-xs flex items-center gap-1.5 mt-0.5">
                   <span>
-                    {running
-                      ? "twins are talking…"
-                      : done
-                      ? "conversation complete"
-                      : "twins ready"}
+                    {negotiating
+                      ? "twins negotiating behind closed doors…"
+                      : running
+                        ? "twins are talking…"
+                        : done
+                          ? "conversation complete"
+                          : "twins ready"}
                   </span>
                   <EditInfoBadge />
                 </div>
@@ -1740,7 +1777,9 @@ export function ChatUI({
                   </button>
                 )}
                 <button
-                  onClick={() => runLoop()}
+                  onClick={() =>
+                    messages.length === 0 ? closedDoors() : runLoop()
+                  }
                   className="retro-btn text-xs"
                   title="Continue / re-run"
                 >
@@ -1757,7 +1796,72 @@ export function ChatUI({
       })()}
 
       <div ref={scrollerRef} className="flex-1 overflow-y-auto py-4 space-y-2">
-        {messages.length === 0 && !running && (
+        {negotiating && messages.length === 0 && (
+          <div
+            className="retro-panel"
+            style={{
+              padding: 22,
+              margin: "12px 2px",
+              position: "relative",
+              overflow: "hidden"
+            }}
+          >
+            <div
+              className="retro-label"
+              style={{ color: "var(--amber-bright)" }}
+            >
+              behind closed doors
+            </div>
+            <div
+              aria-live="polite"
+              style={{ marginTop: 8, fontSize: 16, fontWeight: 800 }}
+            >
+              {NEG_LINES[negLine]}
+            </div>
+            <p
+              className="retro-dim"
+              style={{
+                marginTop: 8,
+                fontSize: 13,
+                lineHeight: 1.55,
+                maxWidth: 520
+              }}
+            >
+              Your twins are exchanging full context privately and
+              pressure-testing the highest-purpose win-win. You get the
+              short version: only the messages that matter, ending in a
+              concrete destination.
+            </p>
+            <div
+              style={{
+                marginTop: 14,
+                height: 4,
+                borderRadius: 2,
+                background: "var(--panel-2)",
+                overflow: "hidden"
+              }}
+            >
+              <div className="cd-progress" />
+            </div>
+            <style>{`
+              @keyframes cd-progress-slide {
+                0% { transform: translateX(-100%); }
+                100% { transform: translateX(350%); }
+              }
+              .cd-progress {
+                width: 40%;
+                height: 100%;
+                border-radius: 2px;
+                background: var(--amber, #6d6df8);
+                animation: cd-progress-slide 1.3s ease-in-out infinite;
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .cd-progress { animation: none; }
+              }
+            `}</style>
+          </div>
+        )}
+        {messages.length === 0 && !running && !negotiating && (
           <p className="retro-dim text-sm text-center py-8">
             Press “start” — your twins will run the conversation.
           </p>
