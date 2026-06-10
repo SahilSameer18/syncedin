@@ -1074,6 +1074,7 @@ export function ChatUI({
   const otherReadAt = otherLastReadAt ? new Date(otherLastReadAt) : null;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const firstScrollRef = useRef(true);
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -1084,10 +1085,16 @@ export function ChatUI({
     // mode … it shouldn't pull me down to the bottom when a new
     // conversation fires."
     if (editingId) return;
-    scrollerRef.current?.scrollTo({
-      top: scrollerRef.current.scrollHeight,
-      behavior: "smooth"
-    });
+    const el = scrollerRef.current;
+    if (!el) return;
+    // First positioning is INSTANT: opening a conversation lands on the
+    // latest message instead of scroll-touring the whole thread (Jack:
+    // "just start me at the bottom"). Smooth only for new activity.
+    const behavior: ScrollBehavior = firstScrollRef.current
+      ? "auto"
+      : "smooth";
+    firstScrollRef.current = false;
+    el.scrollTo({ top: el.scrollHeight, behavior });
     // Intentionally NOT depending on editingId — entering edit mode on a
     // message in the middle of the thread should keep the user's scroll
     // position so they can see the textarea they just opened. The earlier

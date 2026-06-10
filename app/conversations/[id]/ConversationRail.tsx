@@ -32,7 +32,7 @@ export async function ConversationRail({
   const { data: convs } = await supabase
     .from("conversations")
     .select(
-      "id, participant_a, participant_b, status, created_at, excitement_score, last_read_a, last_read_b"
+      "id, participant_a, participant_b, status, created_at, excitement_score, last_read_a, last_read_b, summary"
     )
     .or(`participant_a.eq.${user.id},participant_b.eq.${user.id}`)
     .order("created_at", { ascending: false })
@@ -79,38 +79,63 @@ export async function ConversationRail({
     return new Date(bt).getTime() - new Date(at).getTime();
   });
 
-  function statusDot(convId: string):
-    | { color: string; label: string }
-    | null {
-    const last = lastByConv.get(convId);
-    if (!last) return null;
-    if (last.sender_user_id === user!.id) {
-      return { color: "#9ca3af", label: "waiting on them" };
-    }
-    return { color: "var(--amber-bright)", label: "your turn" };
+  // Jack's badge language, one system everywhere:
+  //   red pulsing dot  = something is REQUIRED of you (respond to a
+  //                      proposal, or the last word is theirs)
+  //   ✓✓ (green)       = your last message was SEEN
+  //   ✓ (gray)         = your last message was delivered, not seen yet
+  //   green dot        = sealed
+  const { data: respRows } = convIds.length
+    ? await service
+        .from("agreement_responses")
+        .select("conversation_id, user_id, response")
+        .in("conversation_id", convIds)
+    : { data: [] as any[] };
+  const myRespByConv = new Map<string, string>();
+  const theirRespByConv = new Map<string, string>();
+  for (const r of (respRows ?? []) as Array<{
+    conversation_id: string;
+    user_id: string;
+    response: string;
+  }>) {
+    if (r.user_id === user.id) myRespByConv.set(r.conversation_id, r.response);
+    else theirRespByConv.set(r.conversation_id, r.response);
   }
 
-  /**
-   * Read receipt (#20 — "two check marks if it's red on the other
-   * person's face"). Only meaningful when YOUR message is the latest
-   * (ball in their court). Compares the counterpart's last_read stamp
-   * against your last message's sent_at:
-   *   - "read" → they've opened it since you sent → ✓✓ in brand red.
-   *   - "sent" → delivered but not yet read → faint gray ✓✓.
-   * Returns null when it's your turn / no messages / sealed.
-   */
-  function readReceipt(c: any): "read" | "sent" | null {
+  function railBadge(c: any):
+    | { kind: "action"; label: string }
+    | { kind: "seen" }
+    | { kind: "delivered" }
+    | { kind: "sealed" }
+    | null {
+    if (c.status === "closed") return { kind: "sealed" };
+    // Red dot, highest priority: a proposal is waiting on YOU.
+    const hasOutcome =
+      typeof c.summary === "string" && c.summary.trim().length > 0;
+    if (hasOutcome && !myRespByConv.has(c.id)) {
+      return {
+        kind: "action",
+        label:
+          theirRespByConv.get(c.id) === "accepted"
+            ? "They accepted, one tap to seal"
+            : "Proposal waiting on you"
+      };
+    }
     const last = lastByConv.get(c.id);
-    if (!last || last.sender_user_id !== user!.id) return null;
+    if (!last) return null;
+    // Their word is the last word: the ball is in your court.
+    if (last.sender_user_id !== user!.id) {
+      return { kind: "action", label: "Your turn" };
+    }
     const isA = c.participant_a === user!.id;
     const theirLastRead = isA ? c.last_read_b : c.last_read_a;
     if (
       theirLastRead &&
       new Date(theirLastRead).getTime() >= new Date(last.sent_at).getTime()
     ) {
-      return "read";
+      return { kind: "seen" };
     }
-    return "sent";
+    return { kind: "delivered" };
   }
 
   const otherIds = Array.from(
@@ -244,23 +269,51 @@ export async function ConversationRail({
                   size={26}
                 />
                 {(() => {
-                  const dot = statusDot(c.id);
-                  if (!dot) return null;
+                  const b = railBadge(c);
+                  if (!b) return null;
+                  if (b.kind === "action" || b.kind === "sealed") {
+                    const red = b.kind === "action";
+                    return (
+                      <span
+                        aria-label={red ? b.label : "sealed"}
+                        title={red ? b.label : "Deal sealed"}
+                        className={red ? "rail-action-dot" : undefined}
+                        style={{
+                          position: "absolute",
+                          right: -2,
+                          bottom: -2,
+                          width: 9,
+                          height: 9,
+                          borderRadius: 5,
+                          background: red
+                            ? "var(--red, #ef4444)"
+                            : "var(--green, #3cd870)",
+                          border: "1.5px solid var(--panel-solid)"
+                        }}
+                      />
+                    );
+                  }
+                  const seen = b.kind === "seen";
                   return (
                     <span
-                      aria-label={dot.label}
-                      title={dot.label}
+                      aria-label={seen ? "seen" : "delivered"}
+                      title={seen ? "Seen" : "Delivered · not seen yet"}
                       style={{
                         position: "absolute",
-                        right: -2,
-                        bottom: -2,
-                        width: 9,
-                        height: 9,
+                        right: -4,
+                        bottom: -4,
+                        fontSize: 8,
+                        fontWeight: 800,
+                        lineHeight: 1,
+                        padding: "1px 2px",
                         borderRadius: 5,
-                        background: dot.color,
-                        border: "1.5px solid var(--panel-solid)"
+                        background: "var(--panel-solid)",
+                        border: "1px solid var(--border)",
+                        color: seen ? "var(--green, #22c55e)" : "#9ca3af"
                       }}
-                    />
+                    >
+                      {seen ? "✓✓" : "✓"}
+                    </span>
                   );
                 })()}
               </div>
@@ -293,6 +346,13 @@ export async function ConversationRail({
         }}
       >
       <style>{`
+        @keyframes rail-action-pulse {
+          0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+          70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .rail-action-dot { animation: rail-action-pulse 1.8s ease-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .rail-action-dot { animation: none; } }
         .conv-rail-ava { transition: transform 140ms ease, box-shadow 140ms ease; border-radius: 50%; }
         .conv-rail-link:hover .conv-rail-ava {
           transform: scale(1.06);
@@ -334,22 +394,9 @@ export async function ConversationRail({
         const fullName = p?.display_name || p?.email || "Someone";
         const fn = firstName(fullName);
         const active = c.id === activeId;
-        // Status dot is now action-aware, not status-string-aware:
-        //   amber = waiting on you (their last message, ball in your court)
-        //   gray  = waiting on them (your last message)
-        //   sealed conversations still show green for completion
-        const sd = statusDot(c.id);
-        const dot =
-          c.status === "closed"
-            ? "var(--green, #3cd870)"
-            : sd
-              ? sd.color
-              : "transparent";
-        const dotLabel = c.status === "closed" ? "sealed" : sd?.label ?? "";
-        // Read receipt overrides the plain "waiting on them" gray dot
-        // with a ✓✓ glyph (red = they read it). Not shown on sealed
-        // conversations or when it's your turn.
-        const rr = c.status === "closed" ? null : readReceipt(c);
+        // One badge system: red dot (required of you) > ✓✓ seen >
+        // ✓ delivered > green sealed.
+        const badge = railBadge(c);
         return (
           <Link
             key={c.id}
@@ -387,59 +434,81 @@ export async function ConversationRail({
                 avatarUrl={p?.avatar_url ?? null}
                 size={56}
               />
-              {rr ? (
-                <span
-                  aria-label={rr === "read" ? "read" : "delivered"}
-                  title={rr === "read" ? "Read" : "Delivered · not read yet"}
-                  style={{
-                    position: "absolute",
-                    right: -3,
-                    bottom: -3,
-                    height: 16,
-                    padding: "0 3px",
-                    borderRadius: 8,
-                    background: "var(--panel-solid)",
-                    border: "1px solid var(--border)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: rr === "read" ? "var(--red, #ef4444)" : "#9ca3af",
-                    lineHeight: 1
-                  }}
-                >
-                  <svg
-                    width="16"
-                    height="11"
-                    viewBox="0 0 16 11"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M1 5.5 4 8.5 9.5 2" />
-                    <path d="M6.5 8.5 12 2" />
-                  </svg>
-                </span>
-              ) : (
-                dot !== "transparent" && (
+              {badge &&
+                (badge.kind === "action" || badge.kind === "sealed" ? (
                   <span
-                    aria-label={dotLabel}
-                    title={dotLabel}
+                    aria-label={
+                      badge.kind === "action" ? badge.label : "sealed"
+                    }
+                    title={
+                      badge.kind === "action" ? badge.label : "Deal sealed"
+                    }
+                    className={
+                      badge.kind === "action" ? "rail-action-dot" : undefined
+                    }
                     style={{
                       position: "absolute",
                       right: -1,
                       bottom: -1,
-                      width: 10,
-                      height: 10,
-                      borderRadius: 5,
-                      background: dot,
+                      width: badge.kind === "action" ? 11 : 10,
+                      height: badge.kind === "action" ? 11 : 10,
+                      borderRadius: 6,
+                      background:
+                        badge.kind === "action"
+                          ? "var(--red, #ef4444)"
+                          : "var(--green, #3cd870)",
                       border: "2px solid var(--panel-solid)"
                     }}
                   />
-                )
-              )}
+                ) : (
+                  <span
+                    aria-label={badge.kind === "seen" ? "seen" : "delivered"}
+                    title={
+                      badge.kind === "seen"
+                        ? "Seen"
+                        : "Delivered · not seen yet"
+                    }
+                    style={{
+                      position: "absolute",
+                      right: -3,
+                      bottom: -3,
+                      height: 16,
+                      padding: "0 3px",
+                      borderRadius: 8,
+                      background: "var(--panel-solid)",
+                      border: "1px solid var(--border)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color:
+                        badge.kind === "seen"
+                          ? "var(--green, #22c55e)"
+                          : "#9ca3af",
+                      lineHeight: 1
+                    }}
+                  >
+                    <svg
+                      width="16"
+                      height="11"
+                      viewBox="0 0 16 11"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      {badge.kind === "seen" ? (
+                        <>
+                          <path d="M1 5.5 4 8.5 9.5 2" />
+                          <path d="M6.5 8.5 12 2" />
+                        </>
+                      ) : (
+                        <path d="M3 5.5 6 8.5 11.5 2" />
+                      )}
+                    </svg>
+                  </span>
+                ))}
               {typeof c.excitement_score === "number" &&
                 c.excitement_score > 0 && (
                   <span
