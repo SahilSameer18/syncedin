@@ -754,13 +754,25 @@ export function CustomSite({
 
   return (
     <main
-      style={{
-        minHeight: "100vh",
-        background:
-          page.bg_gradient ||
-          "linear-gradient(180deg, #f7f7ff 0%, #ffffff 60%)",
-        fontFamily: `"${body}", Inter, sans-serif`
-      }}
+      style={
+        {
+          minHeight: "100vh",
+          background:
+            page.bg_gradient ||
+            "linear-gradient(180deg, #f7f7ff 0%, #ffffff 60%)",
+          fontFamily: `"${body}", Inter, sans-serif`,
+          // bg_gradient is always light, but this page renders inside the
+          // app theme, so var(--text)/var(--text-dim) resolve to white-ish
+          // values in dark mode (and too-pale grays in light mode) on the
+          // lavender background. Pin readable dark-on-light values so the
+          // generated site is theme-proof.
+          color: "#16182a",
+          "--text": "#16182a",
+          "--text-dim": "#555e74",
+          "--panel-solid": "#ffffff",
+          "--border": "#e7e9f2"
+        } as React.CSSProperties
+      }
     >
       {/* Preconnect + load the chosen display + body fonts. Safe to
           double-link; browsers de-dupe by URL. */}
