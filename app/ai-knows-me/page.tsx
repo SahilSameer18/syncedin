@@ -28,13 +28,19 @@ export const metadata: Metadata = {
   }
 };
 
-export default async function AiKnowsMePage() {
+export default async function AiKnowsMePage({
+  searchParams
+}: {
+  searchParams?: { preview?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
   // Signed-in users already have a twin path. Send them to build it.
-  if (user) redirect("/onboarding");
+  // ?preview=1 skips the redirect so the experience can be filmed and QA'd
+  // while signed in.
+  if (user && !searchParams?.preview) redirect("/onboarding");
 
   return (
     <main className="max-w-3xl mx-auto px-5 py-6">
