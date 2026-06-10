@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SyncMeter } from "../SyncMeter";
-import type { SyncInputs } from "@/lib/sync-score";
+import { computeSyncScore, type SyncInputs } from "@/lib/sync-score";
 
 /**
  * LiveSyncMeter — wraps SyncMeter and listens to the onboarding form's
@@ -35,6 +35,16 @@ export function LiveSyncMeter({
     accepted_agreements: acceptedAgreements,
     edit_count: editCount
   });
+  // Floating "+N%" reward chips when the sync score actually rises.
+  // Real numbers only: the delta is the computed score difference.
+  const [chips, setChips] = useState<{ id: string; delta: number }[]>([]);
+  const prevTotal = useRef<number | null>(null);
+  const reduceMotion = useRef(false);
+  useEffect(() => {
+    reduceMotion.current =
+      typeof window !== "undefined" &&
+      !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  }, []);
 
   useEffect(() => {
     function readForm(): SyncInputs {
@@ -67,7 +77,25 @@ export function LiveSyncMeter({
 
     const form = document.querySelector(formSelector) as HTMLFormElement | null;
     if (!form) return;
-    const update = () => setInputs(readForm());
+    const update = () => {
+      const next = readForm();
+      setInputs(next);
+      const total = computeSyncScore(next).total;
+      if (
+        prevTotal.current !== null &&
+        total > prevTotal.current &&
+        !reduceMotion.current
+      ) {
+        const id = Math.random().toString(36).slice(2);
+        const delta = total - prevTotal.current;
+        setChips((c) => [...c.slice(-3), { id, delta }]);
+        setTimeout(
+          () => setChips((c) => c.filter((x) => x.id !== id)),
+          1500
+        );
+      }
+      prevTotal.current = total;
+    };
     update();
     form.addEventListener("input", update);
     return () => form.removeEventListener("input", update);
@@ -95,6 +123,38 @@ export function LiveSyncMeter({
       >
         clone power
       </div>
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          top: 12,
+          right: 14,
+          pointerEvents: "none",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "flex-end"
+        }}
+      >
+        {chips.map((c) => (
+          <div key={c.id} className="sync-chip">
+            +{c.delta}%
+          </div>
+        ))}
+      </div>
+      <style>{`
+        @keyframes sync-chip-rise {
+          0% { opacity: 0; transform: translateY(8px) scale(0.8); }
+          20% { opacity: 1; }
+          100% { opacity: 0; transform: translateY(-28px) scale(1.05); }
+        }
+        .sync-chip {
+          font-size: 12px;
+          font-weight: 800;
+          color: var(--green);
+          text-shadow: 0 0 12px rgba(94, 229, 178, 0.6);
+          animation: sync-chip-rise 1.45s ease forwards;
+        }
+      `}</style>
       <SyncMeter inputs={inputs} size={size} />
       <p
         className="text-xs"

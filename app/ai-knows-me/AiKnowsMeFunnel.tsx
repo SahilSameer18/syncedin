@@ -206,6 +206,13 @@ export function AiKnowsMeFunnel() {
           "syncedin-portfolio-seed",
           JSON.stringify({ name, dump, people })
         );
+        // Onboarding consumes + deletes the seed, so persist the people
+        // separately: /ghosts reads this key to offer one-tap targets
+        // even after the wizard has eaten the seed.
+        localStorage.setItem(
+          "syncedin-decode-people",
+          JSON.stringify(people)
+        );
       } catch {
         /* storage blocked */
       }

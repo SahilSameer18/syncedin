@@ -59,9 +59,17 @@ export function GhostsConsole({
       const seed = JSON.parse(
         localStorage.getItem("syncedin-portfolio-seed") || "{}"
       );
-      if (Array.isArray(seed?.people)) {
+      // The wizard consumes + deletes the seed on mount, so fall back to
+      // the dedicated people key the decode funnel also writes.
+      const fallback = JSON.parse(
+        localStorage.getItem("syncedin-decode-people") || "[]"
+      );
+      const people = Array.isArray(seed?.people) && seed.people.length > 0
+        ? seed.people
+        : fallback;
+      if (Array.isArray(people)) {
         setSeedPeople(
-          seed.people
+          people
             .filter(
               (p: any) => p && typeof p.name === "string" && p.name.length > 1
             )

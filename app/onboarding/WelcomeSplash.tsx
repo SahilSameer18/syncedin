@@ -46,6 +46,7 @@ export function WelcomeSplash({
       {/* Subtle scan line so it reads as sci-fi-welcome not generic card */}
       <span
         aria-hidden
+        className="ws-scan"
         style={{
           position: "absolute",
           left: 0,
@@ -72,6 +73,7 @@ export function WelcomeSplash({
           <img
             src={avatarUrl}
             alt={greetName}
+            className="ws-avatar"
             width={64}
             height={64}
             style={{
@@ -86,6 +88,7 @@ export function WelcomeSplash({
           />
         ) : (
           <div
+            className="ws-avatar"
             style={{
               width: 64,
               height: 64,
@@ -106,13 +109,13 @@ export function WelcomeSplash({
         )}
         <div style={{ minWidth: 0, flex: 1 }}>
           <div
-            className="retro-label"
+            className="retro-label ws-rise-1"
             style={{ color: "var(--amber-bright, #94a4ff)" }}
           >
             welcome
           </div>
           <h2
-            className="retro-h1"
+            className="retro-h1 ws-rise-2"
             style={{
               fontSize: 28,
               lineHeight: 1.15,
@@ -123,6 +126,7 @@ export function WelcomeSplash({
             Welcome, {greetName}.
           </h2>
           <p
+            className="ws-rise-3"
             style={{
               marginTop: 8,
               fontSize: 14,
@@ -139,6 +143,7 @@ export function WelcomeSplash({
 
       {inviterName && (
         <div
+          className="ws-rise-4"
           style={{
             marginTop: 16,
             padding: "10px 14px",
@@ -158,6 +163,36 @@ export function WelcomeSplash({
           {conversationId ? "." : "."}
         </div>
       )}
+
+      {/* Entrance choreography: pure CSS so this stays a server
+          component. Label, headline, manifesto, and invite line rise in
+          sequence; the scan line sweeps; the avatar ring breathes. */}
+      <style>{`
+        @keyframes ws-in {
+          0% { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: none; }
+        }
+        .ws-rise-1 { animation: ws-in 0.5s ease 0.05s both; }
+        .ws-rise-2 { animation: ws-in 0.55s cubic-bezier(0.2, 0.9, 0.3, 1) 0.16s both; }
+        .ws-rise-3 { animation: ws-in 0.55s ease 0.3s both; }
+        .ws-rise-4 { animation: ws-in 0.55s ease 0.46s both; }
+        @keyframes ws-scan-sweep {
+          0% { transform: translateY(-42px); opacity: 0; }
+          30% { opacity: 0.55; }
+          100% { transform: translateY(46px); opacity: 0; }
+        }
+        .ws-scan { animation: ws-scan-sweep 3s ease-in-out 0.5s infinite; }
+        @keyframes ws-avatar-pulse {
+          0%, 100% { box-shadow: 0 0 0 4px rgba(94, 110, 255, 0.18); }
+          50% { box-shadow: 0 0 0 10px rgba(94, 110, 255, 0.06); }
+        }
+        .ws-avatar { animation: ws-avatar-pulse 3s ease infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .ws-rise-1, .ws-rise-2, .ws-rise-3, .ws-rise-4, .ws-scan, .ws-avatar {
+            animation: none;
+          }
+        }
+      `}</style>
     </section>
   );
 }

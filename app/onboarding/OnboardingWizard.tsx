@@ -107,6 +107,17 @@ export function OnboardingWizard({
   const set = <K extends keyof Initial>(k: K, v: Initial[K]) =>
     setState((s) => ({ ...s, [k]: v }));
 
+  // Cinematic pacing: every step change starts at the top of the page
+  // with a fresh entrance (also fixes landing mid-page via scroll
+  // restoration). Smooth unless the user prefers reduced motion.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const reduce = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+  }, [step]);
+
   // Hydrate URL snippets + AI dump from the existing blob on first mount.
   const initialParsed = useRef(parseSnippets(initial.ai_export_blob || ""));
   const [snippets, setSnippets] = useState<Snippet[]>(
@@ -475,6 +486,39 @@ export function OnboardingWizard({
       <input type="hidden" name="current_city" value={state.current_city} />
       <input type="hidden" name="achievements" value={state.achievements} />
 
+      {/* Onboarding cinema layer: entrances, pill physics, connector
+          fills. Pure presentation; reduced-motion turns it all off. */}
+      <style>{`
+        @keyframes ob-step-in {
+          0% { opacity: 0; transform: translateY(14px) scale(0.992); }
+          100% { opacity: 1; transform: none; }
+        }
+        .ob-step-in {
+          animation: ob-step-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+        }
+        .ob-pill {
+          transition: transform 0.15s ease, background 0.25s ease,
+            border-color 0.25s ease, color 0.25s ease;
+        }
+        @keyframes ob-pill-ring {
+          0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+          70% { box-shadow: 0 0 0 9px rgba(0, 0, 0, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
+        }
+        .ob-pill-current { animation: ob-pill-ring 2.2s ease-out infinite; }
+        @keyframes ob-pill-pop {
+          0% { transform: scale(0.55); }
+          70% { transform: scale(1.12); }
+          100% { transform: scale(1); }
+        }
+        .ob-pill-done { animation: ob-pill-pop 0.35s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+        .ob-connector { transition: background 0.4s ease; }
+        .ob-connector-done { background: var(--amber) !important; }
+        @media (prefers-reduced-motion: reduce) {
+          .ob-step-in, .ob-pill-current, .ob-pill-done { animation: none; }
+        }
+      `}</style>
+
       {/* Progress strip — step pills LEFT, continue/back nav RIGHT, all in
           a single row so the user never has to look around for "what next".
           We deliberately drop flex-wrap on the outer row + collapse the
@@ -503,6 +547,13 @@ export function OnboardingWizard({
                 }}
               >
                 <span
+                  className={
+                    done
+                      ? "ob-pill ob-pill-done"
+                      : current
+                        ? "ob-pill ob-pill-current"
+                        : "ob-pill"
+                  }
                   style={{
                     width: 28,
                     height: 28,
@@ -541,6 +592,9 @@ export function OnboardingWizard({
               </button>
               {i < STEPS.length - 1 && (
                 <span
+                  className={
+                    done ? "ob-connector ob-connector-done" : "ob-connector"
+                  }
                   style={{
                     width: 14,
                     height: 1,
@@ -623,11 +677,11 @@ export function OnboardingWizard({
         </div>
       </div>
 
-      <div className="retro-panel retro-shadow p-6">
+      <div key={STEPS[step].key} className="retro-panel retro-shadow p-6 ob-step-in">
         {/* STEP 1 — You: name + photo together */}
         {STEPS[step].key === "you" && (
           <div>
-            <div className="retro-label">step 1 of 3</div>
+            <div className="retro-label">step 1 of 4</div>
             <h2 className="retro-h1 text-2xl mt-2">Let&apos;s start with you.</h2>
             <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
               Photo on the left, where you live and where you&apos;re from

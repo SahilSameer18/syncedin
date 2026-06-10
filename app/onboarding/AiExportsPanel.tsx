@@ -398,15 +398,18 @@ export function AiExportsPanel() {
         );
       })}
       {loading && (
-        <p
-          style={{
-            marginTop: 8,
-            fontSize: 11,
-            color: "var(--text-dim)"
-          }}
+        <div
+          aria-label="Loading saved exports"
+          style={{ marginTop: 8, display: "grid", gap: 8 }}
         >
-          Loading saved exports…
-        </p>
+          {[0, 1].map((i) => (
+            <div
+              key={i}
+              className="ob-skeleton"
+              style={{ height: 44, borderRadius: 10 }}
+            />
+          ))}
+        </div>
       )}
     </section>
   );
