@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { track } from "@/lib/track";
 
 /**
  * GhostsConsole — paste a URL, watch the conversation play out, send it.
@@ -49,6 +50,29 @@ export function GhostsConsole({
   const [messages, setMessages] = useState<Msg[]>([]);
   const [streaming, setStreaming] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [seedPeople, setSeedPeople] = useState<{ name: string; why: string }[]>([]);
+
+  // If the visitor came through the /ai-knows-me decode, their AI already
+  // named the people who matter. Offer them as one-tap ghost targets.
+  useEffect(() => {
+    try {
+      const seed = JSON.parse(
+        localStorage.getItem("syncedin-portfolio-seed") || "{}"
+      );
+      if (Array.isArray(seed?.people)) {
+        setSeedPeople(
+          seed.people
+            .filter(
+              (p: any) => p && typeof p.name === "string" && p.name.length > 1
+            )
+            .slice(0, 5)
+            .map((p: any) => ({ name: String(p.name), why: String(p.why ?? "") }))
+        );
+      }
+    } catch {
+      /* no seed, fine */
+    }
+  }, []);
 
   async function spawnGhost() {
     if (!contact.trim() || generating) return;
@@ -78,6 +102,7 @@ export function GhostsConsole({
         const handle = raw
           .replace(/^@+/, "")
           .replace(/\.(io|com|net|co|app|me|fm)$/i, "")
+          .replace(/\s+/g, "-")
           .trim();
         if (handle.length < 2) {
           throw new Error(
@@ -281,6 +306,47 @@ export function GhostsConsole({
           Drop a profile URL, an email, or just a name. We&apos;ll summon
           their ghost from public data and play out the conversation.
         </p>
+        {seedPeople.length > 0 && (
+          <div style={{ margin: "2px 0 12px" }}>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 800,
+                letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                color: "var(--text-dim)",
+                marginRight: 8
+              }}
+            >
+              from your decode:
+            </span>
+            {seedPeople.map((p, i) => (
+              <button
+                key={i}
+                type="button"
+                title={p.why}
+                onClick={() => {
+                  setContact(p.name);
+                  track("ghost_prefill_used", { name: p.name });
+                }}
+                style={{
+                  fontSize: 12,
+                  fontWeight: 700,
+                  padding: "4px 10px",
+                  marginRight: 6,
+                  marginBottom: 6,
+                  borderRadius: 999,
+                  border: "1px solid var(--border)",
+                  background: "var(--panel-2)",
+                  color: "var(--text)",
+                  cursor: "pointer"
+                }}
+              >
+                {p.name}
+              </button>
+            ))}
+          </div>
+        )}
         <div
           style={{
             display: "flex",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { track } from "@/lib/track";
 
 /**
  * EditableOutcome — the proposal outcome shown on each Messages row,
@@ -39,6 +40,7 @@ export function EditableOutcome({
         <div className="text-xs mt-0.5" style={{ lineHeight: 1.45 }}>
           {initialText}
         </div>
+        <PublishWin conversationId={conversationId} />
       </div>
     );
   }
@@ -107,6 +109,147 @@ export function EditableOutcome({
           resize: "vertical"
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * PublishWin — proof-of-outcome publisher, shown only on ACCEPTED
+ * outcomes. One click, explicit named/anonymous choice, lands on the
+ * public /wins page. Server re-verifies the caller is a participant.
+ */
+function PublishWin({ conversationId }: { conversationId: string }) {
+  const [mode, setMode] = useState<
+    "idle" | "choose" | "busy" | "done" | "fail"
+  >("idle");
+  const [msg, setMsg] = useState("");
+
+  async function publish(anonymize: boolean) {
+    setMode("busy");
+    try {
+      const res = await fetch("/api/wins/publish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ conversationId, anonymize })
+      });
+      const j = await res.json().catch(() => ({}) as any);
+      if (!res.ok) {
+        setMsg(j?.detail || "Couldn't publish, try again.");
+        setMode("fail");
+        return;
+      }
+      track("win_published", { anonymize });
+      setMode("done");
+    } catch {
+      setMsg("Couldn't publish, try again.");
+      setMode("fail");
+    }
+  }
+
+  if (mode === "done") {
+    return (
+      <a
+        href="/wins"
+        className="text-[11px]"
+        style={{
+          display: "inline-block",
+          marginTop: 6,
+          color: "var(--green)",
+          textDecoration: "none",
+          fontWeight: 700
+        }}
+      >
+        ✓ live on syncedin.org/wins →
+      </a>
+    );
+  }
+  if (mode === "busy") {
+    return (
+      <div className="text-[11px] mt-1.5" style={{ color: "var(--text-dim)" }}>
+        publishing…
+      </div>
+    );
+  }
+  if (mode === "choose") {
+    return (
+      <div
+        className="text-[11px] mt-1.5"
+        style={{ display: "flex", gap: 8, alignItems: "center" }}
+      >
+        <span style={{ color: "var(--text-dim)" }}>publish as:</span>
+        <button
+          type="button"
+          onClick={() => publish(false)}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--border)",
+            borderRadius: 999,
+            padding: "2px 10px",
+            cursor: "pointer",
+            color: "var(--text)",
+            fontWeight: 700,
+            fontSize: 11
+          }}
+        >
+          with names
+        </button>
+        <button
+          type="button"
+          onClick={() => publish(true)}
+          style={{
+            background: "transparent",
+            border: "1px solid var(--border)",
+            borderRadius: 999,
+            padding: "2px 10px",
+            cursor: "pointer",
+            color: "var(--text)",
+            fontWeight: 700,
+            fontSize: 11
+          }}
+        >
+          anonymous
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode("idle")}
+          style={{
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--text-dim)",
+            fontSize: 11
+          }}
+        >
+          cancel
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-1.5">
+      <button
+        type="button"
+        onClick={() => setMode("choose")}
+        className="text-[11px]"
+        style={{
+          background: "transparent",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          color: "var(--amber-bright)",
+          fontWeight: 700
+        }}
+      >
+        Publish this win → public receipt on /wins
+      </button>
+      {mode === "fail" && (
+        <span
+          className="text-[11px]"
+          style={{ marginLeft: 8, color: "var(--red, #ef4444)" }}
+        >
+          {msg}
+        </span>
+      )}
     </div>
   );
 }

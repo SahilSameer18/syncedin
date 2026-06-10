@@ -170,9 +170,13 @@ You receive the user's freeform goal statement and (optionally) an intent label 
 GUIDELINES:
 - Questions must be SPECIFIC to their stated goal, not generic ("what are your strengths?" is bad).
 - Avoid yes/no questions. Each question should pull out a concrete data point: a number, a timeline, a name, a constraint.
+- One question MUST pin the OUTCOME: what does a win concretely look like in 30 to 60 days (a number, an artifact, a signed thing)? Matches get scored against this answer, so push for measurable.
+- One question MUST pull out what they OFFER the ideal counterpart (the give side: time, capital, skill, audience, access). Matches are exchanges, not requests.
+- One question should surface timeline and urgency: when does this stop mattering, what happens if it takes 6 months?
 - Mix one-line "short" answers with paragraph "long" answers. Bias toward short for facts (stage, amount, geography) and long for things requiring judgment (ideal counterpart, dealbreaker, success picture).
 - Surface dealbreakers — at least one question should flush out what would make a match WRONG.
 - Tone: conversational, direct, no buzzwords ("synergies", "leverage", "growth hacking" → no).
+- NEVER use em-dashes in prompts or placeholders. Use commas, periods, or parentheses.
 
 OUTPUT: A single JSON object exactly matching this schema:
 {

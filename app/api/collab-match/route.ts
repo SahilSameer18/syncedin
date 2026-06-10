@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     });
   }
 
-  const system = `You find the SPECIFIC, non-obvious win-win between two people based on their twin context. Output 1-2 sentences, second person ("You and ${theirName}…"), naming the concrete exchange or collaboration — what each side uniquely gives and gets. No vague "explore synergies." If the overlap is thin, name the single most promising angle anyway. Return ONLY the sentences, no preamble.`;
+  const system = `You find the SPECIFIC, non-obvious win-win between two people based on their twin context. Output 2-3 sentences, second person ("You and ${theirName}..."). Sentence 1-2: the concrete exchange, what each side uniquely GIVES and GETS, grounded in evidence from both contexts (cite the actual project, number, or need). Final sentence: "First step:" followed by one action either person can take this week in under 30 minutes (a specific intro, a 20-minute call about X, sending the deck). No vague "explore synergies", no invented facts, NEVER use em-dashes (use commas or periods). If the overlap is thin, name the single most promising angle anyway. Return ONLY the sentences, no preamble.`;
 
   try {
     const r = await anthropic.messages.create({

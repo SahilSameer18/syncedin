@@ -55,6 +55,9 @@ export function Footer() {
         <span style={{ display: "none" }}>build:{BUILD_SHA}</span>
       </div>
       <nav className="flex items-center gap-4">
+        <Link href="/wins" className="hover:text-white">
+          Wins
+        </Link>
         <Link href="/hypernetwork" className="hover:text-white">
           Hypernetwork
         </Link>

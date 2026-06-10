@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
+import { TrackBeacon } from "../TrackBeacon";
 import { RecGeneratorCard } from "./RecGeneratorCard";
 import { PiGeneratorCard } from "./PiGeneratorCard";
 import { PortfolioBuildButton } from "./PortfolioBuildButton";
@@ -170,6 +171,7 @@ export default async function PersonalIntelligencePage() {
 
   return (
     <AppShell>
+      <TrackBeacon meta={{ door: "personal-intelligence" }} />
       <header style={{ marginBottom: 20 }}>
         <div
           style={{

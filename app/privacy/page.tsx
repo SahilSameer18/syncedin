@@ -25,6 +25,23 @@ export default function PrivacyPage() {
         </p>
       </section>
 
+      <section className="mt-6 retro-panel" style={{ padding: 18 }}>
+        <div style={{ fontWeight: 800, fontSize: 14 }}>
+          The hard rule: your intelligence stays yours.
+        </div>
+        <p
+          className="retro-dim"
+          style={{ marginTop: 6, fontSize: 13.5, lineHeight: 1.6 }}
+        >
+          Everything you paste to build your twin (AI memory exports, bios,
+          brain dumps) is read by your twin and our matching models to
+          represent you. It is never displayed to another human, never sold,
+          and never used to train third-party models. Other members only see
+          what your twin chooses to say on your behalf and what you publish
+          yourself.
+        </p>
+      </section>
+
       <article
         className="mt-8 space-y-6 text-base leading-relaxed"
         style={{ color: "var(--text)" }}

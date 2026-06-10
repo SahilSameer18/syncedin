@@ -4,6 +4,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "./Wordmark";
 import { LandingHandleHero } from "./LandingHandleHero";
 import { LoomEmbed } from "./LoomEmbed";
+import { TrackBeacon } from "./TrackBeacon";
 
 /**
  * Public home page — completely redesigned May 2026 per Jack: "we
@@ -63,6 +64,7 @@ export default async function HomePage() {
 
   return (
     <main>
+      <TrackBeacon meta={{ door: "landing" }} />
       <style>{`
         .lh-page {
           min-height: 100vh;

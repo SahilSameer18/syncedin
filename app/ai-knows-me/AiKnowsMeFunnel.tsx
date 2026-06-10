@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { BrandLogo, type BrandKey } from "../BrandLogo";
+import { track } from "@/lib/track";
+import { TrustNote } from "../TrustNote";
 
 /**
  * AiKnowsMeFunnel, the conversion engine for /ai-knows-me.
@@ -77,6 +79,7 @@ export function AiKnowsMeFunnel() {
     headline: string;
     about: string;
     highlights: string[];
+    people: { name: string; why: string }[];
   } | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
@@ -130,6 +133,7 @@ export function AiKnowsMeFunnel() {
     try {
       await navigator.clipboard.writeText(PROMPT);
       setCopied(true);
+      track("prompt_copied");
       setTimeout(() => setCopied(false), 2200);
     } catch {
       /* clipboard blocked */
@@ -144,6 +148,7 @@ export function AiKnowsMeFunnel() {
         await navigator.clipboard.writeText(`${SHARE_TEXT} ${SHARE_URL}`);
       }
       setShared(true);
+      track("share_clicked");
       setTimeout(() => setShared(false), 2200);
     } catch {
       /* share dismissed or clipboard blocked */
@@ -158,6 +163,7 @@ export function AiKnowsMeFunnel() {
     setErr(null);
     setPhase("decoding");
     setDecodeLine(0);
+    track("decode_started", { chars: dump.length });
     try {
       // Stash so signup → onboarding prefills the twin + full portfolio.
       try {
@@ -180,17 +186,39 @@ export function AiKnowsMeFunnel() {
       );
       const [j] = await Promise.all([api, minShow]);
       if (j?.error) {
+        track("decode_failed");
         setErr(j.detail || "Couldn't decode that, add a little more and retry.");
         setPhase("idle");
         return;
       }
+      const people = Array.isArray(j.people)
+        ? j.people
+            .filter(
+              (p: any) => p && typeof p.name === "string" && p.name.length > 1
+            )
+            .slice(0, 5)
+            .map((p: any) => ({ name: String(p.name), why: String(p.why ?? "") }))
+        : [];
+      // Re-stash with people so /ghosts can prefill one-tap targets
+      // after signup. Same key onboarding already reads.
+      try {
+        localStorage.setItem(
+          "syncedin-portfolio-seed",
+          JSON.stringify({ name, dump, people })
+        );
+      } catch {
+        /* storage blocked */
+      }
       setResult({
         headline: j.headline || "",
         about: j.about || "",
-        highlights: Array.isArray(j.highlights) ? j.highlights : []
+        highlights: Array.isArray(j.highlights) ? j.highlights : [],
+        people
       });
+      track("decode_done", { chars: dump.length, people: people.length });
       setPhase("reveal");
     } catch {
+      track("decode_failed");
       setErr("Something went wrong. Try again.");
       setPhase("idle");
     }
@@ -376,7 +404,7 @@ export function AiKnowsMeFunnel() {
           )}
 
           {result.highlights.length > 0 && (
-            <ul style={{ marginTop: 14, paddingLeft: 18, lineHeight: 1.7 }}>
+            <ul style={{ marginTop: 14, paddingLeft: 18, lineHeight: 1.7, listStyle: "disc" }}>
               {result.highlights.map((h, i) => (
                 <li
                   key={i}
@@ -391,6 +419,61 @@ export function AiKnowsMeFunnel() {
                 </li>
               ))}
             </ul>
+          )}
+
+          {result.people.length > 0 && (
+            <div
+              className="aikm-rise"
+              style={{ marginTop: 16, animationDelay: "1.2s" }}
+            >
+              <div
+                style={{
+                  fontSize: 10,
+                  fontWeight: 800,
+                  letterSpacing: "0.14em",
+                  textTransform: "uppercase",
+                  color: "var(--text-dim)"
+                }}
+              >
+                people your AI mentioned
+              </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6
+                }}
+              >
+                {result.people.map((p, i) => (
+                  <span
+                    key={i}
+                    title={p.why}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 700,
+                      padding: "4px 10px",
+                      borderRadius: 999,
+                      border: "1px solid var(--border)",
+                      color: "var(--text)"
+                    }}
+                  >
+                    {p.name}
+                  </span>
+                ))}
+              </div>
+              <p
+                style={{
+                  marginTop: 8,
+                  fontSize: 12,
+                  color: "var(--text-dim)",
+                  lineHeight: 1.5
+                }}
+              >
+                Claim your twin and watch it open the conversation with them
+                first.
+              </p>
+            </div>
           )}
 
           <div
@@ -412,6 +495,7 @@ export function AiKnowsMeFunnel() {
         <div className="aikm-rise" style={{ animationDelay: "1.4s" }}>
           <Link
             href="/login?next=/onboarding"
+            onClick={() => track("claim_clicked")}
             className="retro-btn retro-btn-primary"
             style={{
               marginTop: 16,
@@ -434,8 +518,12 @@ export function AiKnowsMeFunnel() {
               textAlign: "center"
             }}
           >
-            Free. Publishes at syncedin.org/u/you, then your twin starts
-            finding win-wins while you sleep.
+            {result.people.length > 0
+              ? `Free. Publishes at syncedin.org/u/you, then your twin opens conversations with ${result.people
+                  .slice(0, 2)
+                  .map((p) => p.name.split(" ")[0])
+                  .join(" and ")} first.`
+              : "Free. Publishes at syncedin.org/u/you, then your twin starts finding win-wins while you sleep."}
           </p>
           <button
             type="button"
@@ -542,6 +630,7 @@ export function AiKnowsMeFunnel() {
         className="retro-input"
         style={{ marginTop: 8, fontSize: 14, lineHeight: 1.5 }}
       />
+      <TrustNote />
       {dump.trim().length >= 20 && (
         <div
           className="retro-dim"

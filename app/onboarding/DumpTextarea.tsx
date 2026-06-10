@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { TrustNote } from "../TrustNote";
 
 // There's no cap — the full blob is fed to the twin. The thresholds below are
 // just encouragement: a single AI dump gets you to "good", a couple of chat
@@ -39,6 +40,7 @@ export function DumpTextarea({ defaultValue }: { defaultValue: string }) {
         placeholder={"--- ChatGPT context dump ---\n[paste here]\n\n--- WhatsApp chat with [name] ---\n[paste here]\n\n--- 5 sent emails ---\n[paste here]"}
         className="mt-2 w-full px-3 py-2  bg-[var(--panel)] border border-[var(--border)] text-sm placeholder-[#5a5446] font-mono"
       />
+      <TrustNote style={{ textAlign: "left", marginTop: 6 }} />
       <div className="mt-2 flex items-center gap-3">
         <div className="flex-1 h-1.5 bg-[var(--panel)] rounded-full overflow-hidden">
           <div

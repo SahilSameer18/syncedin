@@ -33,14 +33,15 @@ export async function POST(req: Request) {
 {
   "headline": "<one vivid line that captures who they are, ≤12 words>",
   "about": "<2-3 sentences, second person ('You ...'), concrete and specific to what they pasted — no fluff>",
-  "highlights": ["<3 to 4 short punchy credibility bullets pulled from the text: builds, wins, roles, numbers>"]
+  "highlights": ["<3 to 4 short punchy credibility bullets pulled from the text: builds, wins, roles, numbers>"],
+  "people": [{ "name": "<a person explicitly NAMED in the text>", "why": "<8 words max on why they matter to this person>" }]
 }
-Rules: Specific, grounded in the text. Never invent facts. NEVER use em-dashes (—); use periods or commas. Return ONLY the JSON.`;
+Rules: Specific, grounded in the text. Never invent facts. "people" may ONLY contain real humans explicitly named in the pasted text (max 5, empty array if none, exclude the subject themselves and company names). NEVER use em-dashes (—); use periods or commas. Return ONLY the JSON.`;
 
   try {
     const r = await anthropic.messages.create({
       model: TWIN_MODEL,
-      max_tokens: 700,
+      max_tokens: 900,
       system,
       messages: [
         {
@@ -65,6 +66,15 @@ Rules: Specific, grounded in the text. Never invent facts. NEVER use em-dashes (
       about: String(parsed.about ?? "").slice(0, 600),
       highlights: Array.isArray(parsed.highlights)
         ? parsed.highlights.slice(0, 4).map((h: any) => String(h).slice(0, 160))
+        : [],
+      people: Array.isArray(parsed.people)
+        ? parsed.people
+            .slice(0, 5)
+            .map((p: any) => ({
+              name: String(p?.name ?? "").slice(0, 60),
+              why: String(p?.why ?? "").slice(0, 80)
+            }))
+            .filter((p: { name: string }) => p.name.length > 1)
         : []
     });
   } catch (e: any) {

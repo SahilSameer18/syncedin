@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
+import { TrackBeacon } from "../TrackBeacon";
 import { AiKnowsMeFunnel } from "./AiKnowsMeFunnel";
 
 /**
@@ -44,6 +45,7 @@ export default async function AiKnowsMePage({
 
   return (
     <main className="max-w-3xl mx-auto px-5 py-6">
+      <TrackBeacon meta={{ door: "ai-knows-me" }} />
       <div className="flex items-center justify-between">
         <Wordmark size="md" />
         <a href="/login" className="retro-dim text-sm hover:text-white">

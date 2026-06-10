@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { BrandLogo, type BrandKey } from "../BrandLogo";
+import { track } from "@/lib/track";
+import { TrustNote } from "../TrustNote";
 
 /**
  * GeneratePortfolioForm — the conversion engine for the
@@ -40,6 +42,7 @@ export function GeneratePortfolioForm() {
     }
     setBusy(true);
     setErr(null);
+    track("generate_started", { chars: dump.length });
     try {
       // Stash so signup → onboarding prefills the twin + full portfolio.
       try {
@@ -65,6 +68,7 @@ export function GeneratePortfolioForm() {
         about: j.about || "",
         highlights: Array.isArray(j.highlights) ? j.highlights : []
       });
+      track("generate_done", { chars: dump.length });
     } catch {
       setErr("Something went wrong. Try again.");
     } finally {
@@ -122,6 +126,7 @@ export function GeneratePortfolioForm() {
         </div>
         <Link
           href="/login?next=/onboarding"
+          onClick={() => track("claim_clicked")}
           className="retro-btn retro-btn-primary"
           style={{
             marginTop: 16,
@@ -193,6 +198,7 @@ export function GeneratePortfolioForm() {
             try {
               await navigator.clipboard.writeText(COPY_PROMPT);
               setCopied(true);
+              track("prompt_copied");
               setTimeout(() => setCopied(false), 1800);
             } catch {
               /* clipboard blocked */
@@ -212,6 +218,7 @@ export function GeneratePortfolioForm() {
         className="retro-input"
         style={{ fontSize: 14, lineHeight: 1.5 }}
       />
+      <TrustNote />
       <button
         type="button"
         onClick={generate}
