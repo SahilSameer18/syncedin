@@ -13,11 +13,14 @@ import { track } from "@/lib/track";
 export function EditableOutcome({
   conversationId,
   initialText,
-  accepted
+  accepted,
+  sealed = false
 }: {
   conversationId: string;
   initialText: string;
   accepted: boolean;
+  /** BOTH sides accepted. Receipts can only be published on sealed deals. */
+  sealed?: boolean;
 }) {
   const [text, setText] = useState(initialText);
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
@@ -40,7 +43,7 @@ export function EditableOutcome({
         <div className="text-xs mt-0.5" style={{ lineHeight: 1.45 }}>
           {initialText}
         </div>
-        <PublishWin conversationId={conversationId} />
+        {sealed && <PublishWin conversationId={conversationId} />}
       </div>
     );
   }

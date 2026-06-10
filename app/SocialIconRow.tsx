@@ -1,3 +1,5 @@
+"use client";
+
 import { BrandLogo, type BrandKey } from "./BrandLogo";
 
 /**
@@ -8,8 +10,10 @@ import { BrandLogo, type BrandKey } from "./BrandLogo";
  * with. Skips silently if no URLs are provided — never renders an
  * empty container.
  *
- * Pure server component: no client JS, just `<a>` tags with the
- * BrandLogo icons. Each link opens in a new tab.
+ * Client component: each anchor stops click propagation so a parent
+ * row <Link> (messages rows wrap the name in a conversation link)
+ * can't hijack the click and route into the app instead of out to
+ * the platform. Each link opens in a new tab.
  */
 export type SocialUrls = {
   linkedin_url?: string | null;
@@ -63,6 +67,7 @@ export function SocialIconRow({
             href={href.startsWith("http") ? href : `https://${href}`}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
             title={o.label}
             aria-label={`${o.label} profile`}
             style={{

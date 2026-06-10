@@ -482,6 +482,83 @@ async function sendAgreementOne(
 }
 
 // ---------------------------------------------------------------------------
+// Acceptance nudge — when ONE side accepts, tell the other side the deal is
+// one tap from sealing. Without this, accepts die in "waiting on X" because
+// the counterpart is never told (Jack hit this with Sampreeth).
+// ---------------------------------------------------------------------------
+
+export async function notifyAcceptanceNudge(opts: {
+  conversationId: string;
+  acceptedByUserId: string;
+}): Promise<void> {
+  try {
+    const service = createServiceClient();
+    const { data: conv } = await service
+      .from("conversations")
+      .select("participant_a, participant_b")
+      .eq("id", opts.conversationId)
+      .maybeSingle();
+    if (!conv) return;
+    const recipientId =
+      conv.participant_a === opts.acceptedByUserId
+        ? conv.participant_b
+        : conv.participant_a;
+    const recipient = await loadRecipient(recipientId);
+    const accepter = await loadRecipient(opts.acceptedByUserId);
+    if (!recipient || !accepter) return;
+    if (!recipient.prefs.on_agreement_accepted) return;
+    const to = recipient.prefs.email_address || recipient.profile.email;
+    if (!to) return;
+    const { data: isPersona } = await service
+      .from("profiles")
+      .select("is_test_persona")
+      .eq("id", recipientId)
+      .maybeSingle();
+    if (isPersona?.is_test_persona) return;
+
+    const accepterName =
+      accepter.profile.display_name ||
+      accepter.profile.email ||
+      "Your counterpart";
+    const recipFirst = firstName(
+      recipient.profile.display_name,
+      recipient.profile.email
+    );
+    const convUrl = `${APP_URL}/conversations/${opts.conversationId}`;
+    const subject = `${accepterName} accepted your proposed outcome`;
+    const text = `Hey ${recipFirst},
+
+${accepterName} just accepted the outcome your twins negotiated. It becomes a sealed deal the moment you accept too.
+
+${convUrl}
+
+— SyncedIn`;
+    const html = renderEmailHtml({
+      preheader: `${escapeHtml(accepterName)} accepted. One tap left to seal it.`,
+      heading: `${escapeHtml(accepterName)} said yes`,
+      body: `<p>Hey ${escapeHtml(recipFirst)},</p><p>${escapeHtml(
+        accepterName
+      )} accepted the outcome your twins negotiated. It becomes a sealed deal the moment you accept too. Review it and make the call.</p>`,
+      ctaText: "Review & accept",
+      ctaUrl: convUrl,
+      footerNote: `Agreement notifications are on. Manage in notification settings.`
+    });
+    await logAndSend({
+      userId: recipientId,
+      kind: "agreement_nudge",
+      dedupeKey: `agreement_nudge:${opts.conversationId}:${recipientId}`,
+      subjectId: opts.conversationId,
+      to,
+      subject,
+      text,
+      html
+    });
+  } catch (e) {
+    console.warn("[notify] acceptance-nudge threw", e);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Call scheduled — when a twin proposes a meeting time the user confirms.
 // Used by the future "schedule a call" UI; safe to wire now.
 // ---------------------------------------------------------------------------

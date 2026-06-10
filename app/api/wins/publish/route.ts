@@ -60,6 +60,29 @@ export async function POST(req: Request) {
     );
   }
 
+  // Receipts are proof: require BOTH participants to have accepted.
+  const { data: resps } = await service
+    .from("agreement_responses")
+    .select("user_id, response")
+    .eq("conversation_id", conversationId);
+  const acceptedIds = new Set(
+    (resps ?? [])
+      .filter((r: { response: string }) => r.response === "accepted")
+      .map((r: { user_id: string }) => r.user_id)
+  );
+  if (
+    !acceptedIds.has(conv.participant_a) ||
+    !acceptedIds.has(conv.participant_b)
+  ) {
+    return NextResponse.json(
+      {
+        error: "not_sealed",
+        detail: "Both sides need to accept before a win can be published."
+      },
+      { status: 400 }
+    );
+  }
+
   let partyA = "A SyncedIn member";
   let partyB = "A SyncedIn member";
   if (!anonymize) {

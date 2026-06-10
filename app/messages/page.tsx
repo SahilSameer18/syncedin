@@ -549,13 +549,17 @@ export default async function MessagesPage() {
                   (() => {
                     const rs = respsByConv.get(c.id) ?? [];
                     const mine = rs.find((r) => r.user_id === user.id);
+                    const theirs = rs.find((r) => r.user_id !== user.id);
                     const accepted = mine?.response === "accepted";
+                    const sealed =
+                      accepted && theirs?.response === "accepted";
                     return (
                       <>
                         <EditableOutcome
                           conversationId={c.id}
                           initialText={c.summary as string}
                           accepted={accepted}
+                          sealed={sealed}
                         />
                         <InlineActions
                           conversationId={c.id}

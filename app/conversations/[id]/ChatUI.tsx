@@ -2459,13 +2459,23 @@ export function ChatUI({
               >
                 ✓
               </span>
-              {bothAccepted ? "deal sealed" : "proposed destination"}
+              {bothAccepted
+                ? "deal sealed"
+                : myResponse?.response === "accepted"
+                  ? `you accepted · waiting on ${other.name.split(/\s+/)[0]}`
+                  : "proposed destination"}
             </span>
             <span
               className="retro-dim"
               style={{ fontSize: 11, whiteSpace: "nowrap" }}
             >
-              tap to {bothAccepted ? "schedule" : "review & accept"} →
+              tap to{" "}
+              {bothAccepted
+                ? "schedule"
+                : myResponse?.response === "accepted"
+                  ? "view"
+                  : "review & accept"}{" "}
+              →
             </span>
           </button>
         </>
