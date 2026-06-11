@@ -1040,7 +1040,12 @@ export function ChatUI({
   // ≥768px so desktop users still see the full outcome inline like
   // before.
   const [summaryCollapsed, setSummaryCollapsed] = useState(true);
-  const [aboutCollapsed, setAboutCollapsed] = useState(false);
+  const [aboutCollapsed, setAboutCollapsed] = useState(
+    // Give the deal maximum rail room when a proposal is waiting on the
+    // user: About starts collapsed (one tap re-expands). Jack: "there's
+    // free space here, accept the final shouldn't need a scroll."
+    () => Boolean(initialSummary?.summary) && !initialMyResponse
+  );
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(min-width: 768px)");
@@ -2212,6 +2217,30 @@ export function ChatUI({
               background: rgba(120, 130, 160, 0.25);
               border-radius: 3px;
             }
+            /* Jack: "accept the final shouldn't need a scroll down."
+               The rail is a flex column bounded by the viewport; every
+               card keeps natural height EXCEPT the deal panel, which
+               shrinks to the remaining space and scrolls its BODY
+               internally, so the status line + Accept/Reject buttons
+               are always on screen no matter how long the agreement. */
+            .conv-action-rail {
+              display: flex;
+              flex-direction: column;
+            }
+            .conv-action-rail > * { flex: 0 0 auto; }
+            .conv-action-rail .conv-deal-panel {
+              flex: 0 1 auto;
+              min-height: 0;
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
+            }
+            .conv-action-rail .conv-deal-body {
+              flex: 1 1 auto;
+              min-height: 0;
+              max-height: none !important;
+              overflow-y: auto;
+            }
           }
         `}</style>
       {/* About the counterpart — Jack: "the About part's useful to keep
@@ -2593,7 +2622,7 @@ export function ChatUI({
       )}
       {lastAgreement && !agreementCollapsed && (
         <div
-          className="retro-panel p-3 mb-2"
+          className="retro-panel p-3 mb-2 conv-deal-panel"
           style={{
             borderColor: bothAccepted ? "var(--green)" : "var(--amber)"
           }}
@@ -2647,7 +2676,7 @@ export function ChatUI({
             </span>
           </div>
           <div
-            className="mt-1.5 text-sm"
+            className="mt-1.5 text-sm conv-deal-body"
             style={{
               fontFamily: MSG_FONT,
               color: "var(--text)",
