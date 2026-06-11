@@ -16,6 +16,7 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendEmail, renderEmailHtml } from "@/lib/email";
 import { computePairScore, type TwinSnapshot } from "@/lib/pair-score";
+import { sendPushToUser } from "@/lib/push";
 
 // Minimal entity escape — names + emails can contain & < > " '
 // which would break the HTML if interpolated directly.
@@ -441,6 +442,17 @@ async function sendAgreementOne(
   const other = await loadRecipient(otherId);
   if (!recipient || !other) return;
   if (!recipient.prefs.on_agreement_accepted) return;
+  // Push (no-spam policy): the deal-sealed moment, deduped per
+  // conversation per recipient inside lib/push.
+  sendPushToUser(
+    recipientId,
+    conversationId,
+    "push_sealed",
+    "Deal sealed",
+    `You and ${
+      other.profile.display_name || "your counterpart"
+    } are locked in. Time to make it real.`
+  ).catch(() => {});
   const to = recipient.prefs.email_address || recipient.profile.email;
   if (!to) return;
 
@@ -507,6 +519,17 @@ export async function notifyAcceptanceNudge(opts: {
     const accepter = await loadRecipient(opts.acceptedByUserId);
     if (!recipient || !accepter) return;
     if (!recipient.prefs.on_agreement_accepted) return;
+    // Push (no-spam policy: deal moments only; deduped + 3/day capped
+    // inside lib/push). Personas never have tokens, so persona-safe.
+    sendPushToUser(
+      recipientId,
+      opts.conversationId,
+      "push_accept_nudge",
+      "One tap to seal it",
+      `${
+        accepter.profile.display_name || "Your counterpart"
+      } accepted your proposed outcome.`
+    ).catch(() => {});
     const to = recipient.prefs.email_address || recipient.profile.email;
     if (!to) return;
     const { data: isPersona } = await service

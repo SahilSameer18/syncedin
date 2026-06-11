@@ -7,6 +7,7 @@ import { MobileShell } from "./MobileShell";
 import { SitewidePrefetch } from "./SitewidePrefetch";
 import { SyncMeter } from "./SyncMeter";
 import { ThemeSync } from "./ThemeSync";
+import { PushRegistrar } from "./PushRegistrar";
 import { signOut } from "./login/actions";
 
 /**
@@ -325,6 +326,7 @@ export async function AppShell({
       {/* Keeps the theme consistent across every navigation (no more
           light/dark flips between pages). */}
       <ThemeSync />
+      <PushRegistrar />
       {/* Mobile chrome — hamburger top bar + slide-in drawer holding the
           full sidebar. Hidden on lg+. Pass userId/name/avatar so the
           top-right of the mobile bar renders the user's avatar as a
