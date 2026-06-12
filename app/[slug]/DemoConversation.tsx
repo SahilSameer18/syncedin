@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { track } from "@/lib/track";
 import Link from "next/link";
 import { BrandLogo } from "../BrandLogo";
 
@@ -101,6 +102,56 @@ export function DemoConversation({
     "context"
   );
   const convScrollRef = useRef<HTMLDivElement | null>(null);
+
+  // ---- Lock-in layer (Jack): when the twins land a final PROPOSAL,
+  // figure out what concrete info it still needs from each party.
+  // Recipient-side items become inputs (the info rides into the claim
+  // and lands in their twin context); inviter-side items render as
+  // expectations; nothing missing → the official button.
+  const finalProposal = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const t = messages[i]?.text ?? "";
+      const idx = t.indexOf("PROPOSAL:");
+      if (idx !== -1) return t.slice(idx + "PROPOSAL:".length).trim();
+    }
+    return null;
+  }, [messages]);
+  const [lockNeeds, setLockNeeds] = useState<Array<{
+    from: "inviter" | "recipient";
+    item: string;
+    hint?: string;
+  }> | null>(null);
+  const [lockComplete, setLockComplete] = useState(false);
+  const [lockLoading, setLockLoading] = useState(false);
+  const [lockInfo, setLockInfo] = useState<Record<string, string>>({});
+  const analyzedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!finalProposal || streaming || regenerating) return;
+    if (analyzedRef.current === finalProposal) return;
+    analyzedRef.current = finalProposal;
+    setLockLoading(true);
+    setLockNeeds(null);
+    setLockComplete(false);
+    fetch("/api/proposal-needs", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        proposal: finalProposal,
+        inviterName,
+        recipientName
+      })
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        setLockNeeds(Array.isArray(j.needs) ? j.needs : []);
+        setLockComplete(!!j.complete);
+      })
+      .catch(() => {
+        setLockNeeds([]);
+        setLockComplete(true);
+      })
+      .finally(() => setLockLoading(false));
+  }, [finalProposal, streaming, regenerating, inviterName, recipientName]);
 
   // Auto-scroll the conversation pane to the bottom whenever a new
   // message arrives. Only fires when streaming so user-initiated
@@ -974,6 +1025,156 @@ Give as much detail as you can on each. The dossier you write here is the entire
         {err && (
           <div style={{ marginTop: 10, fontSize: 12, color: "#ef4444" }}>
             {err}
+          </div>
+        )}
+
+        {finalProposal && !streaming && !regenerating && (
+          <div className="lockin-card">
+            <div
+              className="lockin-label"
+              style={{
+                color:
+                  !lockLoading && (lockNeeds?.length ?? 0) === 0
+                    ? "#22c55e"
+                    : "var(--amber-bright, #818cf8)"
+              }}
+            >
+              {lockLoading
+                ? "checking what the deal still needs…"
+                : (lockNeeds?.length ?? 0) === 0
+                  ? "✓ conclusion reached"
+                  : "to lock this in"}
+            </div>
+
+            {!lockLoading && (lockNeeds?.length ?? 0) > 0 && (
+              <div style={{ marginTop: 10, display: "grid", gap: 10 }}>
+                {lockNeeds!.map((n, i) =>
+                  n.from === "recipient" ? (
+                    <label key={i} style={{ display: "block" }}>
+                      <span className="lockin-item">{n.item}</span>
+                      <input
+                        className="lockin-input"
+                        placeholder={n.hint || "add it here"}
+                        value={lockInfo[n.item] ?? ""}
+                        onChange={(e) =>
+                          setLockInfo((m) => ({
+                            ...m,
+                            [n.item]: e.target.value
+                          }))
+                        }
+                      />
+                    </label>
+                  ) : (
+                    <div key={i} className="lockin-theirs">
+                      {(inviterName || "Their").split(/\s+/)[0]}&apos;s side:{" "}
+                      {n.item} (their twin delivers it when you accept)
+                    </div>
+                  )
+                )}
+              </div>
+            )}
+
+            {!lockLoading && (
+              <button
+                type="button"
+                className="lockin-cta"
+                disabled={(lockNeeds ?? [])
+                  .filter((n) => n.from === "recipient")
+                  .some((n) => !(lockInfo[n.item] ?? "").trim())}
+                style={{
+                  background:
+                    (lockNeeds?.length ?? 0) === 0
+                      ? "linear-gradient(135deg, #22c55e, #16a34a)"
+                      : "linear-gradient(135deg, #6d6df8, #5b5bf5)"
+                }}
+                onClick={() => {
+                  try {
+                    localStorage.setItem(
+                      "syncedin-claim-info",
+                      JSON.stringify({
+                        slug,
+                        proposal: finalProposal,
+                        info: lockInfo
+                      })
+                    );
+                  } catch {
+                    /* storage blocked: claim still works */
+                  }
+                  track("claim_clicked", {
+                    door: "invite-lockin",
+                    needs: lockNeeds?.length ?? 0
+                  });
+                  window.location.href = `/login?invite=${slug}`;
+                }}
+              >
+                {(lockNeeds?.length ?? 0) > 0
+                  ? "Add it & make it official →"
+                  : "Make it official →"}
+              </button>
+            )}
+            <p className="lockin-fine">
+              Claiming your twin locks the proposal in and opens the real
+              conversation.
+            </p>
+            <style>{`
+              .lockin-card {
+                margin-top: 12px;
+                border: 1.5px solid var(--amber, #6d6df8);
+                border-radius: 14px;
+                padding: 14px 16px;
+                background: var(--panel-2);
+              }
+              .lockin-label {
+                font-size: 10px;
+                font-weight: 800;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+              }
+              .lockin-item {
+                font-size: 12px;
+                font-weight: 700;
+                display: block;
+                margin-bottom: 4px;
+              }
+              .lockin-input {
+                width: 100%;
+                padding: 10px 12px;
+                border-radius: 10px;
+                border: 1px solid var(--border);
+                background: var(--panel-solid);
+                color: var(--text);
+                font-size: 13.5px;
+              }
+              .lockin-input:focus {
+                outline: none;
+                border-color: var(--amber-bright, #818cf8);
+              }
+              .lockin-theirs {
+                font-size: 12px;
+                color: var(--text-dim);
+                line-height: 1.5;
+              }
+              .lockin-cta {
+                margin-top: 12px;
+                width: 100%;
+                padding: 12px 14px;
+                border-radius: 12px;
+                border: none;
+                cursor: pointer;
+                font-weight: 800;
+                font-size: 14.5px;
+                color: #fff;
+                transition: transform 0.12s ease, opacity 0.12s ease;
+              }
+              .lockin-cta:hover:not(:disabled) { transform: translateY(-1px); }
+              .lockin-cta:disabled { opacity: 0.45; cursor: default; }
+              .lockin-fine {
+                margin-top: 8px;
+                font-size: 11px;
+                color: var(--text-dim);
+                text-align: center;
+              }
+            `}</style>
           </div>
         )}
       </div>

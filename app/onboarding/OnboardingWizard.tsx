@@ -136,6 +136,34 @@ export function OnboardingWizard({
     if (seededRef.current) return;
     seededRef.current = true;
     try {
+      // Info the user committed to an invite proposal (lock-in inputs on
+      // the /[slug] page) rides into the twin context here, so the twin
+      // can actually deliver what was promised.
+      try {
+        const rawInfo = localStorage.getItem("syncedin-claim-info");
+        if (rawInfo) {
+          const ci = JSON.parse(rawInfo) as {
+            proposal?: string;
+            info?: Record<string, string>;
+          };
+          const entries = Object.entries(ci?.info ?? {}).filter(
+            ([, v]) => typeof v === "string" && v.trim().length > 0
+          );
+          if (entries.length > 0) {
+            const block = `--- Info I committed to the proposal ---\n${
+              ci?.proposal ? `Proposal: ${ci.proposal}\n` : ""
+            }${entries.map(([k, v]) => `${k}: ${v.trim()}`).join("\n")}`;
+            setAiDump((d) =>
+              d.includes("Info I committed to the proposal")
+                ? d
+                : `${d ? `${d}\n\n` : ""}${block}`
+            );
+          }
+          localStorage.removeItem("syncedin-claim-info");
+        }
+      } catch {
+        /* malformed claim info: ignore */
+      }
       const raw = localStorage.getItem("syncedin-portfolio-seed");
       if (!raw) return;
       const seed = JSON.parse(raw) as { name?: string; dump?: string };
