@@ -41,6 +41,11 @@ export async function POST(req: Request) {
     slug?: string;
     extra_context?: string;
     edits?: Array<{ index: number; text: string }>;
+    // When the recipient edits a line, the client truncates the transcript
+    // to that line and sends it here as the verbatim, ground-truth prefix.
+    // We then generate ONLY the twins' reaction to it instead of wiping and
+    // rebuilding the whole conversation.
+    continue_from?: Array<{ sender: string; text: string }>;
   };
   try {
     body = await req.json();
@@ -53,6 +58,17 @@ export async function POST(req: Request) {
   }
   const extraContext = (body.extra_context ?? "").toString().slice(0, 8000);
   const edits = Array.isArray(body.edits) ? body.edits.slice(0, 12) : [];
+  const continueFrom = Array.isArray(body.continue_from)
+    ? body.continue_from
+        .slice(0, 14)
+        .map((m) => ({
+          sender: (m?.sender === "recipient" ? "recipient" : "inviter") as
+            | "inviter"
+            | "recipient",
+          text: (m?.text ?? "").toString()
+        }))
+        .filter((m) => m.text.trim().length > 0)
+    : [];
 
   const service = createServiceClient();
   const { data: invite } = await service
@@ -211,6 +227,29 @@ Output ONLY JSON:
 ]
 }`;
     userContent = `${inviterTwinBlock}\n\n---\n\n${recipientGuessBlock}${editsBlock}\n\nWrite the 5-message JSON now.`;
+  }
+
+  // ============ CONTINUATION MODE ============
+  // The recipient edited a line. The client truncated the transcript to
+  // that line and sent it as continue_from. Treat that prefix as ground
+  // truth and generate ONLY the next few messages reacting to the edited
+  // last line — never rewrite or repeat the prefix. This overrides the
+  // system/user prompt built above so editing behaves like the real
+  // messages feature (edit a line → the twins pick up from your version).
+  if (continueFrom.length > 0) {
+    const nameFor = (s: "inviter" | "recipient") =>
+      s === "inviter" ? inviterName : recipientName;
+    const transcript = continueFrom
+      .map((m) => `${nameFor(m.sender)}'s twin: ${m.text}`)
+      .join("\n");
+    const lastSender = continueFrom[continueFrom.length - 1].sender;
+    const nextSender: "inviter" | "recipient" =
+      lastSender === "inviter" ? "recipient" : "inviter";
+    systemPrompt = `You are continuing an in-progress conversation between two people's digital twins: ${inviterName}'s twin (sender "inviter") and ${recipientName}'s twin (sender "recipient"). The transcript the user provides is GROUND TRUTH that ${recipientName} just edited. Do NOT rewrite, repeat, summarize, or contradict any line in it. Generate ONLY the next 3 to 4 messages that naturally respond to the LAST line, alternating senders and STARTING with "${nextSender}". Each message 1 to 3 sentences. NO em-dashes, NO emojis, NO markdown. The final message must land a concrete win-win and END with the literal "PROPOSAL: ..." marker (who does what, when, what channel).
+
+Output ONLY JSON:
+{"messages":[{"sender":"${nextSender}","text":"..."}]}`;
+    userContent = `${inviterTwinBlock}\n\n---\n\n${recipientGuessBlock}\n\nConversation so far (verbatim — continue AFTER the last line, never repeat it):\n${transcript}\n\nWrite the continuation JSON now, starting with sender "${nextSender}".`;
   }
 
   // ============ STREAMING PATH ============

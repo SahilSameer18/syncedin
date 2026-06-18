@@ -408,13 +408,86 @@ Give as much detail as you can on each. The dossier you write here is the entire
     setEditDraft(messages[i].text);
   }
 
+  /**
+   * Continue the conversation from a fixed, verbatim prefix (used after an
+   * edit). Unlike regenerate(), this does NOT wipe the transcript — it
+   * keeps the prefix (including the user's edit) exactly as-is and streams
+   * only the twins' reaction onto the end. Mirrors the real messages
+   * feature: edit a line and the conversation picks up from your version.
+   */
+  async function continueFromMessages(prefix: Msg[]) {
+    if (prefix.length === 0) return;
+    setRegenerating(true);
+    setStreaming(true);
+    setErr("");
+    setMessages(prefix);
+    const collected: Msg[] = prefix.slice();
+    try {
+      const res = await fetch("/api/demo-conversation?stream=1", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "text/event-stream"
+        },
+        body: JSON.stringify({
+          slug,
+          extra_context: buildContextBlob(),
+          continue_from: prefix.map((m) => ({ sender: m.sender, text: m.text })),
+          // Pass the prefix as edits too so the server pins the spirit of
+          // the user's exact lines even in the dive re-run.
+          edits: prefix.map((m, i) => ({ index: i, text: m.text }))
+        })
+      });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let split: number;
+        while ((split = buf.indexOf("\n\n")) !== -1) {
+          const raw = buf.slice(0, split).trim();
+          buf = buf.slice(split + 2);
+          if (!raw.startsWith("data:")) continue;
+          const payload = raw.slice(5).trim();
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.type === "message" && evt.text) {
+              const sender: "inviter" | "recipient" =
+                evt.sender === "recipient" ? "recipient" : "inviter";
+              collected.push({ sender, text: evt.text });
+              setMessages([...collected]);
+            } else if (evt.type === "error") {
+              throw new Error(evt.detail || "stream-error");
+            }
+          } catch {
+            /* malformed event — ignore */
+          }
+        }
+      }
+    } catch (e: any) {
+      setErr(e?.message || "Couldn't continue from your edit. Try again.");
+    } finally {
+      setRegenerating(false);
+      setStreaming(false);
+    }
+  }
+
   function saveEdit() {
     if (editing === null) return;
-    const next = messages.slice();
-    next[editing] = { ...next[editing], text: editDraft.trim() };
-    setMessages(next);
+    const idx = editing;
+    // Keep everything up to and including the edited line, with the edit
+    // applied, then let the twins continue from it. Leaving the stale
+    // downstream replies in place (the old behavior) is why editing felt
+    // like it "did nothing" — the rest of the convo still answered the
+    // original line.
+    const prefix = messages.slice(0, idx + 1);
+    prefix[idx] = { ...messages[idx], text: editDraft.trim() };
     setEditing(null);
     setEditDraft("");
+    void continueFromMessages(prefix);
   }
 
   function cancelEdit() {
@@ -1005,7 +1078,8 @@ Give as much detail as you can on each. The dossier you write here is the entire
 
         <div className="demo-regen-bar">
           <span>
-            Every line is editable. Edits feed your real twin once you sign up.
+            Edit any line and the twins pick up from your version. Your edits
+            feed your real twin once you sign up.
           </span>
           <button
             type="button"
