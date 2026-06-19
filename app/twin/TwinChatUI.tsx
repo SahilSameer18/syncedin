@@ -677,10 +677,19 @@ export function TwinChatUI({
           // Independent scroll context.
           overflowY: "auto",
           overscrollBehavior: "contain",
-          // 64px top bar + ~120px compact header (was 210px for the old
-          // eyebrow + 2-line blurb; the header was collapsed to a single
-          // line so the chat reclaims ~90px of vertical view).
-          height: "calc(100dvh - 64px - 120px)",
+          // Fill from the header's bottom all the way to the viewport floor
+          // so the fixed chip strip + composer overlay the scroller's bottom
+          // (their white surface sits directly under the content). Reserve
+          // ONLY what's actually above the scroller: 64px top bar + the
+          // single-line page header (~56px). The old value subtracted 120px
+          // for the header — but the header was long since collapsed to one
+          // line, so it over-reserved by ~64px (≈ the composer height),
+          // stopping the scroller short of the floor. That left a band of
+          // gray page background between the last message and the white dock
+          // — the "gray bar above the chat bar" Jack flagged (a regression of
+          // the original /twin gray-box fix). paddingBottom below still clears
+          // the dock so the last message never hides under it.
+          height: "calc(100dvh - 64px - 56px)",
           minHeight: 300,
           // Solid background so messages don't render over the page
           // bg when the scroller has its own bounds.
