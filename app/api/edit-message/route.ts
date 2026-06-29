@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { editMagnitude, classifyChange } from "@/lib/edit-magnitude";
 
 /**
  * Edit any message in a conversation, then truncate everything after it so
@@ -111,11 +112,31 @@ export async function POST(req: Request) {
     .lte("sent_at", msg.sent_at)
     .order("sent_at", { ascending: true });
 
-  // Update the message text.
-  const { error: updErr } = await service
+  // Update the message text + stage-1 edit-magnitude metric (how far the
+  // user moved the twin's original draft). change_tags is the kind of
+  // correction. Written here in the same update; if the 0005 migration
+  // hasn't run, fall back to the text-only update so the edit still saves.
+  const mag = editMagnitude(msg.original_draft ?? original, new_text);
+  const tags = classifyChange(msg.original_draft ?? original, new_text);
+  let { error: updErr } = await service
     .from("messages")
-    .update({ final_text: new_text, edited: true })
+    .update({
+      final_text: new_text,
+      edited: true,
+      edit_magnitude: mag,
+      change_tags: tags
+    })
     .eq("id", message_id);
+  if (updErr) {
+    console.warn(
+      "[edit-magnitude] message update with metric failed (run migration 0005?); retrying text-only:",
+      updErr.message
+    );
+    ({ error: updErr } = await service
+      .from("messages")
+      .update({ final_text: new_text, edited: true })
+      .eq("id", message_id));
+  }
   if (updErr) {
     return NextResponse.json(
       { error: "update_failed", detail: updErr.message },
@@ -125,15 +146,32 @@ export async function POST(req: Request) {
 
   // Log a voice-training delta only when the editor edits their own twin.
   if (msg.sender_user_id === user.id && original !== new_text) {
-    const { error: deltaErr } = await service.from("edit_deltas").insert({
-      message_id,
-      user_id: user.id,
-      original_draft: msg.original_draft,
-      edited_text: new_text,
-      conversation_snapshot: priorMessages ?? [],
-      reason: reason?.trim() || null
-    });
+    const { data: delta, error: deltaErr } = await service
+      .from("edit_deltas")
+      .insert({
+        message_id,
+        user_id: user.id,
+        original_draft: msg.original_draft,
+        edited_text: new_text,
+        conversation_snapshot: priorMessages ?? [],
+        reason: reason?.trim() || null
+      })
+      .select("id")
+      .single();
     if (deltaErr) console.error("edit_delta insert failed", deltaErr);
+    else if (delta) {
+      // Mirror the stage-1 metric onto the delta row. Best-effort: swallow
+      // the missing-column error if migration 0005 hasn't run yet.
+      const { error: mErr } = await service
+        .from("edit_deltas")
+        .update({ edit_magnitude: mag, change_tags: tags })
+        .eq("id", (delta as { id: string }).id);
+      if (mErr)
+        console.warn(
+          "[edit-magnitude] skip edit_deltas metric (run migration 0005?):",
+          mErr.message
+        );
+    }
   }
 
   // Truncate everything after the edited message — it will be regenerated.

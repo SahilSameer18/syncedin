@@ -1,6 +1,35 @@
 import { NextResponse } from "next/server";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { notifyNewMessage } from "@/lib/notify";
+import { editMagnitude, classifyChange } from "@/lib/edit-magnitude";
+
+/**
+ * Best-effort write of the stage-1 edit-magnitude metric onto a row. Runs as
+ * a separate UPDATE (not in the insert) so that if the 0005 migration hasn't
+ * been applied yet, a missing-column error is logged and swallowed instead of
+ * failing the send. Remove the guard once 0005 is live everywhere.
+ */
+async function logEditMetric(
+  service: ReturnType<typeof createServiceClient>,
+  table: "messages" | "edit_deltas",
+  id: string,
+  draft: string,
+  finalText: string
+) {
+  const { error } = await service
+    .from(table)
+    .update({
+      edit_magnitude: editMagnitude(draft, finalText),
+      change_tags: classifyChange(draft, finalText)
+    })
+    .eq("id", id);
+  if (error) {
+    console.warn(
+      `[edit-magnitude] skip ${table} ${id} (run migration 0005?):`,
+      error.message
+    );
+  }
+}
 
 export async function POST(req: Request) {
   const supabase = createClient();
@@ -71,16 +100,32 @@ export async function POST(req: Request) {
     );
   }
 
+  // Stage-1 metric: log how far the user moved the twin's draft (0 = sent
+  // as-is/win .. 1 = rewritten) + the kind of correction. Best-effort.
+  await logEditMetric(service, "messages", message.id, original_draft, final_text);
+
   // Log the delta — this is the proprietary training corpus for the user's twin.
   if (edited) {
-    const { error: deltaErr } = await service.from("edit_deltas").insert({
-      message_id: message.id,
-      user_id: user.id,
-      original_draft,
-      edited_text: final_text,
-      conversation_snapshot: priorMessages ?? []
-    });
+    const { data: delta, error: deltaErr } = await service
+      .from("edit_deltas")
+      .insert({
+        message_id: message.id,
+        user_id: user.id,
+        original_draft,
+        edited_text: final_text,
+        conversation_snapshot: priorMessages ?? []
+      })
+      .select("id")
+      .single();
     if (deltaErr) console.error("delta insert failed", deltaErr);
+    else if (delta)
+      await logEditMetric(
+        service,
+        "edit_deltas",
+        (delta as { id: string }).id,
+        original_draft,
+        final_text
+      );
   }
 
   // Fire-and-forget notification to the counterpart.
