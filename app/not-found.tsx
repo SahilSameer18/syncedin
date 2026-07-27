@@ -147,7 +147,7 @@ export default function NotFound() {
             font-weight: 800;
             font-size: 13px;
             letter-spacing: 0.02em;
-            font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+            font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
             box-shadow: 0 6px 18px -6px rgba(31, 89, 255, 0.6);
             border: 2px solid var(--bg);
           }
@@ -192,14 +192,14 @@ export default function NotFound() {
             font-size: 42px;
             font-weight: 900;
             letter-spacing: -0.02em;
-            font-family: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+            font-family: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
             background: linear-gradient(135deg, #1f59ff 0%, #6b2dc9 100%);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             animation: nf-404-glitch 3.2s steps(1) infinite;
           }
-          /* The two "links" between the orbiting twins — faint connection
+          /* The two links between the orbiting twins — faint connection
              lines that fade in and out, suggesting a sync that never
              quite completes here. */
           @keyframes nf-link-fade {

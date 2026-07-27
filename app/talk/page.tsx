@@ -95,7 +95,7 @@ export default async function TalkLandingPage() {
           aria-label="SyncedIn"
           style={{ textDecoration: "none" }}
         >
-          <Wordmark size="md" />
+          <Wordmark size="md" href={null} />
         </Link>
         <Link
           href="/login"

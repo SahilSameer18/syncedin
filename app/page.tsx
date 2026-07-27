@@ -582,7 +582,7 @@ export default async function HomePage() {
             border: 1px solid rgba(31, 89, 255, 0.18);
           }
           .lh-why-stat {
-            font-family: "IBM Plex Mono", ui-monospace, monospace;
+            font-family: 'IBM Plex Mono', ui-monospace, monospace;
             font-size: 32px;
             font-weight: 900;
             letter-spacing: -0.02em;

@@ -832,7 +832,7 @@ Give as much detail as you can on each. The dossier you write here is the entire
           max-height: 180px;
           overflow-y: auto;
           white-space: pre-wrap;
-          font-family: ui-monospace, "SF Mono", Menlo, monospace;
+          font-family: ui-monospace, 'SF Mono', Menlo, monospace;
         }
         .copy-btn {
           margin-top: 10px;

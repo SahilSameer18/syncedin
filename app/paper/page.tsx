@@ -292,7 +292,7 @@ export default function PaperPage() {
           border-radius: 0 10px 10px 0; font-size: 18px; font-style: italic;
         }
         .paper code {
-          font-family: "IBM Plex Mono", ui-monospace, monospace;
+          font-family: 'IBM Plex Mono', ui-monospace, monospace;
           font-size: 13px; background: var(--panel-2);
           padding: 1px 6px; border-radius: 6px;
         }

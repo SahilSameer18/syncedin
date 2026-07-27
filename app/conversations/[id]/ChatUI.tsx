@@ -1636,7 +1636,7 @@ export function ChatUI({
             transform-origin: left center;
             margin-right: -10px;
           }
-          /* Hide the "< messages" inline back link — mobile browsers
+          /* Hide the < messages inline back link — mobile browsers
              have native back gestures + we have a bottom-bar back arrow,
              so this row is duplicate chrome eating a full line of pixels. */
           .conv-back-link { display: none !important; }
@@ -2217,7 +2217,7 @@ export function ChatUI({
               background: rgba(120, 130, 160, 0.25);
               border-radius: 3px;
             }
-            /* Jack: "accept the final shouldn't need a scroll down."
+            /* Jack: accept the final shouldn't need a scroll down.
                The rail is a flex column bounded by the viewport; every
                card keeps natural height EXCEPT the deal panel, which
                shrinks to the remaining space and scrolls its BODY

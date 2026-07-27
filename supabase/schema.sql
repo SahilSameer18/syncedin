@@ -1294,3 +1294,20 @@ create policy "poll_responses_select_all_authed" on public.poll_responses
 drop policy if exists "poll_responses_update_own_twin" on public.poll_responses;
 create policy "poll_responses_update_own_twin" on public.poll_responses
   for update using (auth.uid() = twin_user_id);
+
+-- =========================================================================
+-- Guest Preview Limits
+-- Rate-limiting table for unauthenticated guest teaser chats on /u/[handle]
+-- =========================================================================
+
+create table if not exists public.guest_preview_limits (
+  id uuid primary key default uuid_generate_v4(),
+  ip_address text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists guest_preview_limits_ip_time_idx
+  on public.guest_preview_limits (ip_address, created_at desc);
+
+alter table public.guest_preview_limits enable row level security;
+-- No public policies: only the service role (server-side route) touches this table.

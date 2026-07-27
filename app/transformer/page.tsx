@@ -147,7 +147,7 @@ export default function TransformerPage() {
         .paper .abstract .lbl { font-size: 11px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); display: block; margin-bottom: 6px; }
         .paper p { margin: 14px 0; }
         .paper blockquote { margin: 22px 0; padding: 12px 18px; border-left: 3px solid var(--amber); background: var(--panel-2); border-radius: 0 10px 10px 0; font-size: 18px; font-style: italic; }
-        .paper code { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 13px; background: var(--panel-2); padding: 1px 6px; border-radius: 6px; }
+        .paper code { font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13px; background: var(--panel-2); padding: 1px 6px; border-radius: 6px; }
         .fig { margin: 30px 0; }
         figcaption { margin-top: 14px; font-size: 13.5px; color: var(--text-dim); line-height: 1.5; text-align: center; }
 

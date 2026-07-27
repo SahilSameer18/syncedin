@@ -8,6 +8,7 @@ import { PortfolioEditor } from "./PortfolioEditor";
 import { CustomSite, type PortfolioPage } from "./CustomSite";
 import { RegenerateButton } from "./RegenerateButton";
 import { RealtimeStrip } from "./RealtimeStrip";
+import { ProfilePreviewForm } from "./ProfilePreviewForm";
 
 // Per-request render — the page renders fresh data + needs the viewer's
 // auth cookie to decide whether to show owner-only edit affordances.
@@ -418,14 +419,17 @@ export default async function PortfolioPage({
             highest-leverage overlap before either of you spends a minute
             on a call.
           </p>
-          <Link
-            href={isOwner ? "/dashboard" : `/login?next=/u/${handle}`}
-            className="retro-btn retro-btn-primary mt-3 inline-block"
-          >
-            {isOwner
-              ? "open dashboard"
-              : `+ start a conversation with ${name.split(/\s+/)[0]}`}
-          </Link>
+          
+          {isOwner ? (
+            <Link
+              href="/dashboard"
+              className="retro-btn retro-btn-primary mt-3 inline-block"
+            >
+              open dashboard
+            </Link>
+          ) : (
+            <ProfilePreviewForm handle={handle} name={name} />
+          )}
         </section>
 
         {/* Owner-only editor. The full prompt-driven backend lands next
