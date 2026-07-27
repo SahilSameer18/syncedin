@@ -113,3 +113,21 @@ export function ProfilePreviewForm({ handle, name }: ProfilePreviewFormProps) {
     </form>
   );
 }
+
+export function ShareButton({ handle }: { handle: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <button
+      onClick={() => {
+        navigator.clipboard.writeText(`${window.location.origin}/u/${handle}`);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      }}
+      className="retro-btn"
+      style={{ fontSize: 12, color: copied ? "#22c55e" : undefined, transition: "color 0.15s ease" }}
+    >
+      {copied ? "✅ copied!" : "🔗 share profile"}
+    </button>
+  );
+}

@@ -46,6 +46,7 @@ export function TopBar({
 }) {
   const pathname = usePathname() ?? "";
   const [profileOpen, setProfileOpen] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   // Click-outside / Esc to close the profile dropdown.
@@ -278,15 +279,41 @@ export function TopBar({
               <span>Account settings</span>
             </Link>
             {portfolioHandle && (
-              <Link
-                href={`/u/${portfolioHandle}`}
-                role="menuitem"
-                onClick={() => setProfileOpen(false)}
-                style={menuItemStyle}
-              >
-                <span style={{ width: 18, textAlign: "center" }}>👤</span>
-                <span>My portfolio</span>
-              </Link>
+              <>
+                <Link
+                  href={`/u/${portfolioHandle}`}
+                  role="menuitem"
+                  onClick={() => setProfileOpen(false)}
+                  style={menuItemStyle}
+                >
+                  <span style={{ width: 18, textAlign: "center" }}>👤</span>
+                  <span>My portfolio</span>
+                </Link>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/u/${portfolioHandle}`);
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 1800);
+                  }}
+                  style={{
+                    ...menuItemStyle,
+                    width: "100%",
+                    textAlign: "left",
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: linkCopied ? "#22c55e" : menuItemStyle.color,
+                    transition: "color 0.15s ease"
+                  }}
+                >
+                  <span style={{ width: 18, textAlign: "center" }}>
+                    {linkCopied ? "✅" : "🔗"}
+                  </span>
+                  <span>{linkCopied ? "Copied!" : "Copy share link"}</span>
+                </button>
+              </>
             )}
             {/* DATA section — Jack: "let's move that under that top
                 right part where you click your name. I think that would

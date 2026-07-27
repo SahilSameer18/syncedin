@@ -8,7 +8,7 @@ import { PortfolioEditor } from "./PortfolioEditor";
 import { CustomSite, type PortfolioPage } from "./CustomSite";
 import { RegenerateButton } from "./RegenerateButton";
 import { RealtimeStrip } from "./RealtimeStrip";
-import { ProfilePreviewForm } from "./ProfilePreviewForm";
+import { ProfilePreviewForm, ShareButton } from "./ProfilePreviewForm";
 
 // Per-request render — the page renders fresh data + needs the viewer's
 // auth cookie to decide whether to show owner-only edit affordances.
@@ -59,6 +59,7 @@ export default async function PortfolioPage({
 }: {
   params: { handle: string };
 }) {
+  
   const handle = (params.handle || "").toLowerCase();
   const service = createServiceClient();
 
@@ -264,22 +265,28 @@ export default async function PortfolioPage({
           <Link href="/" aria-label="SyncedIn">
             <Wordmark />
           </Link>
-          {isOwner ? (
-            <Link
-              href="/dashboard"
-              className="retro-btn"
-              style={{ fontSize: 12 }}
-            >
-              dashboard →
-            </Link>
-          ) : (
-            <Link
-              href={`/login?next=/u/${handle}`}
-              className="retro-btn retro-btn-primary"
-            >
-              + spin up your own twin
-            </Link>
-          )}
+          <div className="flex items-center gap-2">
+            {isOwner ? (
+              <>
+                <ShareButton handle={handle} />
+                <Link
+                  href="/dashboard"
+                  className="retro-btn"
+                  style={{ fontSize: 12 }}
+                >
+                  dashboard →
+                </Link>
+              </>
+            ) : (
+              <Link
+                href={`/login?next=/u/${handle}`}
+                className="retro-btn retro-btn-primary"
+                style={{ fontSize: 12 }}
+              >
+                + spin up your own twin
+              </Link>
+            )}
+          </div>
         </div>
 
         {/* Banner band — accent color + emoji + vibe label. Reads as the

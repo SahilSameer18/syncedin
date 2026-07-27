@@ -67,6 +67,23 @@ Implementation:
   one-shot preview, not a real conversation thread, and shouldn't be treated or
   logged like one.
 
+## Secondary improvement: one-click "share profile" button
+
+While testing the main feature, I noticed there was no quick way to share your own
+profile — the only path was manually copying the URL from the browser bar. I added
+a small `ShareButton` component (copy-to-clipboard, with a "Copied!" confirmation
+state) in two places: the global `TopBar` profile dropdown (available from every
+authenticated page) and directly on the owner's own `/u/[handle]` page next to the
+"dashboard →" link (visible right when you're looking at the page you'd want to
+share). Both reuse the app's existing `retro-btn` styling and the same
+`navigator.clipboard` pattern already used elsewhere in the codebase — no new
+dependencies, no new styling.
+
+This is small on its own, but it's directly upstream of the main feature: the
+guest preview match only creates value once a profile link actually gets shared
+and clicked. Making sharing effortless is a natural, cheap complement to fixing
+what happens after someone clicks.
+
 ## Why this, over the more ambitious "automatic matching" option
 
 I scoped both. Automatic/proactive matching across the whole network is the
