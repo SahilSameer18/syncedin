@@ -8,7 +8,7 @@ async function getEmbedding(text: string): Promise<number[]> {
     contents: text,
     config: { outputDimensionality: 768 }
   });
-  return response.embeddings[0].values;
+  return response.embeddings?.[0]?.values ?? [];
 }
 
 function cosineSimilarity(a: number[], b: number[]): number {
