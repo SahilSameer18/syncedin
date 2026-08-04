@@ -96,8 +96,11 @@ function PersonCard({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <span
-              className="w-2 h-2 rounded-full ring-4"
-              style={{ background: accentColor, ringColor: accentGlow }}
+              className="w-2 h-2 rounded-full"
+              style={{
+                background: accentColor,
+                boxShadow: `0 0 0 4px ${accentGlow}`
+              }}
             />
             <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-[var(--text-dim)]">
               {slotLabel}
