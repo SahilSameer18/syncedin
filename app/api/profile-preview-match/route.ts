@@ -80,16 +80,34 @@ export async function POST(req: Request) {
     // 5. If the profile owner hasn't filled in their twin yet
     if (!twinProfile || !twinProfile.goals) {
       return NextResponse.json({
+        score: null,
+        headline: `${profile.display_name} is still building their twin.`,
+        green_flag: "Profile setup is currently in progress.",
+        fit_note: "Check back soon once goals and preferences are updated.",
+        win_win: `${profile.display_name} is still building their twin. Check back later or sign up to connect!`,
+        first_step: "Sign up to create your own twin and get notified.",
         winwin: `${profile.display_name} is still building their twin. Check back later or sign up to connect!`,
       });
     }
 
-    // 6. Build the prompt
-    const prompt = `A visitor to ${profile.display_name}'s profile pasted who they are: ${context}.
-${profile.display_name}'s goals: ${twinProfile.goals || "None specified"}.
-${profile.display_name}'s deal preferences: ${twinProfile.deal_preferences || "None specified"}.
+    // 6. Build structured prompt
+    const prompt = `You are the AI Twin screening engine for ${profile.display_name}.
+A visitor just pitched ${profile.display_name}'s AI Twin with this proposal:
+"${context}"
 
-Write ONE concrete, specific sentence describing a win-win between them, second person ('You and ${profile.display_name} could...'), plus a 'First step:' sentence. No invented facts.`;
+${profile.display_name}'s Profile Specs:
+- Goals: ${twinProfile.goals || "Not specified"}
+- Deal Preferences: ${twinProfile.deal_preferences || "Not specified"}
+
+Evaluate mutual fit and return ONLY a valid JSON object in this exact schema, with no markdown code blocks:
+{
+  "score": <integer between 45 and 96 representing mutual synergy percentage>,
+  "headline": "<punchy 4-8 word title summarizing the fit>",
+  "green_flag": "<one crisp sentence explaining why this partnership/deal works>",
+  "fit_note": "<one constructive sentence on working style, timeline, or scope to align on>",
+  "win_win": "<one high-leverage sentence in 2nd person: 'You and ${profile.display_name} could...'>",
+  "first_step": "<one concise action item for the immediate next step>"
+}`;
 
     // 7. Call Gemini
     const response = await gemini.models.generateContent({
@@ -97,10 +115,45 @@ Write ONE concrete, specific sentence describing a win-win between them, second 
       contents: prompt,
     });
 
-    const text = response.text || "I couldn't generate a match right now.";
+    const rawText = response.text || "";
+    let parsed: any = null;
 
-    // 8. Return
-    return NextResponse.json({ winwin: text });
+    try {
+      const cleaned = rawText
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+      parsed = JSON.parse(cleaned);
+    } catch {
+      parsed = null;
+    }
+
+    if (
+      parsed &&
+      typeof parsed.score === "number" &&
+      typeof parsed.win_win === "string"
+    ) {
+      return NextResponse.json({
+        score: Math.max(30, Math.min(98, Math.round(parsed.score))),
+        headline: parsed.headline || "Synergistic Alignment",
+        green_flag: parsed.green_flag || "Strong mutual domain synergy and goals.",
+        fit_note: parsed.fit_note || "Verify mutual timeline and availability.",
+        win_win: parsed.win_win,
+        first_step: parsed.first_step || "Reach out to start a conversation.",
+        winwin: parsed.win_win
+      });
+    }
+
+    // Fallback if unstructured
+    return NextResponse.json({
+      score: 75,
+      headline: "Complementary Opportunity",
+      green_flag: "Relevant domain background and mutual interests align.",
+      fit_note: "Align on working pace and expectations.",
+      win_win: rawText.slice(0, 300) || `You and ${profile.display_name} could explore synergies.`,
+      first_step: "Connect directly to discuss further.",
+      winwin: rawText.slice(0, 300) || `You and ${profile.display_name} could explore synergies.`
+    });
   } catch (err: any) {
     console.error("Guest preview error", err);
     return NextResponse.json(

@@ -237,6 +237,21 @@ export default async function PortfolioPage({
             selfName={name}
             goalsHighlight={(twin as any)?.goals ?? null}
           />
+          {!isOwner && (
+            <section className="mt-8 mb-12 retro-panel p-6 border border-[var(--border-bright)] retro-shadow">
+              <div className="flex items-center gap-2">
+                <span className="text-lg">⚡</span>
+                <div className="retro-label">Pitch {name}'s AI Twin</div>
+              </div>
+              <h2 className="text-lg font-bold text-[var(--text)] mt-1">
+                Test mutual leverage before booking a call
+              </h2>
+              <p className="mt-1 text-xs sm:text-sm text-[var(--text-dim)] leading-relaxed">
+                Pitch your startup, role, or collaboration. {name}'s AI Twin evaluates compatibility and surfaces win-win synergies in real time.
+              </p>
+              <ProfilePreviewForm handle={handle} name={name} />
+            </section>
+          )}
         </div>
         {isOwner && <RegenerateButton hasExisting={true} />}
       </>
@@ -261,8 +276,9 @@ export default async function PortfolioPage({
       }}
     >
       <div className="max-w-3xl mx-auto px-5 py-8">
-        <div className="flex items-center justify-between">
-          <Link href="/" aria-label="SyncedIn">
+        {/* Top navigation */}
+        <div className="flex items-center justify-between pb-4">
+          <Link href="/" aria-label="SyncedIn" className="hover:opacity-85 transition-opacity">
             <Wordmark />
           </Link>
           <div className="flex items-center gap-2">
@@ -278,162 +294,144 @@ export default async function PortfolioPage({
                 </Link>
               </>
             ) : (
-              <Link
-                href={`/login?next=/u/${handle}`}
-                className="retro-btn retro-btn-primary"
-                style={{ fontSize: 12 }}
-              >
-                + spin up your own twin
-              </Link>
-            )}
-          </div>
-        </div>
-
-        {/* Banner band — accent color + emoji + vibe label. Reads as the
-            MySpace banner without leaning on user-uploaded media (which
-            we'd have to host + moderate). */}
-        <div
-          className="mt-6 rounded-2xl p-6 flex items-center gap-4"
-          style={{
-            background: theme.accent,
-            color: "#ffffff",
-            boxShadow: `0 8px 32px ${theme.accent}33`
-          }}
-        >
-          <div style={{ fontSize: 56, lineHeight: 1 }}>
-            {theme.banner_emoji}
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: 12,
-                textTransform: "uppercase",
-                letterSpacing: "0.12em",
-                opacity: 0.8
-              }}
-            >
-              {theme.vibe}
-            </div>
-            <h1
-              className="retro-h1"
-              style={{ fontSize: 36, marginTop: 4, color: "#ffffff" }}
-            >
-              {name}
-            </h1>
-          </div>
-        </div>
-
-        <div className="mt-6 flex items-center gap-3">
-          <Avatar
-            id={profile.id}
-            name={name}
-            avatarUrl={profile.avatar_url}
-            size={48}
-          />
-          <div>
-            <div className="text-sm font-semibold">{name}</div>
-            {(twin?.current_city || twin?.hometown) && (
-              <div
-                className="text-xs"
-                style={{ color: "var(--text-dim)" }}
-              >
-                {twin?.current_city ?? ""}
-                {twin?.current_city && twin?.hometown ? " · " : ""}
-                {twin?.hometown ? `from ${twin.hometown}` : ""}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {profile.portfolio_about && (
-          <section className="mt-6 retro-panel p-5">
-            <div className="retro-label">about</div>
-            <p
-              className="mt-2 text-sm leading-relaxed"
-              style={{ whiteSpace: "pre-wrap" }}
-            >
-              {profile.portfolio_about}
-            </p>
-          </section>
-        )}
-
-        {twin?.goals && (
-          <section className="mt-4 retro-panel p-5">
-            <div className="retro-label">what i'm working toward</div>
-            <p
-              className="mt-2 text-sm leading-relaxed"
-              style={{ whiteSpace: "pre-wrap" }}
-            >
-              {twin.goals}
-            </p>
-          </section>
-        )}
-
-        {twin?.deal_preferences && (
-          <section className="mt-4 retro-panel p-5">
-            <div className="retro-label">looking for</div>
-            <p
-              className="mt-2 text-sm leading-relaxed"
-              style={{ whiteSpace: "pre-wrap" }}
-            >
-              {twin.deal_preferences}
-            </p>
-          </section>
-        )}
-
-        {twin?.deal_breakers && (
-          <section className="mt-4 retro-panel p-5">
-            <div className="retro-label">not interested in</div>
-            <p
-              className="mt-2 text-sm leading-relaxed"
-              style={{ whiteSpace: "pre-wrap" }}
-            >
-              {twin.deal_breakers}
-            </p>
-          </section>
-        )}
-
-        {blocks.length > 0 && (
-          <section className="mt-4 retro-panel p-5">
-            <div className="retro-label">recent context</div>
-            <div className="mt-2 space-y-3">
-              {blocks.map((b, i) => (
-                <div
-                  key={i}
-                  className="text-xs"
-                  style={{
-                    color: "var(--text-dim)",
-                    whiteSpace: "pre-wrap",
-                    borderLeft: `2px solid ${theme.accent}66`,
-                    paddingLeft: 10
-                  }}
+              <>
+                <ShareButton handle={handle} />
+                <Link
+                  href={`/login?next=/u/${handle}`}
+                  className="retro-btn retro-btn-primary"
+                  style={{ fontSize: 12 }}
                 >
-                  {b.slice(0, 420)}
-                  {b.length > 420 ? "…" : ""}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
+                  + build your twin
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
 
-        <section className="mt-6 retro-panel p-5">
-          <div className="retro-label">talk to {name}'s twin</div>
-          <p
-            className="mt-2 text-sm"
-            style={{ color: "var(--text-dim)" }}
-          >
-            Your twin can talk to theirs in the background to surface the
-            highest-leverage overlap before either of you spends a minute
-            on a call.
+        {/* Hero Identity Card */}
+        <div className="mt-4 p-6 rounded-2xl retro-panel retro-shadow border border-[var(--border-bright)] relative overflow-hidden">
+          {/* Subtle accent glow behind avatar */}
+          <div
+            className="absolute top-0 right-0 w-64 h-64 rounded-full pointer-events-none opacity-20 blur-3xl"
+            style={{ background: theme.accent || "var(--amber)" }}
+          />
+
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 relative z-10">
+            <div className="relative">
+              <Avatar
+                id={profile.id}
+                name={name}
+                avatarUrl={profile.avatar_url}
+                size={72}
+              />
+              <span
+                className="absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-[var(--panel-solid)] bg-emerald-400"
+                title="AI Twin Active"
+              />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[var(--text)]">
+                  {name}
+                </h1>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-[var(--panel-2)] border border-[var(--border)] text-[var(--text-dim)]">
+                  @{handle}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  Twin Active
+                </span>
+              </div>
+
+              {(twin?.current_city || twin?.hometown || theme.vibe) && (
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-[var(--text-dim)]">
+                  {(twin?.current_city || twin?.hometown) && (
+                    <span className="flex items-center gap-1">
+                      📍 {twin?.current_city || twin?.hometown}
+                    </span>
+                  )}
+                  {theme.vibe && (
+                    <span className="px-2 py-0.5 rounded-md bg-[var(--panel-2)] border border-[var(--border)] font-mono uppercase text-[10px] tracking-wider text-[var(--amber-bright)]">
+                      {theme.banner_emoji} {theme.vibe}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {profile.portfolio_about && (
+            <div className="mt-5 pt-4 border-t border-[var(--border)] text-sm text-[var(--text)] leading-relaxed">
+              {profile.portfolio_about}
+            </div>
+          )}
+        </div>
+
+        {/* Structured Focus Cards */}
+        <div className="mt-6 space-y-4">
+          {twin?.goals && (
+            <section className="retro-panel p-5 border-l-4 border-l-[var(--amber)]">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🎯</span>
+                <div className="retro-label">What I'm Building & Working Toward</div>
+              </div>
+              <p className="mt-2.5 text-sm text-[var(--text)] leading-relaxed">
+                {twin.goals}
+              </p>
+            </section>
+          )}
+
+          {twin?.deal_preferences && (
+            <section className="retro-panel p-5 border-l-4 border-l-emerald-500">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🤝</span>
+                <div className="retro-label" style={{ color: "var(--green)" }}>Looking For & Open To</div>
+              </div>
+              <p className="mt-2.5 text-sm text-[var(--text)] leading-relaxed">
+                {twin.deal_preferences}
+              </p>
+            </section>
+          )}
+
+          {twin?.deal_breakers && (
+            <section className="retro-panel p-5 border-l-4 border-l-rose-500/80">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🛑</span>
+                <div className="retro-label" style={{ color: "var(--red)" }}>Not Interested In / Deal-Breakers</div>
+              </div>
+              <p className="mt-2.5 text-sm text-[var(--text)] leading-relaxed">
+                {twin.deal_breakers}
+              </p>
+            </section>
+          )}
+        </div>
+
+        {/* Pitch / Talk to Twin Section */}
+        <section className="mt-8 retro-panel p-6 border border-[var(--border-bright)] retro-shadow">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">⚡</span>
+            <div className="retro-label">Pitch {name}'s AI Twin</div>
+          </div>
+          <h2 className="text-lg font-bold text-[var(--text)] mt-1">
+            Test compatibility before booking a call
+          </h2>
+          <p className="mt-1 text-xs sm:text-sm text-[var(--text-dim)] leading-relaxed">
+            Pitch your startup, role, or collaboration idea. {name}'s AI Twin screens for mutual leverage in real time and highlights win-win synergies.
           </p>
-          
+
           {isOwner ? (
-            <Link
-              href="/dashboard"
-              className="retro-btn retro-btn-primary mt-3 inline-block"
-            >
-              open dashboard
-            </Link>
+            <div className="mt-4 p-4 rounded-xl bg-[var(--panel-2)] border border-[var(--border)] flex items-center justify-between gap-3">
+              <div className="text-xs text-[var(--text-dim)]">
+                You are viewing your own profile as an owner.
+              </div>
+              <Link
+                href="/dashboard"
+                className="retro-btn retro-btn-primary text-xs"
+              >
+                open dashboard →
+              </Link>
+            </div>
           ) : (
             <ProfilePreviewForm handle={handle} name={name} />
           )}
