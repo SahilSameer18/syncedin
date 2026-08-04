@@ -65,6 +65,7 @@ export function Sidebar({
     // Route still exists at /continuation.
     { href: "/poll", label: "Poll", icon: "📊" },
     { href: "/personal-intelligence", label: "Personal intelligence", icon: "✨" },
+    { href: "/match-lab", label: "Match Lab", icon: "🧪" },
     { href: "/feedback", label: "Feedback", icon: "💡" }
   ];
 

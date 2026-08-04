@@ -91,6 +91,31 @@ export async function saveTwin(formData: FormData) {
       .upsert(legacy, { onConflict: "user_id" });
   }
 
+  // Fire-and-forget: generate embeddings for the goals/deal_preferences
+  // text just saved, so matching can use real semantic understanding
+  // instead of keyword overlap. Same non-blocking pattern as the
+  // LinkedIn scrape and notifyNewMatch below — never delay the redirect
+  // on this.
+  void (async () => {
+    try {
+      const service = createServiceClient();
+      const { getEmbedding } = await import("@/lib/embeddings");
+      const [goalsEmb, dealEmb] = await Promise.all([
+        fields.goals ? getEmbedding(fields.goals) : Promise.resolve(null),
+        fields.deal_preferences ? getEmbedding(fields.deal_preferences) : Promise.resolve(null)
+      ]);
+      await service
+        .from("twin_profiles")
+        .update({
+          goals_embedding: goalsEmb,
+          deal_prefs_embedding: dealEmb
+        })
+        .eq("user_id", user.id);
+    } catch (e) {
+      console.warn("[onboarding] embedding generation failed", e);
+    }
+  })();
+
   // Portfolio-from-LinkedIn auto-pull. If the user's blob contains a
   // LinkedIn URL and they don't yet have portfolio_about set, scrape the
   // profile and pre-fill it. Best-effort — never blocks the save. Lives

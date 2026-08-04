@@ -39,33 +39,52 @@ export type FirstMatchResult = {
  * Strictly synchronous + deterministic — no LLM calls. Future upgrade:
  * embedding cosine sim once we backfill embeddings on twin profiles.
  */
-function scorePair(
+async function scorePair(
+  service: ReturnType<typeof createServiceClient>,
   me: {
     goals: string;
     deal_preferences: string;
     ai_export_blob: string;
+    goals_embedding: number[] | null;
+    deal_prefs_embedding: number[] | null;
   },
   them: {
     goals: string;
     deal_preferences: string;
     ai_export_blob: string;
     last_active_at: string | null;
+    goals_embedding: number[] | null;
+    deal_prefs_embedding: number[] | null;
   }
-): { score: number; reason: string } {
-  const myGoalTokens = tokenize(me.goals);
-  const myDealTokens = tokenize(me.deal_preferences);
-  const theirGoalTokens = tokenize(them.goals);
-  const theirDealTokens = tokenize(them.deal_preferences);
+): Promise<{ score: number; reason: string }> {
+  let complementarity: number;
 
-  // The core complementarity score: my-goals overlap with their-deal-prefs
-  // (= I want what they offer) PLUS their-goals overlap with my-deal-prefs
-  // (= they want what I offer). Real win-wins score higher than mirror
-  // matches where both sides want the same thing.
-  const inboundFit = overlap(myGoalTokens, theirDealTokens);
-  const outboundFit = overlap(theirGoalTokens, myDealTokens);
-  const complementarity = inboundFit + outboundFit;
+  // Use real embeddings when both sides have them; otherwise fall back
+  // to the original keyword-overlap method — this ensures a missing
+  // embedding (e.g. a fire-and-forget generation that hasn't landed yet)
+  // never breaks matching entirely, it just degrades gracefully.
+  if (
+    me.goals_embedding && me.deal_prefs_embedding &&
+    them.goals_embedding && them.deal_prefs_embedding
+  ) {
+    const { data, error } = await service.rpc("match_score", {
+      my_goals: me.goals_embedding,
+      my_deal_prefs: me.deal_prefs_embedding,
+      their_goals: them.goals_embedding,
+      their_deal_prefs: them.deal_prefs_embedding
+    });
+    complementarity = !error && typeof data === "number" ? data : 0;
+  } else {
+    const myGoalTokens = tokenize(me.goals);
+    const myDealTokens = tokenize(me.deal_preferences);
+    const theirGoalTokens = tokenize(them.goals);
+    const theirDealTokens = tokenize(them.deal_preferences);
+    const inboundFit = overlap(myGoalTokens, theirDealTokens);
+    const outboundFit = overlap(theirGoalTokens, myDealTokens);
+    complementarity = inboundFit + outboundFit;
+  }
 
-  // Activity bonus — within 14 days = +5, 30 = +3, 60 = +1, else 0.
+  // Everything below is UNCHANGED from the original function.
   const lastActiveMs = them.last_active_at
     ? new Date(them.last_active_at).getTime()
     : 0;
@@ -75,23 +94,17 @@ function scorePair(
   const activityBonus =
     ageDays < 14 ? 5 : ageDays < 30 ? 3 : ageDays < 60 ? 1 : 0;
 
-  // Twin completeness bonus.
   let completeness = 0;
   if (them.goals.trim().length > 40) completeness += 2;
   if (them.deal_preferences.trim().length > 40) completeness += 2;
   if (them.ai_export_blob.trim().length > 400) completeness += 3;
 
-  // Light random tiebreak so two perfect-zero scores don't always pick
-  // the same person.
   const jitter = Math.random() * 0.5;
-
   const score = complementarity * 10 + activityBonus + completeness + jitter;
 
   const reason =
     complementarity > 0
-      ? `Complementary goals (${inboundFit + outboundFit} shared signals) · active ${
-          ageDays < 1 ? "today" : `${Math.round(ageDays)}d ago`
-        }`
+      ? `Complementary goals · active ${ageDays < 1 ? "today" : `${Math.round(ageDays)}d ago`}`
       : `Active recently · twin built out`;
 
   return { score, reason };
@@ -135,14 +148,16 @@ export async function pickBestFirstMatch(
   // Load the new user's twin so we can compare against the pool.
   const { data: meTwin } = await service
     .from("twin_profiles")
-    .select("goals, deal_preferences, ai_export_blob")
+    .select("goals, deal_preferences, ai_export_blob, goals_embedding, deal_prefs_embedding")
     .eq("user_id", newUserId)
     .maybeSingle();
   if (!meTwin) return null;
   const me = {
     goals: ((meTwin as any).goals ?? "") as string,
     deal_preferences: ((meTwin as any).deal_preferences ?? "") as string,
-    ai_export_blob: ((meTwin as any).ai_export_blob ?? "") as string
+    ai_export_blob: ((meTwin as any).ai_export_blob ?? "") as string,
+    goals_embedding: (meTwin as any).goals_embedding ?? null,
+    deal_prefs_embedding: (meTwin as any).deal_prefs_embedding ?? null
   };
   // No signal to match on yet — let the caller fall back.
   if (me.goals.trim().length < 10) return null;
@@ -163,7 +178,7 @@ export async function pickBestFirstMatch(
   // Twin profiles for the pool — single batch query.
   const { data: pool } = await service
     .from("twin_profiles")
-    .select("user_id, goals, deal_preferences, ai_export_blob")
+    .select("user_id, goals, deal_preferences, ai_export_blob, goals_embedding, deal_prefs_embedding")
     .in("user_id", candidateIds);
   const lastActiveById = new Map<string, string | null>(
     (candidates ?? []).map(
@@ -194,9 +209,11 @@ export async function pickBestFirstMatch(
       goals,
       deal_preferences: (t.deal_preferences ?? "").toString(),
       ai_export_blob: (t.ai_export_blob ?? "").toString(),
-      last_active_at: lastActiveById.get(t.user_id) ?? null
+      last_active_at: lastActiveById.get(t.user_id) ?? null,
+      goals_embedding: t.goals_embedding ?? null,
+      deal_prefs_embedding: t.deal_prefs_embedding ?? null
     };
-    const { score, reason } = scorePair(me, them);
+    const { score, reason } = await scorePair(service, me, them);
     if (!best || score > best.score) {
       best = { counterpartId: t.user_id, score, reason };
     }
