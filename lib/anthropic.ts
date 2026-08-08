@@ -55,6 +55,7 @@ export const anthropic = {
       system?: string | any[];
       messages: Array<{ role: string; content: string | any[] }>;
       temperature?: number;
+      tools?: any[];
     }) => {
       // Extract system instruction
       let systemInstruction: string | undefined = undefined;
@@ -143,6 +144,51 @@ export const anthropic = {
       }
 
       throw lastErr;
+    },
+    stream: (params: {
+      model?: string;
+      max_tokens?: number;
+      system?: string | any[];
+      messages: Array<{ role: string; content: string | any[] }>;
+      temperature?: number;
+      tools?: any[];
+    }) => {
+      const listeners: { [key: string]: Function[] } = {};
+      let finalPromise: Promise<any> | null = null;
+
+      const runStream = () => {
+        if (!finalPromise) {
+          finalPromise = anthropic.messages.create(params).then((res) => {
+            const text = res.content[0]?.text ?? "";
+            if (listeners["text"]) {
+              listeners["text"].forEach((fn) => fn(text));
+            }
+            return res;
+          });
+        }
+        return finalPromise;
+      };
+
+      const streamObj = {
+        on: (event: string, fn: Function) => {
+          if (!listeners[event]) listeners[event] = [];
+          listeners[event].push(fn);
+          return streamObj;
+        },
+        finalMessage: async () => {
+          return runStream();
+        }
+      };
+
+      setTimeout(() => {
+        runStream().catch((err) => {
+          if (listeners["error"]) {
+            listeners["error"].forEach((fn) => fn(err));
+          }
+        });
+      }, 0);
+
+      return streamObj;
     }
   }
 };
