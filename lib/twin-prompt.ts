@@ -175,6 +175,13 @@ export function scrubAiTells(text: string): string {
     ""
   );
 
+  // Strip accidental speaker/numbered script prefixes (e.g. "7. Gourav: ", "Sahil: ")
+  out = out.replace(/^\s*\d+\.\s*[A-Za-z0-9_\s]+\s*:\s*"?/g, "");
+  out = out.replace(/^\s*[A-Za-z0-9_]+\s*:\s*"?/g, "");
+  if (out.endsWith('"') && !out.startsWith('"')) {
+    out = out.slice(0, -1);
+  }
+
   // Collapse any "X, but Y" → keep as-is (not all "but" is contrastive AI
   // pattern; over-correcting here breaks normal prose). Same for "X. Y."
   // patterns. We don't touch these structurally; the system prompt and

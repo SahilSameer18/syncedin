@@ -73,7 +73,7 @@ async function scorePair(
       their_goals: them.goals_embedding,
       their_deal_prefs: them.deal_prefs_embedding
     });
-    complementarity = !error && typeof data === "number" ? data : 0;
+    complementarity = !error && typeof data === "number" ? (data / 2) * 10 : 0;
   } else {
     const myGoalTokens = tokenize(me.goals);
     const myDealTokens = tokenize(me.deal_preferences);

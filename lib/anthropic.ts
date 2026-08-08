@@ -1,17 +1,8 @@
-import Anthropic from "@anthropic-ai/sdk";
+import { getGeminiClients, GEMINI_MODEL } from "./gemini";
 
-export const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!
-});
+// Twin generation model. Defaulted to Gemini 3.6 Flash with fallback.
+export const TWIN_MODEL = GEMINI_MODEL;
 
-// Twin generation model. Override with the TWIN_MODEL env var if the default
-// string is ever wrong — no code change / redeploy needed, just set the env var.
-// Swap to a fine-tuned snapshot once you have ~10k edit deltas.
-export const TWIN_MODEL = process.env.TWIN_MODEL || "claude-sonnet-4-6";
-
-// Friendly, human-readable error a UI can show without leaking internals.
-// "Overloaded" (HTTP 529) and "rate_limit" (HTTP 429) are the two we hit
-// most in practice — both transient, both worth retrying.
 export class FriendlyAnthropicError extends Error {
   public readonly status: number;
   public readonly retryable: boolean;
@@ -23,90 +14,182 @@ export class FriendlyAnthropicError extends Error {
   }
 }
 
-type AnthropicLike = {
-  status?: number;
-  error?: { type?: string; message?: string };
-  message?: string;
-};
-
-function isOverloaded(e: AnthropicLike): boolean {
+function isRateLimited(e: any): boolean {
+  const msg = (e?.message || e?.error?.message || String(e)).toLowerCase();
+  const status = e?.status ?? 0;
   return (
-    e.status === 529 ||
-    e.error?.type === "overloaded_error" ||
-    /overloaded/i.test(e.message ?? "") ||
-    /overloaded/i.test(e.error?.message ?? "")
+    status === 429 ||
+    status === 529 ||
+    msg.includes("quota") ||
+    msg.includes("resource_exhausted") ||
+    msg.includes("rate_limit") ||
+    msg.includes("too_many_requests")
   );
 }
 
-function isRateLimited(e: AnthropicLike): boolean {
-  return (
-    e.status === 429 ||
-    e.error?.type === "rate_limit_error" ||
-    /rate.?limit/i.test(e.message ?? "")
-  );
-}
-
-function isTransient(e: AnthropicLike): boolean {
-  const s = e.status ?? 0;
-  return isOverloaded(e) || isRateLimited(e) || s === 500 || s === 502 || s === 503 || s === 504;
+function isTransient(e: any): boolean {
+  const s = e?.status ?? 0;
+  return isRateLimited(e) || s === 500 || s === 502 || s === 503 || s === 504;
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const FALLBACK_MODELS = [
+  "gemini-3.5-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-3.5-flash",
+  "gemini-3.1-flash-lite",
+  "gemini-3.6-flash",
+  "gemini-2.0-flash-lite"
+];
+
 /**
- * Wraps any Anthropic SDK call with exponential-backoff retry on transient
- * failures (529 overloaded, 429 rate-limited, 5xx). Throws a
- * FriendlyAnthropicError with a user-presentable message after the final
- * retry fails — callers can pass `err.message` straight to the UI.
- *
- * Usage:
- *   const res = await withAnthropicRetry(() =>
- *     anthropic.messages.create({ model: TWIN_MODEL, ... })
- *   );
+ * Universal Gemini-backed adapter that fulfills the Anthropic SDK surface area
+ * (`anthropic.messages.create(...)`), featuring multi-key rotation and multi-model fallback.
+ */
+export const anthropic = {
+  messages: {
+    create: async (params: {
+      model?: string;
+      max_tokens?: number;
+      system?: string | any[];
+      messages: Array<{ role: string; content: string | any[] }>;
+      temperature?: number;
+    }) => {
+      // Extract system instruction
+      let systemInstruction: string | undefined = undefined;
+      if (params.system) {
+        if (typeof params.system === "string") {
+          systemInstruction = params.system;
+        } else if (Array.isArray(params.system)) {
+          systemInstruction = params.system
+            .map((s) => (typeof s === "string" ? s : s.text || JSON.stringify(s)))
+            .join("\n\n");
+        }
+      }
+
+      // Convert messages to Gemini format
+      const contents = params.messages.map((m) => {
+        let text = "";
+        if (typeof m.content === "string") {
+          text = m.content;
+        } else if (Array.isArray(m.content)) {
+          text = m.content
+            .map((c) => (typeof c === "string" ? c : c.text || JSON.stringify(c)))
+            .join("\n");
+        }
+        return {
+          role: m.role === "assistant" ? "model" : "user",
+          parts: [{ text }]
+        };
+      });
+
+      const config: any = {};
+      if (systemInstruction) config.systemInstruction = systemInstruction;
+      if (params.max_tokens) config.maxOutputTokens = params.max_tokens;
+      if (typeof params.temperature === "number") config.temperature = params.temperature;
+
+      // Model resolution with automatic fallback across Gemini Flash models
+      const requestedModel =
+        params.model && !params.model.includes("claude")
+          ? params.model
+          : GEMINI_MODEL;
+
+      const modelsToTry = Array.from(new Set([requestedModel, ...FALLBACK_MODELS]));
+      const clients = getGeminiClients();
+      let lastErr: any = null;
+
+      // 2D Rotation matrix: Try each model across ALL available API Keys before falling back to next model
+      for (const modelName of modelsToTry) {
+        for (let keyIdx = 0; keyIdx < clients.length; keyIdx++) {
+          const client = clients[keyIdx];
+          try {
+            const res = await client.models.generateContent({
+              model: modelName,
+              contents,
+              config
+            });
+
+            const text = res.text ?? "";
+
+            return {
+              id: `msg_gemini_${Date.now()}`,
+              type: "message",
+              role: "assistant",
+              model: modelName,
+              content: [
+                {
+                  type: "text",
+                  text
+                }
+              ],
+              stop_reason: "end_turn",
+              usage: {
+                input_tokens: 0,
+                output_tokens: 0
+              }
+            };
+          } catch (err: any) {
+            lastErr = err;
+            if (isRateLimited(err)) {
+              console.warn(
+                `[gemini-fallback] Key #${keyIdx + 1} on ${modelName} rate-limited/quota-exceeded. Trying next key/model...`
+              );
+              continue;
+            }
+            throw err;
+          }
+        }
+      }
+
+      throw lastErr;
+    }
+  }
+};
+
+/**
+ * Wraps AI calls with exponential-backoff retry on transient failures.
  */
 export async function withAnthropicRetry<T>(
   fn: () => Promise<T>,
   opts: { retries?: number; label?: string } = {}
 ): Promise<T> {
-  const retries = opts.retries ?? 4;
-  // Initial backoff: 800ms, then 1.6s, 3.2s, 6.4s — ~12s total worst case.
-  // Overloaded events typically clear in 2-10 seconds.
-  let backoff = 800;
-  let lastErr: AnthropicLike = {};
+  const retries = opts.retries ?? 3;
+  let backoff = 2000; // 2s initial backoff for Gemini free-tier rate limits
+  let lastErr: any = null;
+
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await fn();
     } catch (e: any) {
       lastErr = e;
-      const overloaded = isOverloaded(e);
+      const rateLimited = isRateLimited(e);
       const retryable = isTransient(e);
+
       if (!retryable || attempt === retries) {
-        const friendly = overloaded
-          ? "Claude is overloaded right now — give it a few seconds and try again. We'll auto-retry next time."
-          : isRateLimited(e)
-            ? "Hit the AI rate limit. Wait ~30 seconds and try again."
-            : e?.message || "AI call failed. Retrying...";
+        const friendly = rateLimited
+          ? "All Gemini free tier keys/models are temporarily busy. Please wait ~10 seconds and try again."
+          : e?.message || "AI service temporarily unavailable. Please try again.";
         throw new FriendlyAnthropicError(
           friendly,
-          e?.status ?? 0,
+          e?.status ?? 429,
           retryable
         );
       }
+
       console.warn(
-        `[anthropic-retry${opts.label ? ":" + opts.label : ""}] attempt ${
+        `[gemini-retry${opts.label ? ":" + opts.label : ""}] attempt ${
           attempt + 1
-        }/${retries + 1} failed (status ${e?.status}), backing off ${backoff}ms`
+        }/${retries + 1} rate-limited/transient. Backing off ${backoff}ms...`
       );
-      // Jitter so concurrent overloaded requests don't all retry in lock-step.
-      const jitter = Math.random() * 200;
-      await sleep(backoff + jitter);
+      await sleep(backoff);
       backoff *= 2;
     }
   }
-  // Unreachable, but TS demands a return.
+
   throw new FriendlyAnthropicError(
-    "AI call exhausted retries",
-    (lastErr as any)?.status ?? 0,
+    "Gemini free tier quota temporarily busy. Please retry in a few seconds.",
+    429,
     true
   );
 }

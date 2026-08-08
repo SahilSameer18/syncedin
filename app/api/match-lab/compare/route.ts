@@ -1,34 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { gemini, GEMINI_MODEL } from "@/lib/gemini";
-
-async function getScoreRange(service: any): Promise<{ min: number; max: number }> {
-  const { data: allTwins } = await service
-    .from("twin_profiles")
-    .select("user_id, goals_embedding, deal_prefs_embedding")
-    .not("goals_embedding", "is", null);
-
-  if (!allTwins || allTwins.length < 2) {
-    return { min: 0, max: 2 };
-  }
-
-  const scores: number[] = [];
-  for (let i = 0; i < allTwins.length; i++) {
-    for (let j = 0; j < allTwins.length; j++) {
-      if (i === j) continue;
-      const { data } = await service.rpc("match_score", {
-        my_goals: allTwins[i].goals_embedding,
-        my_deal_prefs: allTwins[i].deal_prefs_embedding,
-        their_goals: allTwins[j].goals_embedding,
-        their_deal_prefs: allTwins[j].deal_prefs_embedding
-      });
-      if (typeof data === "number") scores.push(data);
-    }
-  }
-
-  if (scores.length === 0) return { min: 0, max: 2 };
-  return { min: Math.min(...scores), max: Math.max(...scores) };
-}
+import { computePairScore } from "@/lib/pair-score";
 
 export async function POST(req: Request) {
   try {
@@ -46,7 +19,7 @@ export async function POST(req: Request) {
         .in("id", [userIdA, userIdB]),
       service
         .from("twin_profiles")
-        .select("user_id, goals, deal_preferences, goals_embedding, deal_prefs_embedding")
+        .select("user_id, goals, deal_preferences, communication_style, deal_breakers, ai_export_blob")
         .in("user_id", [userIdA, userIdB])
     ]);
 
@@ -64,7 +37,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "One or both user profiles could not be found" }, { status: 404 });
     }
 
-    // --- Old method: keyword overlap ---
+    // Keyword overlap calculation for legacy baseline
     const tokenize = (s: string) => {
       const stops = new Set([
         "the","and","for","with","that","this","what","want","need","into",
@@ -80,10 +53,10 @@ export async function POST(req: Request) {
       );
     };
 
-    const tokensA_goals = tokenize(twinA.goals);
-    const tokensA_deals = tokenize(twinA.deal_preferences);
-    const tokensB_goals = tokenize(twinB.goals);
-    const tokensB_deals = tokenize(twinB.deal_preferences);
+    const tokensA_goals = tokenize(twinA.goals || "");
+    const tokensA_deals = tokenize(twinA.deal_preferences || "");
+    const tokensB_goals = tokenize(twinB.goals || "");
+    const tokensB_deals = tokenize(twinB.deal_preferences || "");
 
     const overlapAtoB = Array.from(tokensA_goals).filter((w) => tokensB_deals.has(w));
     const overlapBtoA = Array.from(tokensB_goals).filter((w) => tokensA_deals.has(w));
@@ -91,43 +64,26 @@ export async function POST(req: Request) {
     const sharedWords = Array.from(new Set([...overlapAtoB, ...overlapBtoA]));
     const oldScore = Math.min(100, Math.max(5, totalShared * 10));
 
-    // --- New method: embeddings, normalized against real range ---
-    let newScore = 0;
-    let cosineSim = 0;
+    // Standardized pair-score — deterministic 55% complementarity + 45% domain overlap
+    const newScore = computePairScore(twinA, twinB);
 
-    if (twinA.goals_embedding && twinA.deal_prefs_embedding && twinB.goals_embedding && twinB.deal_prefs_embedding) {
-      const { data: scoreData, error: rpcErr } = await service.rpc("match_score", {
-        my_goals: twinA.goals_embedding,
-        my_deal_prefs: twinA.deal_prefs_embedding,
-        their_goals: twinB.goals_embedding,
-        their_deal_prefs: twinB.deal_prefs_embedding
-      });
-
-      if (!rpcErr && typeof scoreData === "number") {
-        cosineSim = scoreData;
-        const { min, max } = await getScoreRange(service);
-        const spread = max - min || 1;
-        newScore = Math.round(((scoreData - min) / spread) * 100);
-        newScore = Math.max(0, Math.min(100, newScore));
-      } else {
-        console.warn("[match-lab/compare] rpc error:", rpcErr);
-        newScore = oldScore;
-      }
-    } else {
-      newScore = oldScore;
-    }
-
-    // --- AI Qualitative Analysis (Matches vs Not Matches) ---
-    let explanation = "Both people share relevant, complementary goals.";
+    // AI Qualitative Analysis
+    let explanation = "Both members share strong, complementary strategic goals.";
     let matchReasons: string[] = [];
     let mismatchRisks: string[] = [];
-    let matchVerdict = newScore >= 75 ? "High Mutual Synergy" : newScore >= 50 ? "Moderate Strategic Fit" : "Low Alignment";
+    let matchVerdict =
+      newScore >= 75
+        ? "High Mutual Synergy"
+        : newScore >= 50
+        ? "Moderate Strategic Fit"
+        : "Partial Fit";
 
     try {
       const nameA = profA.display_name || profA.email?.split("@")[0] || "Person A";
       const nameB = profB.display_name || profB.email?.split("@")[0] || "Person B";
 
       const prompt = `Analyze the professional matchmaking synergy between two individuals.
+Overall Pair Match Score: ${newScore}% (${matchVerdict})
 
 Person 1 (${nameA}):
 Goals: ${twinA.goals || "None"}
@@ -142,7 +98,7 @@ Return a raw JSON object (and nothing else) with this exact schema:
   "summary": "2 crisp sentences explaining the overall synergy or lack thereof.",
   "matchReasons": ["Specific reason 1 where their goals/skills align", "Specific reason 2 where they complement each other"],
   "mismatchRisks": ["Specific reason 1 where their focus diverges or where friction could arise"],
-  "matchVerdict": "Strong Fit" or "Partial Fit" or "Divergent"
+  "matchVerdict": "${matchVerdict}"
 }`;
 
       const resp = await gemini.models.generateContent({
@@ -165,12 +121,6 @@ Return a raw JSON object (and nothing else) with this exact schema:
       }
     } catch (llmErr) {
       console.warn("[match-lab/compare] explanation generation failed:", llmErr);
-      if (matchReasons.length === 0) {
-        matchReasons = ["Mutual presence in shared tech & startup ecosystem"];
-      }
-      if (mismatchRisks.length === 0) {
-        mismatchRisks = ["Different primary domain specializations"];
-      }
     }
 
     if (matchReasons.length === 0) {
@@ -205,7 +155,7 @@ Return a raw JSON object (and nothing else) with this exact schema:
       },
       newScore: {
         score: newScore,
-        rawCosineSim: Number(cosineSim.toFixed(4))
+        rawCosineSim: newScore / 100
       },
       matchAnalysis: {
         verdict: matchVerdict,
