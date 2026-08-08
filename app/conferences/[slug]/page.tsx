@@ -20,6 +20,7 @@ import { MemberAdminControls } from "./MemberAdminControls";
 import { OgPreviewControl } from "./OgPreviewControl";
 import { socialsFromBlob } from "@/lib/social-from-blob";
 import { deriveIceberg } from "@/lib/iceberg";
+import { TopMatches } from "./TopMatches";
 
 // Render fresh every request — without this the page is statically
 // cached, so a newly uploaded banner / freshly joined members don't show
@@ -822,6 +823,8 @@ export default async function ConferencePage({
           </div>
         </section>
       )}
+
+      {isMember && <TopMatches conferenceSlug={conf.slug} />}
 
       {/* ATTENDEE DIRECTORY (members only) */}
       {isMember && members && (
