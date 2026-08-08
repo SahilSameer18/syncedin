@@ -1,8 +1,8 @@
 import { ImageResponse } from "next/og";
 import { createServiceClient } from "@/lib/supabase/server";
 
-// Service client needs the node runtime.
-export const runtime = "nodejs";
+// Edge runtime for @vercel/og font compatibility
+export const runtime = "edge";
 // Render per-request so a freshly-picked template (banner-only / clean
 // card) shows immediately instead of serving a cached image. Jack: "when
 // I click 'clean card' or 'banner only' it doesn't actually change."

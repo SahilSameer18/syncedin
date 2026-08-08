@@ -5,15 +5,6 @@ import Link from "next/link";
 import { Avatar } from "../../Avatar";
 import { SocialIconRow } from "../../SocialIconRow";
 
-/**
- * MemberCard — the "Tip of their self iceberg" card (Jack's framework)
- * for conference + community pages. Shows about / wants-needs / offers,
- * the member's social links, and "Your Potential Collaboration":
- *   - signed-out viewers see a sign-up CTA (the win-win auto-generates
- *     once they're in)
- *   - signed-in viewers get an on-demand "reveal win-win" button that
- *     matches their twin against this member's via /api/collab-match
- */
 type Socials = {
   linkedin_url: string | null;
   x_url?: string | null;
@@ -76,12 +67,12 @@ export function MemberCard({
 
   const Row = ({ label, value }: { label: string; value: string | null }) =>
     value ? (
-      <div style={{ marginTop: 8 }}>
+      <div className="mt-2.5">
         <div
           style={{
             fontSize: 10,
             fontWeight: 800,
-            letterSpacing: "0.1em",
+            letterSpacing: "0.08em",
             textTransform: "uppercase",
             color: "var(--text-dim)"
           }}
@@ -89,7 +80,8 @@ export function MemberCard({
           {label}
         </div>
         <div
-          style={{ fontSize: 13, lineHeight: 1.5, color: "var(--text)" }}
+          className="text-xs leading-relaxed mt-0.5 line-clamp-3"
+          style={{ color: "var(--text)" }}
         >
           {value}
         </div>
@@ -98,111 +90,87 @@ export function MemberCard({
 
   return (
     <div
+      className="retro-panel retro-panel-hover flex flex-col justify-between p-4 sm:p-5"
       style={{
-        display: "flex",
-        flexDirection: "column",
-        padding: 16,
-        borderRadius: 14,
+        borderRadius: "var(--radius)",
         background: "var(--panel-solid)",
         border: isHost ? "1px solid var(--amber)" : "1px solid var(--border)"
       }}
     >
-      <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-        <Avatar id={id} name={name} avatarUrl={avatarUrl} size={44} />
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div
-            style={{
-              fontWeight: 800,
-              fontSize: 15,
-              color: "var(--text)",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap"
-            }}
-          >
-            {name}
+      <div>
+        <div className="flex items-center gap-3">
+          <Avatar id={id} name={name} avatarUrl={avatarUrl} size={44} />
+          <div className="min-w-0 flex-1">
+            <div
+              className="font-bold text-sm truncate"
+              style={{ color: "var(--text)" }}
+            >
+              {name}
+            </div>
+            <div className="flex items-center gap-2 mt-0.5">
+              {isHost && (
+                <span
+                  style={{
+                    fontSize: 9,
+                    fontWeight: 800,
+                    letterSpacing: "0.1em",
+                    textTransform: "uppercase",
+                    color: "var(--amber-bright)"
+                  }}
+                >
+                  host
+                </span>
+              )}
+              {socials && <SocialIconRow urls={socials} size={13} gap={4} />}
+            </div>
           </div>
-          <div
-            style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}
-          >
-            {isHost && (
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 800,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "var(--amber-bright)"
-                }}
-              >
-                host
-              </span>
-            )}
-            {socials && <SocialIconRow urls={socials} size={13} gap={4} />}
-          </div>
+        </div>
+
+        <div className="mt-3">
+          <Row label="About" value={about} />
+          <Row label="Wants / Needs" value={wants} />
+          <Row label="Offers" value={offers} />
+          {!about && !wants && !offers && (
+            <div className="mt-2 text-xs italic" style={{ color: "var(--text-dim)" }}>
+              Twin still forming — check back soon.
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Collaboration / Win-Win Section */}
       <div
-        style={{
-          marginTop: 12,
-          fontSize: 9,
-          fontWeight: 800,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: "var(--amber-bright)"
-        }}
-      >
-        ▲ tip of their self iceberg
-      </div>
-      <Row label="About" value={about} />
-      <Row label="Wants / needs" value={wants} />
-      <Row label="Offers" value={offers} />
-      {!about && !wants && !offers && (
-        <div
-          style={{ marginTop: 8, fontSize: 12, color: "var(--text-dim)", fontStyle: "italic" }}
-        >
-          Twin still forming — check back soon.
-        </div>
-      )}
-
-      {/* Your Potential Collaboration */}
-      <div
-        style={{
-          marginTop: 14,
-          paddingTop: 12,
-          borderTop: "1px solid var(--border)"
-        }}
+        className="mt-4 pt-3 border-t flex flex-col justify-end"
+        style={{ borderColor: "var(--border)" }}
       >
         <div
           style={{
             fontSize: 10,
             fontWeight: 800,
-            letterSpacing: "0.1em",
+            letterSpacing: "0.08em",
             textTransform: "uppercase",
             color: "var(--green)"
           }}
         >
-          🧊 The rest of the iceberg
+          🧊 Shared Potential
         </div>
+
         {isSelf ? (
-          <div style={{ marginTop: 6, fontSize: 12, color: "var(--text-dim)" }}>
+          <div className="mt-1 text-xs" style={{ color: "var(--text-dim)" }}>
             This is you — others will see their win-win with you here.
           </div>
         ) : !viewerSignedIn ? (
-          <div style={{ marginTop: 6, fontSize: 12.5, color: "var(--text-dim)", lineHeight: 1.5 }}>
+          <div className="mt-1.5 text-xs leading-relaxed" style={{ color: "var(--text-dim)" }}>
             <Link
               href={signupHref}
               style={{ color: "var(--amber-bright)", fontWeight: 700, textDecoration: "none" }}
             >
               Sign up
             </Link>{" "}
-            and your context merges with {name.split(/\s+/)[0]}&apos;s —
-            auto-generating your shared potential and surfacing the
-            collaborations and win-win opportunities worth exploring.
+            to auto-generate your shared win-win potential with {name.split(/\s+/)[0]}.
           </div>
         ) : collab ? (
-          <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5, color: "var(--text)" }}>
+          <div className="mt-1.5 text-xs leading-relaxed" style={{ color: "var(--text)" }}>
             {collab}
           </div>
         ) : (
@@ -210,8 +178,7 @@ export function MemberCard({
             type="button"
             onClick={reveal}
             disabled={loading}
-            className="retro-btn retro-btn-primary"
-            style={{ marginTop: 8, fontSize: 12, padding: "7px 12px" }}
+            className="retro-btn retro-btn-primary w-full mt-2 text-xs font-semibold py-2 justify-center flex items-center gap-1.5 cursor-pointer"
           >
             {loading ? "Finding the win-win…" : "✨ Reveal our win-win"}
           </button>

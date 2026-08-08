@@ -237,7 +237,58 @@ export default async function DashboardPage() {
       u.website_url;
     socialsById.set(p.id, hasAny ? u : null);
   }
-  // Discovery directory: real users with a finished twin you're NOT already
+
+  // User's private conferences & communities (owned or joined)
+  type MyRoom = {
+    slug: string;
+    name: string;
+    kind: "conference" | "community";
+    city?: string | null;
+    isOwner: boolean;
+    memberCount?: number;
+  };
+  let myRooms: MyRoom[] = [];
+  try {
+    const [{ data: memberRows }, { data: ownedRows }] = await Promise.all([
+      service
+        .from("conference_members")
+        .select("conference_slug")
+        .eq("user_id", user.id),
+      service
+        .from("conferences")
+        .select("slug, name, kind, city, owner_user_id")
+        .eq("owner_user_id", user.id)
+    ]);
+
+    const memberSlugs = (memberRows ?? []).map((r: any) => r.conference_slug as string);
+    const ownedMap = new Map((ownedRows ?? []).map((o: any) => [o.slug, o]));
+    const allSlugs = Array.from(new Set([...memberSlugs, ...Array.from(ownedMap.keys())]));
+
+    if (allSlugs.length > 0) {
+      const { data: confs } = await service
+        .from("conferences")
+        .select("slug, name, kind, city, owner_user_id")
+        .in("slug", allSlugs);
+
+      const countsPromises = (confs ?? []).map(async (c: any) => {
+        const { count } = await service
+          .from("conference_members")
+          .select("user_id", { count: "exact", head: true })
+          .eq("conference_slug", c.slug);
+        return {
+          slug: c.slug,
+          name: c.name,
+          kind: ((c.kind || "conference") as "conference" | "community"),
+          city: c.city ?? null,
+          isOwner: c.owner_user_id === user.id,
+          memberCount: count ?? 0
+        };
+      });
+      myRooms = await Promise.all(countsPromises);
+    }
+  } catch (err) {
+    console.warn("[Dashboard] myRooms fetch failed", err);
+  }
   // in a conversation with. Once you've connected, they drop off discovery —
   // the space below pivots to inviting more people.
   const existingConvoIds = new Set(otherIds);
@@ -905,6 +956,109 @@ export default async function DashboardPage() {
                     </form>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* YOUR ROOMS & CONFERENCES — 100% private to user */}
+          {myRooms.length > 0 && (
+            <div style={{ marginTop: 26 }}>
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+                <div>
+                  <div
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      color: "var(--amber-bright)"
+                    }}
+                  >
+                    Your Rooms &amp; Conferences
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 2 }}>
+                    Spaces you host or belong to (private to your account)
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Link
+                    href="/conferences/new"
+                    className="retro-btn text-xs py-1 px-2.5 inline-flex items-center gap-1"
+                  >
+                    + Sync Conference
+                  </Link>
+                  <Link
+                    href="/communities/new"
+                    className="retro-btn text-xs py-1 px-2.5 inline-flex items-center gap-1"
+                  >
+                    + Sync Community
+                  </Link>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                  gap: 14
+                }}
+              >
+                {myRooms.map((r) => {
+                  const url = r.kind === "community" ? `/communities/${r.slug}` : `/conferences/${r.slug}`;
+                  return (
+                    <Link
+                      key={r.slug}
+                      href={url}
+                      className="retro-panel retro-panel-hover"
+                      style={{
+                        padding: 16,
+                        textDecoration: "none",
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        gap: 12
+                      }}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span
+                            className="font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded"
+                            style={{
+                              background: r.isOwner ? "rgba(224, 138, 0, 0.15)" : "var(--panel-2)",
+                              color: r.isOwner ? "var(--amber-bright)" : "var(--text-dim)",
+                              border: "1px solid var(--border)"
+                            }}
+                          >
+                            {r.isOwner ? "★ Host" : "Member"}
+                          </span>
+                          <span className="font-mono text-[11px] text-[var(--text-dim)]">
+                            {r.kind === "community" ? "Community" : "Conference"}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-base text-[var(--text)] line-clamp-1">
+                          {r.name}
+                        </h3>
+                        {r.city && (
+                          <p className="text-xs text-[var(--text-dim)] mt-0.5">
+                            📍 {r.city}
+                          </p>
+                        )}
+                      </div>
+
+                      <div
+                        className="flex items-center justify-between pt-2 border-t text-xs font-mono"
+                        style={{ borderColor: "var(--border)" }}
+                      >
+                        <span className="text-[var(--text-dim)]">
+                          👥 {r.memberCount} {r.memberCount === 1 ? "attendee" : "attendees"}
+                        </span>
+                        <span style={{ color: "var(--amber-bright)", fontWeight: 700 }}>
+                          Open Room →
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -6,22 +6,20 @@ export async function POST(req: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  const { conferenceSlug } = await req.json();
-  if (!conferenceSlug) {
-    return NextResponse.json({ error: "Missing conferenceSlug" }, { status: 400 });
+    return NextResponse.json({ matches: [] });
   }
 
   try {
+    const body = await req.json().catch(() => ({}));
+    const conferenceSlug = body?.conferenceSlug;
+    if (!conferenceSlug) {
+      return NextResponse.json({ matches: [] });
+    }
+
     const matches = await getTopMatchesInRoom(user.id, conferenceSlug, 5);
     return NextResponse.json({ matches });
   } catch (err: any) {
     console.error("[room-matches] error:", err);
-    return NextResponse.json({ error: "Failed to compute matches" }, { status: 500 });
+    return NextResponse.json({ matches: [] });
   }
 }
-
-
-

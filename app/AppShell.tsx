@@ -82,16 +82,27 @@ export async function AppShell({
   // sidebar just renders without the "Your conferences" section.
   let conferences: { slug: string; name: string }[] = [];
   try {
-    const { data: memberRows } = await supabase
-      .from("conference_members")
-      .select("conference_slug")
-      .eq("user_id", userId);
-    const slugs = (memberRows ?? []).map((r: any) => r.conference_slug);
-    if (slugs.length > 0) {
-      const { data: confs } = await supabase
+    const service = createServiceClient();
+    const [{ data: memberRows }, { data: ownedRows }] = await Promise.all([
+      service
+        .from("conference_members")
+        .select("conference_slug")
+        .eq("user_id", userId),
+      service
         .from("conferences")
         .select("slug, name")
-        .in("slug", slugs);
+        .eq("owner_user_id", userId)
+    ]);
+
+    const memberSlugs = (memberRows ?? []).map((r: any) => r.conference_slug);
+    const ownedSlugs = (ownedRows ?? []).map((o: any) => o.slug);
+    const allSlugs = Array.from(new Set([...memberSlugs, ...ownedSlugs]));
+
+    if (allSlugs.length > 0) {
+      const { data: confs } = await service
+        .from("conferences")
+        .select("slug, name")
+        .in("slug", allSlugs);
       conferences = (confs ?? []).map((c: any) => ({
         slug: c.slug as string,
         name: c.name as string
@@ -416,3 +427,5 @@ export async function AppShell({
     </>
   );
 }
+
+

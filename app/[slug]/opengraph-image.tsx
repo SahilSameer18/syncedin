@@ -5,7 +5,7 @@ import {
   buildInviteCopy as _buildInviteCopy
 } from "@/lib/invite-copy";
 
-export const runtime = "nodejs"; // service client needs node runtime
+export const runtime = "edge";
 export const alt = "Your twin started a conversation on SyncedIn";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
