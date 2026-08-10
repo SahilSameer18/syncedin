@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
-import { createServiceClient } from "@/lib/supabase/server";
+import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { gemini, GEMINI_MODEL } from "@/lib/gemini";
-import { computePairScore } from "@/lib/pair-score";
 
 export async function POST(req: Request) {
   try {
+    // Require authenticated session
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "You must be logged in to use Match Lab" }, { status: 401 });
+    }
+
     const { userIdA, userIdB } = await req.json();
     if (!userIdA || !userIdB) {
       return NextResponse.json({ error: "Both userIdA and userIdB are required" }, { status: 400 });
@@ -19,7 +25,7 @@ export async function POST(req: Request) {
         .in("id", [userIdA, userIdB]),
       service
         .from("twin_profiles")
-        .select("user_id, goals, deal_preferences, communication_style, deal_breakers, ai_export_blob")
+        .select("user_id, goals, deal_preferences, goals_embedding, deal_prefs_embedding")
         .in("user_id", [userIdA, userIdB])
     ]);
 
@@ -37,7 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "One or both user profiles could not be found" }, { status: 404 });
     }
 
-    // Keyword overlap calculation for legacy baseline
+    // Keyword overlap calculation for legacy baseline comparison
     const tokenize = (s: string) => {
       const stops = new Set([
         "the","and","for","with","that","this","what","want","need","into",
@@ -64,26 +70,45 @@ export async function POST(req: Request) {
     const sharedWords = Array.from(new Set([...overlapAtoB, ...overlapBtoA]));
     const oldScore = Math.min(100, Math.max(5, totalShared * 10));
 
-    // Standardized pair-score — deterministic 55% complementarity + 45% domain overlap
-    const newScore = computePairScore(twinA, twinB);
+    // --- REAL 768-DIM VECTOR EMBEDDING SCORING ---
+    // Calibrated Vector Scale for 768-dim Gemini embeddings:
+    // Observed raw sum ranges from ~0.90 (unrelated) to ~1.50+ (high synergy).
+    // Floor = 0.90, Spread = 0.60 maps raw vector scores into a natural 10% to 98% range.
+    let newScore = 0;
+    let cosineSim = 0;
 
-    // AI Qualitative Analysis
-    let explanation = "Both members share strong, complementary strategic goals.";
+    if (twinA.goals_embedding && twinA.deal_prefs_embedding && twinB.goals_embedding && twinB.deal_prefs_embedding) {
+      const { data: scoreData, error: rpcErr } = await service.rpc("match_score", {
+        my_goals: twinA.goals_embedding,
+        my_deal_prefs: twinA.deal_prefs_embedding,
+        their_goals: twinB.goals_embedding,
+        their_deal_prefs: twinB.deal_prefs_embedding
+      });
+
+      if (!rpcErr && typeof scoreData === "number") {
+        cosineSim = scoreData;
+        newScore = Math.round(((scoreData - 0.90) / 0.60) * 100);
+        newScore = Math.max(10, Math.min(98, newScore));
+      } else {
+        console.warn("[match-lab/compare] rpc error, falling back to keyword score:", rpcErr);
+        newScore = oldScore;
+      }
+    } else {
+      newScore = oldScore;
+    }
+
+    // AI Qualitative Analysis — strictly aligned with calculated vector score
+    let explanation = "Both members share relevant, complementary goals.";
     let matchReasons: string[] = [];
     let mismatchRisks: string[] = [];
-    let matchVerdict =
-      newScore >= 75
-        ? "High Mutual Synergy"
-        : newScore >= 50
-        ? "Moderate Strategic Fit"
-        : "Partial Fit";
+    let matchVerdict = newScore >= 70 ? "Strong Fit" : newScore >= 45 ? "Partial Fit" : "Divergent";
 
     try {
       const nameA = profA.display_name || profA.email?.split("@")[0] || "Person A";
       const nameB = profB.display_name || profB.email?.split("@")[0] || "Person B";
 
       const prompt = `Analyze the professional matchmaking synergy between two individuals.
-Overall Pair Match Score: ${newScore}% (${matchVerdict})
+Their calculated AI vector compatibility score is ${newScore}%.
 
 Person 1 (${nameA}):
 Goals: ${twinA.goals || "None"}
@@ -98,8 +123,13 @@ Return a raw JSON object (and nothing else) with this exact schema:
   "summary": "2 crisp sentences explaining the overall synergy or lack thereof.",
   "matchReasons": ["Specific reason 1 where their goals/skills align", "Specific reason 2 where they complement each other"],
   "mismatchRisks": ["Specific reason 1 where their focus diverges or where friction could arise"],
-  "matchVerdict": "${matchVerdict}"
-}`;
+  "matchVerdict": "Strong Fit" or "Partial Fit" or "Divergent"
+}
+
+Your "matchVerdict" MUST be 100% consistent with the ${newScore}% compatibility score above:
+- 70% or higher → "Strong Fit"
+- 45% to 69% → "Partial Fit"
+- below 45% → "Divergent"`;
 
       const resp = await gemini.models.generateContent({
         model: GEMINI_MODEL,
@@ -155,7 +185,7 @@ Return a raw JSON object (and nothing else) with this exact schema:
       },
       newScore: {
         score: newScore,
-        rawCosineSim: newScore / 100
+        rawCosineSim: Number(cosineSim.toFixed(4))
       },
       matchAnalysis: {
         verdict: matchVerdict,
