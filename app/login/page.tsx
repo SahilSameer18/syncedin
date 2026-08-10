@@ -9,56 +9,6 @@ import { OAuthButtons } from "./OAuthButtons";
 import { createServiceClient } from "@/lib/supabase/server";
 import { RealFacesStrip, type FaceRow } from "../[slug]/RealFacesStrip";
 
-// Google "G" logo — official multi-color inline SVG.
-function GoogleLogo() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 48 48"
-      width="20"
-      height="20"
-      style={{ flexShrink: 0 }}
-      aria-hidden
-    >
-      <path
-        fill="#FFC107"
-        d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"
-      />
-      <path
-        fill="#FF3D00"
-        d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
-      />
-      <path
-        fill="#4CAF50"
-        d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
-      />
-      <path
-        fill="#1976D2"
-        d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
-      />
-    </svg>
-  );
-}
-
-// Apple logo — single-color inline SVG.
-function AppleLogo() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 24 24"
-      width="20"
-      height="20"
-      style={{ flexShrink: 0 }}
-      aria-hidden
-    >
-      <path
-        fill="currentColor"
-        d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.08zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"
-      />
-    </svg>
-  );
-}
-
 export default async function LoginPage({
   searchParams
 }: {
@@ -69,6 +19,7 @@ export default async function LoginPage({
     invite?: string;
     conference?: string;
     exists?: string;
+    next?: string;
   };
 }) {
   const sent = searchParams.sent === "1";
@@ -76,20 +27,14 @@ export default async function LoginPage({
   const detail = searchParams.detail
     ? decodeURIComponent(searchParams.detail)
     : null;
+  const nextTarget = searchParams.next || "";
 
-  // Pull up to 8 existing SyncedIn members with real photos so prospects
-  // see who's actually inside before signing up. Jack: "we can add value
-  // on that signup page where we show all the other faces they're able
-  // to connect with as well." Best-effort — silently degrade to no
-  // strip if the query fails.
   let faces: FaceRow[] = [];
   try {
     const service = createServiceClient();
     const { data: rows } = await service
       .from("profiles")
-      .select(
-        "id, display_name, avatar_url, handle, portfolio_about, email"
-      )
+      .select("id, display_name, avatar_url, handle, portfolio_about, email")
       .not("avatar_url", "is", null)
       .not("display_name", "is", null)
       .neq("is_test_persona", true)
@@ -97,8 +42,6 @@ export default async function LoginPage({
     const candidates = ((rows ?? []) as any[]).filter(
       (r) => (r.avatar_url || "").length > 8
     );
-    // Shuffle deterministically so the strip varies but isn't jittery
-    // per-request (no Date.now() — that would break SSR cache layers).
     const seeded = [...candidates].sort((a, b) =>
       (a.id as string).localeCompare(b.id as string)
     );
@@ -112,189 +55,254 @@ export default async function LoginPage({
         null
     }));
   } catch {
-    /* no faces strip — degrade gracefully */
+    /* fallback */
   }
 
   return (
-    <main className="max-w-3xl mx-auto px-5 py-4 sm:py-6">
-      {/* Jack: 'make this element a bit more collapsed such that there's
-          no scrolling even possible on this page.' Top/bottom padding
-          shrunk, panel padding shrunk, headline shrunk, dividers thinner,
-          legal copy moved inline. Whole screen now fits in 100vh on
-          typical laptop heights (≥720px). */}
-      <Link href="/" className="retro-dim text-xs">
-        &lt; back
-      </Link>
+    <main className="min-h-screen bg-[#f6f5ff] text-slate-900 grid grid-cols-12 min-h-screen overflow-hidden">
+      
+      {/* LEFT COLUMN: Sophisticated Dark Onyx Panel (DESKTOP ONLY) */}
+      <div className="hidden lg:flex lg:col-span-6 xl:col-span-7 bg-slate-950 text-white relative overflow-hidden flex-col justify-between p-12 select-none border-r border-slate-800">
+        
+        {/* Ambient Glow */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-purple-900/10 rounded-full blur-3xl pointer-events-none" />
 
-      <div className="mt-2 retro-panel retro-shadow p-4 sm:p-5">
-        {/* Compact header */}
-        <div className="flex flex-col items-center text-center">
-          <Wordmark size="lg" />
-          <h1
-            className="retro-h1 text-xl sm:text-2xl mt-2 leading-tight"
-            style={{ letterSpacing: "-0.02em" }}
-          >
-            Join the platform of the future
-          </h1>
-          <p
-            className="mt-1 text-xs sm:text-sm"
-            style={{ color: "var(--text-dim)" }}
-          >
-            Google sign-in is the fastest path — or use email + magic link.
-          </p>
+        {/* Top Brand Header */}
+        <div className="relative z-20 flex items-center justify-between">
+          <Wordmark size="lg" href="/" darkText={false} />
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            AI Network Active
+          </span>
         </div>
 
-        {/* Google FIRST — fastest path (Jack: "I like Google first"). Email +
-            password stay below as alternatives. */}
-        <div className="mt-3 space-y-2">
+        {/* Center Live AI Twin Match Showcase Card */}
+        <div className="relative z-20 my-auto max-w-lg w-full mx-auto space-y-6">
+          
+          <div className="space-y-2 text-left">
+            <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-900 text-purple-400 border border-slate-800 uppercase">
+              AUTONOMOUS AI MATCHING
+            </span>
+            <h2 className="text-3xl font-extrabold tracking-tight text-slate-100">
+              Meet collaborators worth your time
+            </h2>
+            <p className="text-xs text-slate-400 font-normal">
+              Your AI Twin negotiates pre-meeting alignment so you skip cold DMs.
+            </p>
+          </div>
+
+          {/* Clean Dark Onyx Showcase Card */}
+          <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+            
+            {/* Header Status */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-xs">
+              <span className="text-slate-400 font-mono text-[11px]">TWIN INTELLIGENCE</span>
+              <span className="font-bold text-emerald-400">86% MATCH FIT</span>
+            </div>
+
+            {/* Match Sample Card 1 */}
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+                    alt="Sarah Chen"
+                    className="w-8 h-8 rounded-full object-cover border border-slate-700"
+                  />
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-slate-100 leading-tight">Sarah Chen</div>
+                    <div className="text-[10px] text-slate-400">Founder & CEO · Loomlane AI</div>
+                  </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  94% FIT
+                </span>
+              </div>
+            </div>
+
+            {/* Match Sample Card 2 */}
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <img
+                    src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80"
+                    alt="Marcus Hale"
+                    className="w-8 h-8 rounded-full object-cover border border-slate-700"
+                  />
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-slate-100 leading-tight">Marcus Hale</div>
+                    <div className="text-[10px] text-slate-400">Technical Recruiter · Northbeam Talent</div>
+                  </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  91% FIT
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* Bottom Feature Badges */}
+        <div className="relative z-20 flex items-center justify-between text-xs text-slate-400 font-medium pt-6 border-t border-slate-800">
+          <span>⚡ ~60 Second Setup</span>
+          <span>🛡️ You Approve Every Intro</span>
+          <span>⚡ 768-Dim Vector Engine</span>
+        </div>
+
+      </div>
+
+      {/* RIGHT COLUMN: Auth Form Surface (VISIBLE ON ALL DEVICES) */}
+      <div className="col-span-12 lg:col-span-6 xl:col-span-5 flex flex-col justify-between p-6 sm:p-12 overflow-y-auto relative bg-[#f6f5ff]">
+        
+        {/* Top Back Link & Mobile Logo */}
+        <div className="flex items-center justify-between pb-4">
+          <Link href="/" className="text-xs font-bold text-slate-600 hover:text-purple-600 transition-colors flex items-center gap-1">
+            ← Back to website
+          </Link>
+          <div className="lg:hidden">
+            <Wordmark size="md" href="/" darkText={true} />
+          </div>
+        </div>
+
+        {/* Form Container */}
+        <div className="my-auto py-6 space-y-6 max-w-md w-full mx-auto">
+          
+          <div className="space-y-1.5 text-left">
+            <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+              {nextTarget.includes("twin") ? "Access Your AI Twin" : "Welcome to SyncedIn"}
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium">
+              {nextTarget.includes("twin") ? "Sign in to manage your AI Twin representation" : "Sign in or create your personal AI Twin account"}
+            </p>
+          </div>
+
+          {/* Primary Google Auth Button */}
           <OAuthButtons
             invite={searchParams.invite}
             conference={searchParams.conference}
+            next={nextTarget}
           />
-          {false && (
-            <>
-              <GoogleLogo />
-              <AppleLogo />
-            </>
+
+          {/* Divider */}
+          <div className="relative flex items-center justify-center my-4">
+            <div className="w-full border-t border-slate-200" />
+            <span className="absolute bg-[#f6f5ff] px-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+              or magic link
+            </span>
+          </div>
+
+          {/* Magic Link Form */}
+          <form className="space-y-3">
+            <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
+            <input type="hidden" name="conference" value={searchParams.conference ?? ""} />
+            <input type="hidden" name="next" value={nextTarget} />
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@domain.com"
+              className="w-full h-11 px-4 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-purple-600 shadow-sm transition-all"
+            />
+            <button
+              formAction={login}
+              className="w-full h-11 rounded-xl btn-purple-pill text-xs font-bold shadow-md shadow-purple-600/20"
+            >
+              Email Me a Magic Link
+            </button>
+          </form>
+
+          {sent && (
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs text-center font-semibold">
+              ✓ Check your inbox — we sent your instant sign-in link!
+            </div>
+          )}
+
+          {exists && (
+            <div className="p-3.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-900 text-xs space-y-1">
+              <p className="font-bold">Account Found</p>
+              <p className="text-slate-600">
+                We emailed a sign-in link to your address. Open it to get straight in, or use your password below.
+              </p>
+            </div>
+          )}
+
+          {/* Password Divider */}
+          <div className="relative flex items-center justify-center my-4">
+            <div className="w-full border-t border-slate-200" />
+            <span className="absolute bg-[#f6f5ff] px-3 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
+              or password
+            </span>
+          </div>
+
+          {/* Email + Password Form */}
+          <form className="space-y-3">
+            <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
+            <input type="hidden" name="conference" value={searchParams.conference ?? ""} />
+            <input type="hidden" name="next" value={nextTarget} />
+            <input
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@domain.com"
+              className="w-full h-11 px-4 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-purple-600 shadow-sm transition-all"
+            />
+            <input
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="password (8+ characters)"
+              className="w-full h-11 px-4 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-purple-600 shadow-sm transition-all"
+            />
+            <div className="flex gap-2">
+              <button
+                formAction={signInWithPassword}
+                className="flex-1 h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors"
+              >
+                Sign In
+              </button>
+              <button
+                formAction={signUpWithPassword}
+                className="flex-1 h-11 rounded-xl bg-white border border-slate-200 hover:border-purple-300 text-slate-800 font-bold text-xs transition-colors"
+              >
+                Create Account
+              </button>
+            </div>
+          </form>
+
+          {searchParams.error && (
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs space-y-1">
+              <p className="font-bold">Authentication Error</p>
+              {detail && <p className="text-slate-600">{detail}</p>}
+            </div>
+          )}
+
+        </div>
+
+        {/* Right Footer Links & Member Strip */}
+        <div className="pt-6 space-y-4">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-semibold text-slate-500">
+            <Link href="/privacy" className="hover:text-purple-600 transition-colors">Privacy</Link>
+            <span>•</span>
+            <Link href="/terms" className="hover:text-purple-600 transition-colors">Terms</Link>
+            <span>•</span>
+            <Link href="/support" className="hover:text-purple-600 transition-colors">Support</Link>
+            <span>•</span>
+            <a href="mailto:support@syncedin.app" className="hover:text-purple-600 transition-colors">Contact</a>
+          </div>
+
+          {faces.length > 0 && (
+            <div className="w-full">
+              <RealFacesStrip faces={faces} />
+            </div>
           )}
         </div>
 
-        <div className="my-3 flex items-center gap-3">
-          <div className="flex-1 h-px bg-[var(--border)]" />
-          <span className="retro-label">or use your email</span>
-          <div className="flex-1 h-px bg-[var(--border)]" />
-        </div>
-
-        {/* Magic link */}
-        <form className="space-y-2">
-          <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
-          <input
-            type="hidden"
-            name="conference"
-            value={searchParams.conference ?? ""}
-          />
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="you@domain.com"
-            className="retro-input"
-          />
-          <button formAction={login} className="retro-btn w-full">
-            Email me a magic link
-          </button>
-        </form>
-
-        {sent && (
-          <p className="mt-3 text-sm retro-green text-center">
-            ✓ Check your inbox — the link works in any browser.
-          </p>
-        )}
-
-        {exists && (
-          <div
-            className="mt-3 p-3 retro-panel"
-            style={{ borderColor: "var(--amber)" }}
-          >
-            <p className="text-sm retro-amber font-semibold">
-              You already have an account
-            </p>
-            <p className="mt-1 text-xs retro-dim break-words">
-              We just emailed a sign-in link to that address — open it in any
-              browser to get straight in. Or sign in with your password below.
-            </p>
-          </div>
-        )}
-
-        <div className="my-3 flex items-center gap-3">
-          <div className="flex-1 h-px bg-[var(--border)]" />
-          <span className="retro-label">or password</span>
-          <div className="flex-1 h-px bg-[var(--border)]" />
-        </div>
-
-        {/* Email + password as the third option */}
-        <form className="space-y-2">
-          <input type="hidden" name="invite" value={searchParams.invite ?? ""} />
-          <input
-            type="hidden"
-            name="conference"
-            value={searchParams.conference ?? ""}
-          />
-          <input
-            name="email"
-            type="email"
-            required
-            autoComplete="email"
-            placeholder="you@domain.com"
-            className="retro-input"
-          />
-          <input
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            placeholder="password (8+ characters)"
-            className="retro-input"
-          />
-          <div className="flex gap-2">
-            <button
-              formAction={signInWithPassword}
-              className="retro-btn flex-1"
-            >
-              Sign in
-            </button>
-            <button
-              formAction={signUpWithPassword}
-              className="retro-btn flex-1"
-            >
-              Create account
-            </button>
-          </div>
-        </form>
-
-        {searchParams.error && (
-          <div
-            className="mt-5 p-3 retro-panel"
-            style={{ borderColor: "var(--red)" }}
-          >
-            <p className="text-sm retro-red font-semibold">
-              ! Something went wrong
-            </p>
-            {detail && (
-              <p className="mt-1 text-xs retro-dim break-words">{detail}</p>
-            )}
-          </div>
-        )}
       </div>
 
-      {/* Compact legal/footer row inline so Privacy / Terms / Support /
-          Contact are visible without scrolling. Jack: 'right now I have
-          to scroll down to see privacy, terms, support, contact, but I
-          think we can just bring it all up.' */}
-      <div
-        className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px]"
-        style={{ color: "var(--text-dim)" }}
-      >
-        <Link href="/privacy" style={{ color: "inherit" }}>privacy</Link>
-        <span>·</span>
-        <Link href="/terms" style={{ color: "inherit" }}>terms</Link>
-        <span>·</span>
-        <Link href="/support" style={{ color: "inherit" }}>support</Link>
-        <span>·</span>
-        <a href="mailto:hi@syncedin.org" style={{ color: "inherit" }}>
-          contact
-        </a>
-      </div>
-
-      {/* Real-faces strip — moved here OUTSIDE the visible viewport (it
-          loads in below the fold for users who scroll). The fold-cleanup
-          requirement Jack flagged comes first; the faces strip is
-          reinforcement that only matters if the user scrolls. */}
-      {faces.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <RealFacesStrip faces={faces} />
-        </div>
-      )}
     </main>
   );
 }

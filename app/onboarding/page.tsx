@@ -38,13 +38,7 @@ export default async function OnboardingPage({
     .eq("id", user.id)
     .maybeSingle();
 
-  // Activity counts for the live sync meter — same fetches the dashboard
-  // runs, so the % shown here matches the % shown on /dashboard exactly.
-  // Without these the meter only saw form fields and was always lower.
   const service = createServiceClient();
-  // Count REAL conversations — any conversation the user has sent ≥1
-  // message in. The old status==='closed' filter under-counted by ~100%
-  // because that status is rarely flipped even after sealed agreements.
   const { data: myMessageConvs } = await service
     .from("messages")
     .select("conversation_id")
@@ -77,11 +71,6 @@ export default async function OnboardingPage({
     achievements: (twin as any)?.achievements ?? ""
   };
 
-  // Welcome-splash data — only used when ?welcome=1 is in the URL (set
-  // either by /auth/callback for brand-new signups or by /claim/<slug>
-  // for invite-claimed users). Pulls the inviter display name from the
-  // pending_invite if a slug was passed so we can show "Jack already has
-  // a conversation waiting for you."
   const showWelcome = searchParams.welcome === "1";
   let inviterName: string | null = null;
   if (showWelcome && searchParams.fromInvite) {
@@ -104,82 +93,79 @@ export default async function OnboardingPage({
   const firstNameForWelcome = (initial.display_name || "").trim().split(/\s+/)[0] || "";
 
   return (
-    <main className="max-w-6xl mx-auto px-6 pt-1 pb-8">
-      {/* Glowing-dot particles that fly from inputs toward the SyncMeter
-          whenever the user types. Pure DOM + CSS, respects reduced
-          motion. Mounted at page level so it sees the form + meter. */}
+    <main className="min-h-screen bg-[#f6f5ff] text-slate-900 selection:bg-purple-600 selection:text-white pb-20">
+      
+      {/* Typing Particles */}
       <TypingParticles />
-      {/* Top nav row — collapsed even tighter. Was minHeight:32 + mt-6 +
-          mt-3 + retro-h1, so the wizard sat ~140px down from the viewport
-          top. Killed the H1 + subhead block entirely (the in-step labels
-          + step pills already announce what page they're on) and shrank
-          the nav strip so step 1 lands almost flush with the top. */}
-      <div
-        className="flex items-center justify-between"
-        style={{ minHeight: 28 }}
-      >
-        <Wordmark />
-        <Link href="/dashboard" className="retro-dim text-xs">
-          dashboard &gt;
-        </Link>
-      </div>
 
-      {showWelcome && (
-        <WelcomeSplash
-          firstName={firstNameForWelcome}
-          avatarUrl={initial.avatar_url || null}
-          inviterName={inviterName}
-          conversationId={searchParams.conv || null}
-        />
-      )}
+      {/* Sticky Top Header Navigation */}
+      <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-purple-100 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          <Wordmark size="lg" href="/" />
+          
+          <div className="flex items-center gap-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+              <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+              60-sec Setup
+            </span>
+            <Link
+              href="/dashboard"
+              className="text-xs sm:text-sm font-bold text-slate-700 hover:text-purple-600 transition-colors"
+            >
+              Dashboard →
+            </Link>
+          </div>
+        </div>
+      </header>
 
-      {searchParams.saved === "1" && (
-        <p className="mt-2 text-sm retro-green">✓ Saved.</p>
-      )}
+      {/* Main Container */}
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-6 sm:pt-8">
+        
+        {showWelcome && (
+          <WelcomeSplash
+            firstName={firstNameForWelcome}
+            avatarUrl={initial.avatar_url || null}
+            inviterName={inviterName}
+            conversationId={searchParams.conv || null}
+          />
+        )}
 
-      <div className="mt-3 grid lg:grid-cols-[1fr_320px] gap-8 items-start">
-        <div className="min-w-0">
-          <OnboardingWizard initial={initial} userId={user.id} />
-          {/* Multi-source AI context uploader — the "king" twin-context
-              feature. Lets the user paste deep self-descriptions from
-              ChatGPT / Claude / Gemini / Perplexity separately, each
-              with its own tuned prompt. Mounted below the main wizard
-              so it shows up but doesn't steal the primary flow. */}
-          <div style={{ marginTop: 24 }}>
-            <AiExportsPanel />
-            <FilesPanel />
+        {searchParams.saved === "1" && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+            ✓ Your AI Twin settings have been saved!
+          </div>
+        )}
+
+        <div className="grid lg:grid-cols-[1fr_320px] gap-8 items-start">
+          <div className="min-w-0 space-y-6">
+            <OnboardingWizard initial={initial} userId={user.id} />
+            
+            {/* AI Context Sources */}
+            <div className="space-y-6 pt-4">
+              <AiExportsPanel />
+              <FilesPanel />
+            </div>
+          </div>
+
+          {/* Right Rail: Sync Meter */}
+          <div data-sync-meter className="sticky top-20">
+            <LiveSyncMeter
+              formSelector="#onboarding-form"
+              size={150}
+              completedConversations={completedConversations}
+              acceptedAgreements={acceptedAgreementsCount ?? 0}
+              editCount={editCount ?? 0}
+            />
           </div>
         </div>
 
-        {/* Right rail — live SyncMeter (sci-fi-upload power core). Fills
-            in real time as the user adds context. Replaces the old
-            SelfGraph here; the topographic visual now lives at the
-            bottom of the page where it can render full-width. The
-            data-sync-meter attr is the target for the typing particles
-            so they fly toward this element regardless of viewport. */}
-        <div data-sync-meter>
-          {/* Sized smaller (150) so the Clone Sync widget fits under
-              the right rail without scrolling on a standard full-screen
-              viewport — Jack: "make the clone sync small enough that
-              it can be under the menu itself and still be visible on a
-              standard full screen mode." */}
-          <LiveSyncMeter
-            formSelector="#onboarding-form"
-            size={150}
-            completedConversations={completedConversations}
-            acceptedAgreements={acceptedAgreementsCount ?? 0}
-            editCount={editCount ?? 0}
-          />
-        </div>
+        {/* Bottom Psychometric Map */}
+        <section className="mt-12">
+          <SelfMap formSelector="#onboarding-form" />
+        </section>
+
       </div>
 
-      {/* Map of self at the bottom — full-width psychometric portrait
-          (Big Five radar + Schwartz values + SDT drives + narrative
-          identity). Renders only when the user has some context;
-          otherwise the placeholder lives inside SelfMap itself. */}
-      <section className="mt-12">
-        <SelfMap formSelector="#onboarding-form" />
-      </section>
     </main>
   );
 }

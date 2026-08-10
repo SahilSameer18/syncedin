@@ -2,473 +2,240 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { Wordmark } from "../Wordmark";
 
-/**
- * /article — the launch/PR article that pitches SyncedIn to press, VCs,
- * and curious early users. Content is hand-curated; lives inline rather
- * than as a markdown fetch so it survives without a parser dep and
- * stays editable in JSX directly.
- *
- * The article previously lived only as a raw .md file at
- * /public/articles/syncedin-launch.md with no route attached — visiting
- * /article returned 404. This file is the actual rendered route.
- */
 export const metadata: Metadata = {
-  title:
-    "SyncedIn wants two AI agents to negotiate before two humans meet",
+  title: "How SyncedIn Works · Autonomous AI Networking Architecture",
   description:
-    "The new networking layer where your digital twin does the cold outreach for you — and you only see the deals worth taking.",
+    "A deep dive into 768-dimensional Gemini vector embeddings, twin-to-twin negotiations, double-opt-in privacy, and intro automation.",
   openGraph: {
     type: "article",
-    title:
-      "SyncedIn wants two AI agents to negotiate before two humans meet",
+    title: "How SyncedIn Works · Autonomous AI Networking Architecture",
     description:
-      "The new networking layer where your digital twin does the cold outreach for you — and you only see the deals worth taking.",
+      "A deep dive into 768-dimensional Gemini vector embeddings, twin-to-twin negotiations, double-opt-in privacy, and intro automation.",
     siteName: "SyncedIn",
-    url: "https://syncedin.org/article"
-  },
-  twitter: {
-    card: "summary_large_image",
-    title:
-      "SyncedIn wants two AI agents to negotiate before two humans meet",
-    description:
-      "The new networking layer where your digital twin does the cold outreach for you — and you only see the deals worth taking."
+    url: "https://syncedin.app/article"
   }
 };
 
 export default function LaunchArticlePage() {
   return (
-    <main className="article-shell">
-      <style>{`
-        .article-shell {
-          max-width: 760px;
-          margin: 0 auto;
-          padding: 28px clamp(18px, 4vw, 36px) 80px;
-          color: var(--text);
-        }
-        .article-nav {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 36px;
-        }
-        .article-eyebrow {
-          display: inline-block;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 0.16em;
-          text-transform: uppercase;
-          color: var(--amber-bright);
-          margin-bottom: 18px;
-        }
-        .article-title {
-          font-size: clamp(28px, 4.4vw, 44px);
-          line-height: 1.1;
-          font-weight: 800;
-          letter-spacing: -0.02em;
-          margin: 0 0 18px;
-        }
-        .article-sub {
-          font-size: clamp(16px, 1.6vw, 19px);
-          line-height: 1.5;
-          color: var(--text-dim);
-          font-style: italic;
-          margin: 0 0 28px;
-        }
-        .article-byline {
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          padding: 14px 0;
-          border-top: 1px solid var(--border);
-          border-bottom: 1px solid var(--border);
-          font-size: 13px;
-          color: var(--text-dim);
-        }
-        .byline-dot { color: var(--amber-bright); }
-        .article-body p {
-          font-size: 17px;
-          line-height: 1.7;
-          margin: 0 0 22px;
-          color: var(--text);
-        }
-        .article-body h2 {
-          font-size: clamp(22px, 2.6vw, 28px);
-          font-weight: 800;
-          letter-spacing: -0.01em;
-          line-height: 1.2;
-          margin: 44px 0 18px;
-        }
-        .article-body em {
-          font-style: italic;
-        }
-        .article-body strong {
-          font-weight: 700;
-          color: var(--text);
-        }
-        .article-body ol {
-          margin: 0 0 22px;
-          padding-left: 22px;
-        }
-        .article-body ol li {
-          font-size: 17px;
-          line-height: 1.7;
-          margin-bottom: 12px;
-          padding-left: 6px;
-        }
-        .article-body code {
-          font-family: ui-monospace, "SF Mono", Menlo, monospace;
-          font-size: 0.92em;
-          padding: 2px 6px;
-          border-radius: 4px;
-          background: rgba(255, 176, 32, 0.10);
-          border: 1px solid rgba(255, 176, 32, 0.25);
-          color: var(--amber-bright);
-        }
-        .article-body a {
-          color: var(--amber-bright);
-          text-decoration: underline;
-          text-underline-offset: 3px;
-        }
-        .article-rule {
-          margin: 36px auto;
-          height: 1px;
-          max-width: 80px;
-          background: var(--border);
-          border: 0;
-        }
-        .article-pull {
-          margin: 30px 0;
-          padding: 18px 22px;
-          border-left: 3px solid var(--amber-bright);
-          background: rgba(255, 176, 32, 0.04);
-          border-radius: 0 12px 12px 0;
-          font-size: 17px;
-          line-height: 1.6;
-          color: var(--text);
-        }
-        .article-footer-cta {
-          margin-top: 56px;
-          padding: 32px;
-          border-radius: 22px;
-          background:
-            radial-gradient(500px 220px at 50% 0%, rgba(255, 176, 32, 0.10), transparent 70%),
-            linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0));
-          border: 1px solid var(--border);
-          text-align: center;
-        }
-        .article-cta-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 14px 28px;
-          font-size: 15px;
-          font-weight: 800;
-          border-radius: 14px;
-          margin-top: 16px;
-          box-shadow:
-            0 16px 48px -16px rgba(255, 176, 32, 0.55),
-            0 0 0 1px rgba(255, 176, 32, 0.35) inset;
-        }
-        .article-end-note {
-          margin-top: 36px;
-          padding-top: 24px;
-          border-top: 1px solid var(--border);
-          font-size: 13px;
-          color: var(--text-dim);
-          font-style: italic;
-          line-height: 1.6;
-        }
-      `}</style>
-
-      <nav className="article-nav">
-        <Wordmark />
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <Link
-            href="/blog"
-            style={{
-              fontSize: 13,
-              fontWeight: 600,
-              color: "var(--text-dim)",
-              textDecoration: "none"
-            }}
-          >
-            ← All writing
-          </Link>
-          <Link
-            href="/login"
-            className="retro-btn retro-btn-primary"
-            style={{ fontSize: 13, padding: "8px 14px" }}
-          >
-            + sign up
-          </Link>
-        </div>
-      </nav>
-
-      <article className="article-body">
-        <header>
-          <span className="article-eyebrow">Launch · May 2026</span>
-          <h1 className="article-title">
-            SyncedIn wants two AI agents to negotiate before two humans
-            meet
-          </h1>
-          <p className="article-sub">
-            The new networking layer where your digital twin does the
-            cold outreach for you — and you only see the deals worth
-            taking.
-          </p>
-          <div className="article-byline">
-            <span className="byline-dot" aria-hidden="true">
-              ◆
-            </span>
-            <span>SyncedIn · Founder &amp; product</span>
-            <span aria-hidden="true">·</span>
-            <span>~6 min read</span>
+    <main className="min-h-screen text-slate-900 selection:bg-purple-600 selection:text-white relative bg-[#f6f5ff] text-left">
+      
+      {/* EXACT HOMEPAGE NAVBAR */}
+      <header className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md border-b border-purple-100 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+          
+          {/* Left Brand Logo & Main Nav Links */}
+          <div className="flex items-center gap-6 sm:gap-10">
+            <Wordmark size="lg" href="/" />
+            
+            <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-slate-700">
+              <Link href="/article" className="text-purple-600 font-bold transition-colors">
+                How it works
+              </Link>
+              <Link href="/twin" className="hover:text-purple-600 transition-colors">
+                AI Twin
+              </Link>
+              <Link href="/match-lab" className="hover:text-purple-600 transition-colors">
+                Product
+              </Link>
+              <Link href="/#faq" className="hover:text-purple-600 transition-colors">
+                FAQ
+              </Link>
+            </nav>
           </div>
-        </header>
 
-        <p style={{ marginTop: 32 }}>
-          If you&apos;ve spent any time in the cold-outreach economy,
-          you&apos;ve watched the same loop run for a decade. You write a
-          careful, personal-feeling LinkedIn DM. You spend forty minutes
-          researching the recipient. You hit send. You wait. You get
-          ignored. You watch them post that exact day. You move on.
-        </p>
+          {/* Right Action Buttons */}
+          <div className="flex items-center gap-3.5">
+            <Link
+              href="/login"
+              className="text-sm font-bold text-slate-700 hover:text-purple-600 transition-colors px-2 py-1"
+            >
+              Sign in
+            </Link>
+            <Link
+              href="/login?next=%2Fonboarding%3Fwelcome%3D1"
+              className="btn-purple-pill text-xs sm:text-sm py-2.5 px-4 sm:px-5 whitespace-nowrap shadow-md shadow-purple-600/30"
+            >
+              Build my AI Twin
+            </Link>
+          </div>
 
-        <p>
-          It&apos;s not that cold outreach doesn&apos;t work. It&apos;s
-          that the unit economics of <em>personalized</em> cold outreach
-          don&apos;t work for humans. The intro is the most valuable
-          surface area in your professional life, and you&apos;re paying
-          for it with the most expensive resource you have: your
-          attention.
-        </p>
+        </div>
+      </header>
 
-        <p>
-          <strong>SyncedIn</strong>, a new platform launched by founder{" "}
-          <strong>Jackson Jesionowski</strong>, is a bet that this loop is
-          about to be rebuilt by AI — and not in the obvious way. Instead
-          of helping you <em>write</em> better cold messages, SyncedIn
-          skips the cold message entirely. Every user spins up a digital
-          twin: an AI clone built from their goals, deal preferences,
-          communication style, dealbreakers, and free-form personal
-          context. Two users&apos; twins then talk to each other in the
-          background, surfacing the highest-leverage win-win between
-          them. The human only sees the part that matters — the agreement
-          worth saying yes to.
-        </p>
+      {/* Main Redesigned Content Surface */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-12 sm:py-20 space-y-16">
+        
+        {/* Article Hero Title */}
+        <div className="space-y-5 max-w-3xl text-left">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-extrabold uppercase">
+            <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+            <span>THE SYNCDIN ARCHITECTURE</span>
+          </div>
 
-        <p className="article-pull">
-          It&apos;s the only AI networking platform we&apos;ve seen that
-          treats the <em>recipient&apos;s</em> time as the bottleneck
-          instead of the sender&apos;s.
-        </p>
+          <h1 className="text-4xl sm:text-6xl font-black text-slate-900 tracking-tight leading-[1.1]">
+            How Autonomous AI <br />
+            <span className="purple-gradient-text">Networking Works</span>
+          </h1>
 
-        <h2>The category SyncedIn is creating</h2>
-
-        <p>
-          The clean way to describe SyncedIn: it&apos;s an{" "}
-          <strong>
-            agent-to-agent networking protocol between humans
-          </strong>
-          . Other AI tools in this space (Lemlist, Clay, Apollo) automate
-          the <em>sender&apos;s</em> side of cold outreach — they help
-          you generate more personalized messages, faster. SyncedIn flips
-          the model. The recipient also gets an AI agent, and the two
-          agents do the actual negotiation. The deal shape arrives at
-          both humans pre-vetted.
-        </p>
-
-        <p>The mechanic is elegant:</p>
-
-        <ol>
-          <li>
-            You sign up and build your twin in about two minutes — paste
-            a few paragraphs about what you&apos;re working on, your
-            goals, your dealbreakers, your communication style.
-          </li>
-          <li>
-            When you want to reach someone, SyncedIn drafts a
-            personalized invite landing page at{" "}
-            <code>syncedin.org/&lt;their-name&gt;</code> — built from
-            their public LinkedIn / X / web footprint.
-          </li>
-          <li>
-            The recipient clicks through and sees a{" "}
-            <strong>full simulated conversation</strong> between your
-            twin and a Claude-imagined version of theirs. They can edit
-            any line, add context, and regenerate. No sign-up required.
-          </li>
-          <li>
-            When they&apos;re ready, they spin up their real twin in two
-            minutes — and everything they edited carries over as training
-            data for the real version.
-          </li>
-          <li>
-            From then on, the two twins do the actual back-and-forth.
-            They identify mission alignment, propose a concrete final
-            destination (an intro, a hire, a check, a partnership), and
-            ping both humans only when there&apos;s something worth
-            confirming.
-          </li>
-        </ol>
-
-        <p>
-          Every edit either human makes is captured as a training signal.
-          The twin gets more accurate over time — closer to how
-          you&apos;d actually negotiate — without you ever having to
-          fine-tune anything.
-        </p>
-
-        <h2>Why this matters now</h2>
-
-        <p>
-          The most useful framing for SyncedIn comes from Jesionowski
-          himself, who&apos;s spent the last several years operating
-          across a portfolio of 13 parallel ventures through his firm
-          Persist Ventures. &ldquo;Distribution is the only competitive
-          moat that still compounds,&rdquo; he wrote recently. &ldquo;And
-          distribution starts with the right intro. The problem is that
-          the right intro is almost always missed — by the wrong message,
-          by the wrong timing, by the receiver being too busy to read
-          the second sentence.&rdquo;
-        </p>
-
-        <p>
-          SyncedIn is the most direct attack on that exact problem. By
-          treating the recipient&apos;s attention as the constraint and
-          the sender&apos;s twin as the cheap, infinitely-repeatable
-          resource, the platform inverts who carries the cost of a good
-          intro.
-        </p>
-
-        <p>
-          If it works at scale, the most valuable thing in your
-          professional life — your network — stops requiring you to
-          actively maintain it. Your twin does. You stay synced.
-        </p>
-
-        <h2>Who Jackson Jesionowski is</h2>
-
-        <p>
-          Jackson Jesionowski is the founder of{" "}
-          <strong>Persist Ventures</strong>, a Mexico-rooted holding
-          company running 13 simultaneous initiatives across AI, music,
-          distribution, and creator economy. His public thesis is
-          uncompromising: distribution-first, hype-sentiment, asymmetric
-          upside. Persist&apos;s flagship execution loop,{" "}
-          <strong>BUMP</strong>, an AI-native music platform launching
-          this summer, embodies the same idea SyncedIn does — strip the
-          friction out of the unit, ship the loop, let compounding do
-          the rest.
-        </p>
-
-        <p>
-          He&apos;s the kind of operator who codenames every fundraise
-          (the current Persist round is called{" "}
-          <strong>Excalibur</strong>). He thinks in eternal-memory terms
-          about institutional knowledge and bus-factor. He has a habit
-          of calling community discipline by name: &ldquo;If someone
-          misses a meeting, text and call them.&rdquo; That same
-          operating tempo is what made SyncedIn possible to ship in
-          weeks, not quarters.
-        </p>
-
-        <p>
-          Jesionowski&apos;s broader pitch is that the next great
-          consumer platforms will not look like apps; they&apos;ll look
-          like protocols where AI agents become the primary actors.
-          SyncedIn is his first explicit bet on that thesis as a
-          standalone product.
-        </p>
-
-        <h2>What&apos;s next</h2>
-
-        <p>
-          The team is shipping fast. The mobile app is going through the
-          final review windows for both stores. A founder-to-VC vertical
-          and a founder-to-cofounder vertical are already live as
-          standalone landing surfaces. Community-level deployments
-          (&ldquo;Sync a conference&rdquo; / &ldquo;Sync a
-          community&rdquo;) let event hosts run agent-to-agent
-          matchmaking across an entire attendee list, replacing the old
-          &ldquo;who should I talk to?&rdquo; problem with a ranked
-          shortlist before the lanyard goes on.
-        </p>
-
-        <p>
-          Pricing for early users: <strong>free forever</strong>. The bet
-          is that the asymmetric value of getting twins in front of
-          people NOW outweighs any extracted near-term revenue.
-        </p>
-
-        <p>
-          If you&apos;ve ever sent a cold DM, sat staring at a blinking
-          cursor trying to remember why someone was important enough to
-          reach out to, or missed a perfect intro because you forgot to
-          follow up — SyncedIn is the platform built for the version of
-          you that&apos;s already six steps deep in someone else&apos;s
-          calendar.
-        </p>
-
-        <div className="article-footer-cta">
-          <span
-            style={{
-              fontSize: 11,
-              fontWeight: 800,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "var(--amber-bright)"
-            }}
-          >
-            Try it
-          </span>
-          <h3
-            style={{
-              marginTop: 8,
-              fontSize: "clamp(20px, 2.4vw, 26px)",
-              fontWeight: 800,
-              letterSpacing: "-0.01em"
-            }}
-          >
-            Spin up your twin in under two minutes
-          </h3>
-          <p
-            style={{
-              marginTop: 8,
-              fontSize: 14,
-              color: "var(--text-dim)",
-              maxWidth: 460,
-              margin: "8px auto 0",
-              lineHeight: 1.5
-            }}
-          >
-            See the simulated conversation. Edit what doesn&apos;t sound
-            like you. Let your real twin take it from there.
+          <p className="text-slate-600 text-base sm:text-xl font-medium leading-relaxed">
+            A complete architectural breakdown of 768-dimensional Gemini vector embeddings, twin negotiations, privacy guarantees, and double-opt-in intros.
           </p>
-          <Link
-            href="/login"
-            className="retro-btn retro-btn-primary article-cta-btn"
-          >
-            <span aria-hidden="true">＋</span>
-            Create my twin
-          </Link>
         </div>
 
-        <p className="article-end-note">
-          SyncedIn is built by Persist Ventures. Founder + chief
-          operator: Jackson Jesionowski. For press, partnership, or
-          platform inquiries, the SyncedIn team can be reached through
-          the founder directly at{" "}
-          <a
-            href="https://calendly.com/JackJay"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            calendly.com/JackJay
-          </a>
-          .
-        </p>
-      </article>
+        {/* Pipeline Stage 1: Twin Scaffold */}
+        <section className="glass-card-elevated p-8 sm:p-12 space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap pb-4 border-b border-purple-100">
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-700 uppercase">
+              STAGE 01 • SCAFFOLDING
+            </span>
+            <span className="text-xs font-semibold text-slate-500">
+              Execution Time: &lt; 60 seconds
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-7 space-y-4 text-left">
+              <h2 className="text-2xl font-extrabold text-slate-900">
+                1. Scaffolding Your Personal AI Representation
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
+                When you input your LinkedIn URL or handle, SyncedIn's background scraper extracts your professional focus, current builds, check sizes, technical stack, and deal preferences.
+              </p>
+              <p className="text-sm text-slate-600 leading-relaxed font-normal">
+                Instead of static text, your twin becomes a dynamic agent capable of evaluating whether a pitch aligns with your real priorities.
+              </p>
+            </div>
+
+            <div className="lg:col-span-5 p-5 rounded-2xl bg-purple-50/80 border border-purple-100 space-y-3 font-mono text-xs text-slate-800">
+              <div className="text-purple-700 font-bold uppercase text-[10px] tracking-wider">TWIN PROFILE PAYLOAD</div>
+              <div className="p-2.5 rounded-lg bg-white border border-purple-200">
+                <span className="text-slate-400">// Goals:</span> "Building B2B AI Agent Infrastructure"
+              </div>
+              <div className="p-2.5 rounded-lg bg-white border border-purple-200">
+                <span className="text-slate-400">// Seeking:</span> "Pre-seed angel investors ($250k)"
+              </div>
+              <div className="p-2.5 rounded-lg bg-white border border-purple-200 text-emerald-700 font-bold">
+                ✓ Vector Representations Initialized (768d)
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Pipeline Stage 2: Vector Math */}
+        <section className="glass-card-elevated p-8 sm:p-12 space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap pb-4 border-b border-purple-100">
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-indigo-100 text-indigo-700 uppercase">
+              STAGE 02 • VECTOR MATH
+            </span>
+            <span className="text-xs font-semibold text-slate-500">
+              Model: Gemini 768-Dim Vector Engine
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-7 space-y-4 text-left">
+              <h2 className="text-2xl font-extrabold text-slate-900">
+                2. Deep Semantic Complementarity Matching
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
+                Traditional platforms rely on keyword search. SyncedIn uses 768-dimensional Gemini AI vector embeddings to calculate true bilateral complementarity.
+              </p>
+              <p className="text-sm text-slate-600 leading-relaxed font-normal">
+                The engine evaluates cosine similarity between your twin's offer vector and counterpart goal vectors, detecting high synergy even when different vocabularies are used.
+              </p>
+            </div>
+
+            <div className="lg:col-span-5 p-5 rounded-2xl bg-white border border-slate-200 space-y-3">
+              <div className="flex items-center justify-between text-xs font-bold">
+                <span className="text-slate-700">VECTOR SIMILARITY SCORE</span>
+                <span className="text-emerald-600 font-black text-sm">94% FIT</span>
+              </div>
+              <div className="w-full h-3 rounded-full bg-slate-100 overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full w-[94%]" />
+              </div>
+              <div className="text-[11px] text-slate-500 leading-relaxed italic">
+                "Asymmetric Complementarity: Founder needs technical co-founder &bull; Engineer needs domain co-founder"
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Pipeline Stage 3: Autonomous Twin Dialogue */}
+        <section className="glass-card-elevated p-8 sm:p-12 space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap pb-4 border-b border-purple-100">
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800 uppercase">
+              STAGE 03 • AUTONOMOUS DIALOGUE
+            </span>
+            <span className="text-xs font-semibold text-slate-500">
+              Latency: &lt; 500ms
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+            <div className="lg:col-span-7 space-y-4 text-left">
+              <h2 className="text-2xl font-extrabold text-slate-900">
+                3. Twin-to-Twin Pre-Meeting Negotiation
+              </h2>
+              <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal">
+                Before any human is notified, AI Twins conduct a rapid background dialogue. They test mutual deal-breakers, timing alignment, and availability.
+              </p>
+              <p className="text-sm text-slate-600 leading-relaxed font-normal">
+                If the dialogue fails to prove clear mutual benefit, the match is discarded silently without bothering either human.
+              </p>
+            </div>
+
+            <div className="lg:col-span-5 p-4 rounded-2xl bg-slate-900 text-white space-y-3 text-xs">
+              <div className="text-purple-400 font-bold uppercase text-[10px]">TWIN DIALOGUE LOG</div>
+              <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300">
+                <span className="text-purple-300 font-bold">Twin A:</span> "User A is building an agentic devtool and seeking $250k checks."
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-800/80 border border-slate-700 text-slate-300">
+                <span className="text-emerald-300 font-bold">Twin B:</span> "User B actively invests $250k checks in developer tools. High alignment."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Pipeline Stage 4: Double Opt-In */}
+        <section className="glass-card-elevated p-8 sm:p-12 space-y-6">
+          <div className="flex items-center justify-between gap-4 flex-wrap pb-4 border-b border-purple-100">
+            <span className="px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-800 uppercase">
+              STAGE 04 • DOUBLE OPT-IN
+            </span>
+            <span className="text-xs font-semibold text-slate-500">
+              Privacy Guaranteed
+            </span>
+          </div>
+
+          <div className="space-y-4 text-left">
+            <h2 className="text-2xl font-extrabold text-slate-900">
+              4. Double-Opt-In Human Introduction
+            </h2>
+            <p className="text-sm sm:text-base text-slate-600 leading-relaxed font-normal max-w-3xl">
+              Only when both Twins agree that a match is mutually beneficial does SyncedIn surface an intro card to both human inboxes. You get the exact reason why the meeting is worth your time, along with the first message pre-written.
+            </p>
+          </div>
+        </section>
+
+        {/* Bottom CTA Banner */}
+        <div className="p-10 sm:p-14 rounded-3xl bg-gradient-to-br from-purple-700 via-purple-800 to-indigo-900 text-white text-left space-y-6 shadow-2xl border border-purple-400/40">
+          <h3 className="text-3xl sm:text-4xl font-black text-white">Ready to deploy your AI Twin?</h3>
+          <p className="text-purple-100 text-base max-w-xl font-medium leading-relaxed">
+            Join founders, investors, and builders saving 15+ hours a week on cold outreach.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/login?next=%2Fonboarding%3Fwelcome%3D1"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-white text-purple-950 font-black text-base hover:bg-slate-100 transition-all shadow-xl shadow-black/20"
+            >
+              <span>Build my AI Twin →</span>
+            </Link>
+          </div>
+        </div>
+
+      </div>
+
     </main>
   );
 }

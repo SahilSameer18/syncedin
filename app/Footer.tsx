@@ -2,22 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BUILD_SHA } from "@/lib/version";
+import { Wordmark } from "./Wordmark";
 
-// Routes where the footer creates an awkward dead band — chat surfaces
-// where the user's expectation is "this fills the viewport, not a
-// scrollable marketing column with a footer band at the bottom". On
-// these routes the footer renders nothing. Everywhere else (landing,
-// dashboard, invite pages) it shows as before.
 const HIDE_ON: Array<string | RegExp> = [
   /^\/conversations(?:\/|$)/,
   /^\/messages(?:\/|$)/,
   /^\/admin(?:\/|$)/,
-  // Akash beta feedback: tapping the /talk composer surfaced the footer
-  // (build SHA, marketing links) — wrong surface for a chat experience.
   /^\/talk(?:\/|$)/,
   /^\/twin(?:\/|$)/,
-  /^\/chat(?:\/|$)/
+  /^\/chat(?:\/|$)/,
+  /^\/login(?:\/|$)/
 ];
 
 function shouldHide(path: string): boolean {
@@ -29,57 +23,69 @@ function shouldHide(path: string): boolean {
 export function Footer() {
   const path = usePathname() || "";
   if (shouldHide(path)) return null;
+
   return (
-    <footer
-      // mt-16 → mt-8 cuts the cavernous gap users were seeing on shorter
-      // pages. mb-8 stays — keeps the footer from clinging to the
-      // viewport bottom.
-      className="max-w-6xl mx-auto px-5 mt-8 mb-8 pt-6 text-xs flex flex-wrap items-center justify-between gap-3"
-      style={{
-        color: "var(--text-dim)",
-        borderTop: "1px solid var(--border)"
-      }}
-    >
-      {/*
-        SyncedIn copyright shown to users. The build SHA stays in the DOM
-        as a hidden comment so I can still inspect it (Akash beta
-        feedback: "build a5fe759" looked like a leak / unfinished surface
-        to a new user, even though I use it constantly for diagnosis).
-      */}
-      <div className="font-mono">
-        SyncedIn{" "}
-        <span style={{ color: "var(--amber-bright)" }}>
-          {new Date().getFullYear()}
-        </span>
-        {/* build:{BUILD_SHA} */}
-        <span style={{ display: "none" }}>build:{BUILD_SHA}</span>
+    <footer className="w-full border-t border-purple-100 bg-white/80 backdrop-blur-lg mt-16 text-slate-600">
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-10">
+          
+          {/* Brand Column */}
+          <div className="md:col-span-2 space-y-4">
+            <div className="flex items-center gap-3">
+              <Wordmark width={120} height={28} />
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />
+                Network Active
+              </span>
+            </div>
+            <p className="text-sm text-slate-500 max-w-sm leading-relaxed">
+              SyncedIn is the personal AI networking agent that filters profiles, evaluates mutual leverage, and introduces you to people genuinely worth your time.
+            </p>
+          </div>
+
+          {/* Product Links */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Product</h4>
+            <ul className="space-y-2 text-sm font-medium">
+              <li><Link href="/match-lab" className="hover:text-purple-600 transition-colors">Match Lab</Link></li>
+              <li><Link href="/twin" className="hover:text-purple-600 transition-colors">AI Twin Studio</Link></li>
+              <li><Link href="/conferences/demo" className="hover:text-purple-600 transition-colors">Private Rooms</Link></li>
+              <li><Link href="/wins" className="hover:text-purple-600 transition-colors">Wins & Deals</Link></li>
+            </ul>
+          </div>
+
+          {/* Resources Links */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Resources</h4>
+            <ul className="space-y-2 text-sm font-medium">
+              <li><Link href="/hypernetwork" className="hover:text-purple-600 transition-colors">Hypernetwork Stats</Link></li>
+              <li><Link href="/feedback" className="hover:text-purple-600 transition-colors">Community Feedback</Link></li>
+              <li><Link href="/support" className="hover:text-purple-600 transition-colors">Help & Support</Link></li>
+            </ul>
+          </div>
+
+          {/* Legal Links */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Legal</h4>
+            <ul className="space-y-2 text-sm font-medium">
+              <li><Link href="/privacy" className="hover:text-purple-600 transition-colors">Privacy Policy</Link></li>
+              <li><Link href="/terms" className="hover:text-purple-600 transition-colors">Terms of Service</Link></li>
+              <li><Link href="/child-safety" className="hover:text-purple-600 transition-colors">Safety Standards</Link></li>
+            </ul>
+          </div>
+
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="pt-8 mt-10 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-medium">
+          <div>
+            © {new Date().getFullYear()} SyncedIn. All rights reserved.
+          </div>
+          <div>
+            Powered by Gemini 768-dim AI Vector Engine
+          </div>
+        </div>
       </div>
-      <nav className="flex items-center gap-4">
-        <Link href="/wins" className="hover:text-white">
-          Wins
-        </Link>
-        <Link href="/hypernetwork" className="hover:text-white">
-          Hypernetwork
-        </Link>
-        <Link href="/feedback" className="hover:text-white">
-          Feedback
-        </Link>
-        <Link href="/privacy" className="hover:text-white">
-          Privacy
-        </Link>
-        <Link href="/terms" className="hover:text-white">
-          Terms
-        </Link>
-        <Link href="/support" className="hover:text-white">
-          Support
-        </Link>
-        <a
-          href="mailto:jacksonjezio@gmail.com"
-          className="hover:text-white"
-        >
-          Contact
-        </a>
-      </nav>
     </footer>
   );
 }

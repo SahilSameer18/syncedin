@@ -1,64 +1,37 @@
+"use client";
+
 import Link from "next/link";
 
-/**
- * SyncedIn wordmark — real logo PNG from /public.
- *
- * Sizes (raw heights so the wordmark really pops in headers):
- *   sm: 40px
- *   md: 80px
- *   lg: 140px
- *   xl: 200px
- *
- * Always clickable — by default routes to "/", which redirects signed-in
- * users to /dashboard and shows the marketing home to signed-out users.
- * Pass `href={null}` to render a non-clickable mark (e.g. on the home page
- * itself, where it's already the destination).
- */
 export function Wordmark({
-  size = "lg",
-  href = "/"
+  href = "/",
+  darkText = true
 }: {
   size?: "sm" | "md" | "lg" | "xl";
   href?: string | null;
+  darkText?: boolean;
+  width?: number;
+  height?: number;
 }) {
-  const h =
-    size === "xl" ? 200 : size === "lg" ? 140 : size === "sm" ? 40 : 80;
-
   const inner = (
-    <img
-      src="/syncedin-wordmark.png"
-      alt="SyncedIn"
-      height={h}
-      // wordmark-themed: lets globals.css invert the PNG in dark mode so
-      // the wordmark stays readable on dark surfaces. Without this class
-      // the dark text in the PNG vanishes against a dark background —
-      // exactly the bug Jack reported on the /[slug] custom-invite page.
-      className="wordmark-themed"
-      style={{
-        height: h,
-        width: "auto",
-        display: "block"
-      }}
-    />
+    <div className="flex items-center gap-1.5 select-none">
+      {/* Clean High-Impact Brand Title */}
+      <span
+        className={`text-2xl sm:text-3xl font-black tracking-tighter ${
+          darkText ? "text-slate-900" : "text-white"
+        } leading-none`}
+      >
+        Synced<span className={darkText ? "text-purple-600" : "text-purple-400"}>In</span>
+      </span>
+    </div>
   );
 
-  const wrap = (
-    <span
-      className="inline-flex items-center select-none"
-      style={{ height: h }}
-    >
-      {inner}
-    </span>
-  );
-
-  if (!href) return wrap;
+  if (!href) return inner;
 
   return (
     <Link
       href={href}
       aria-label="SyncedIn — home"
-      className="inline-flex items-center select-none"
-      style={{ height: h }}
+      className="inline-flex items-center select-none hover:opacity-95 transition-opacity"
     >
       {inner}
     </Link>

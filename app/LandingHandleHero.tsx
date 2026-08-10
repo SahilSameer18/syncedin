@@ -1,121 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BrandLogo, type BrandKey } from "./BrandLogo";
-
-/**
- * Elite/modern landing hero. Single conversion surface:
- *   - Social-proof row + 3 face avatars (warm trust)
- *   - Bold sans headline
- *   - Tight subhead
- *   - Platform pill row (Instagram / TikTok / X / LinkedIn / YouTube)
- *   - One @handle input — accepts EITHER bare handle OR full profile URL
- *   - Oversized blue CTA
- *   - Micro-trust copy
- *
- * Submit flow: paste handle → POST to /api/bulk-create-invites
- * (single-contact, unauthed-safe path) to ensure we route the user
- * to /login with a `next=/[slug]` so the demo-conversation lands
- * the moment they sign in. If unauthed, we just route to
- * /login?next=/onboarding so they start a twin first.
- *
- * Per Jack: "we need to look more modern and elite."
- *
- * Placeholder cycling: greys text rotates between "yourhandle" and
- * "linkedin.com/in/yourhandle" form every ~2.6s so the user instantly
- * sees that either is accepted. Jack: "FOR LINKEDIN AND ALL IT SHOULD
- * BE HANDLE OR FULL LINK THE GREY TEXT CAN SWITCH BACK AND FORTH."
- */
-type Platform = {
-  key: BrandKey;
-  label: string;
-  prefix: string;
-  // Two-form placeholder: handle-only and full-URL. We rotate between
-  // them on a timer so users see at a glance that either is accepted.
-  placeholderHandle: string;
-  placeholderUrl: string;
-};
-
-const PLATFORMS: Platform[] = [
-  {
-    key: "instagram",
-    label: "Instagram",
-    prefix: "instagram.com/",
-    placeholderHandle: "yourhandle",
-    placeholderUrl: "instagram.com/yourhandle"
-  },
-  {
-    key: "x",
-    label: "X",
-    prefix: "x.com/",
-    placeholderHandle: "yourhandle",
-    placeholderUrl: "x.com/yourhandle"
-  },
-  {
-    key: "linkedin",
-    label: "LinkedIn",
-    prefix: "linkedin.com/in/",
-    placeholderHandle: "your-handle",
-    placeholderUrl: "linkedin.com/in/your-handle"
-  },
-  {
-    key: "facebook",
-    label: "Facebook",
-    prefix: "facebook.com/",
-    placeholderHandle: "yourhandle",
-    placeholderUrl: "facebook.com/yourhandle"
-  }
-];
-
-/**
- * Pull the bare handle out of either form of input. Accepts:
- *   - "yourhandle"             → "yourhandle"
- *   - "@yourhandle"            → "yourhandle"
- *   - "linkedin.com/in/foo"    → "foo" (also auto-detects platform)
- *   - "https://x.com/foo?bar"  → "foo" (strips query)
- *   - "https://www.instagram.com/foo/" → "foo"
- *
- * Returns { handle, detectedPlatform? }. Detected platform overrides
- * the user's pill choice if we can tell from the URL — that's a better
- * UX than yelling about a mismatch.
- */
-function parseInput(
-  raw: string
-): { handle: string; detectedPlatform?: BrandKey } {
-  let s = raw.trim().replace(/^@+/, "");
-  if (!s) return { handle: "" };
-  // Strip scheme + www.
-  s = s.replace(/^https?:\/\//i, "").replace(/^www\./i, "");
-  // Detect platform from domain.
-  let detected: BrandKey | undefined;
-  if (/^linkedin\.com\/in\//i.test(s)) {
-    detected = "linkedin";
-    s = s.replace(/^linkedin\.com\/in\//i, "");
-  } else if (/^(twitter|x)\.com\//i.test(s)) {
-    detected = "x";
-    s = s.replace(/^(twitter|x)\.com\//i, "");
-  } else if (/^instagram\.com\//i.test(s)) {
-    detected = "instagram";
-    s = s.replace(/^instagram\.com\//i, "");
-  } else if (/^facebook\.com\//i.test(s)) {
-    detected = "facebook";
-    s = s.replace(/^facebook\.com\//i, "");
-  }
-  // Drop trailing slash + querystring + hash.
-  s = s.split(/[?#]/)[0].replace(/\/+$/, "");
-  return { handle: s, detectedPlatform: detected };
-}
 
 export function LandingHandleHero({
   realFaces = []
 }: {
-  /** Real platform users with uploaded avatars. Server-fetched in
-   *  app/page.tsx and passed in so the social-proof avatar strip
-   *  shows actual people, not DiceBear placeholders. Jack: "use real
-   *  photos also on the homepage rather than these weird ones next
-   *  to the 40+ founders syncing thing." Empty array falls back to
-   *  the previous DiceBear avatars below. */
   realFaces?: Array<{
     id: string;
     name: string;
@@ -124,331 +15,220 @@ export function LandingHandleHero({
   }>;
 } = {}) {
   const router = useRouter();
-  const [platform, setPlatform] = useState<Platform>(PLATFORMS[2]); // LinkedIn default
   const [handle, setHandle] = useState("");
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
 
-  // Toggle between two placeholder forms on a timer so the user sees
-  // that BOTH "yourhandle" and "linkedin.com/in/yourhandle" work. Index
-  // 0 = handle-only, 1 = full URL.
-  const [phIdx, setPhIdx] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => setPhIdx((i) => (i + 1) % 2), 2600);
-    return () => clearInterval(t);
-  }, []);
-  const placeholder =
-    phIdx === 0 ? platform.placeholderHandle : platform.placeholderUrl;
-
-  async function go() {
-    const parsed = parseInput(handle);
-    const h = parsed.handle;
-    if (!h || busy) return;
-    // If the user pasted a full URL we can detect the platform from —
-    // switch the active pill so the routing matches what they typed.
-    const effectivePlatform =
-      (parsed.detectedPlatform &&
-        PLATFORMS.find((p) => p.key === parsed.detectedPlatform)) ||
-      platform;
+  const handleStart = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (busy) return;
     setBusy(true);
-    setErr("");
-    try {
-      // Build the synthetic profile URL from the chosen platform.
-      const profileUrl = `https://${effectivePlatform.prefix}${h}`;
-      // Stash the intended URL so the post-login onboarding flow can
-      // prefill scrape context from it immediately.
+    if (handle.trim()) {
       try {
         sessionStorage.setItem(
           "syncedin.signupIntent",
-          JSON.stringify({
-            profile_url: profileUrl,
-            platform: effectivePlatform.key
-          })
+          JSON.stringify({ profile_url: handle.trim(), platform: "linkedin" })
         );
       } catch {
         /* private mode */
       }
-      // Route to login with a redirect back to onboarding so the new
-      // user immediately gets their twin scaffolded from this URL.
-      router.push(
-        `/login?next=${encodeURIComponent("/onboarding?welcome=1")}`
-      );
-    } catch (e: any) {
-      setErr(e?.message || "Something went wrong — try again.");
-    } finally {
-      setBusy(false);
     }
-  }
+    router.push(`/login?next=${encodeURIComponent("/onboarding?welcome=1")}`);
+  };
 
   return (
-    <section className="lh-hero">
-      <style>{`
-        .lh-hero {
-          max-width: 860px;
-          margin: 0 auto;
-          /* Pull the hero up + give it room to breathe wide — Jack: "still
-             so much white space ... maximize that first landing view." */
-          padding: 24px 24px 72px;
-          color: var(--text);
-        }
-        .lh-proof {
-          display: inline-flex;
-          align-items: center;
-          gap: 14px;
-          margin-bottom: 28px;
-        }
-        .lh-avatars { display: inline-flex; }
-        .lh-avatars img {
-          width: 36px; height: 36px; border-radius: 999px;
-          border: 2.5px solid var(--panel-solid);
-          object-fit: cover;
-          margin-left: -10px;
-        }
-        .lh-avatars img:first-child { margin-left: 0; }
-        .lh-proof-text {
-          display: flex; flex-direction: column; gap: 2px;
-        }
-        .lh-proof-headline {
-          font-size: 16px; font-weight: 800; letter-spacing: -0.01em;
-        }
-        .lh-proof-sub {
-          display: inline-flex; align-items: center; gap: 8px;
-          font-size: 13px; color: var(--text-dim);
-        }
-        .lh-stars { color: #fbbf24; letter-spacing: 1px; font-size: 13px; }
-
-        .lh-h1 {
-          font-size: clamp(44px, 7vw, 78px);
-          font-weight: 900;
-          letter-spacing: -0.03em;
-          line-height: 1.0;
-          margin: 0;
-          color: var(--text);
-        }
-        .lh-sub {
-          margin-top: 22px;
-          font-size: 19px;
-          line-height: 1.5;
-          color: var(--text-dim);
-          max-width: 640px;
-        }
-        .lh-sub strong { color: var(--text); font-weight: 700; }
-
-        .lh-platforms {
-          display: flex; flex-wrap: wrap; gap: 8px;
-          margin-top: 32px;
-        }
-        .lh-pill {
-          display: inline-flex; align-items: center; gap: 8px;
-          padding: 10px 16px;
-          border-radius: 999px;
-          background: transparent;
-          border: 1px solid var(--border);
-          color: var(--text);
-          font-size: 14px;
-          font-weight: 600;
-          cursor: pointer;
-          transition:
-            background 0.15s ease,
-            border-color 0.15s ease,
-            transform 0.12s ease;
-        }
-        .lh-pill:hover { border-color: var(--text); }
-        .lh-pill.active {
-          background: var(--text);
-          color: var(--bg);
-          border-color: var(--text);
-        }
-
-        .lh-input-wrap {
-          position: relative;
-          margin-top: 14px;
-        }
-        .lh-input-prefix {
-          position: absolute;
-          left: 18px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--text-dim);
-          font-size: 18px;
-          pointer-events: none;
-        }
-        .lh-input {
-          width: 100%;
-          padding: 18px 18px 18px 38px;
-          font-size: 17px;
-          border-radius: 14px;
-          border: 1.5px solid var(--border);
-          background: transparent;
-          color: var(--text);
-          transition: border-color 0.15s ease, box-shadow 0.15s ease;
-        }
-        .lh-input:focus {
-          outline: none;
-          border-color: #1f8bff;
-          box-shadow: 0 0 0 4px rgba(31, 139, 255, 0.14);
-        }
-
-        .lh-cta {
-          margin-top: 14px;
-          width: 100%;
-          padding: 19px 22px;
-          font-size: 17px;
-          font-weight: 700;
-          letter-spacing: -0.005em;
-          color: #fff;
-          background: #1f59ff;
-          border: none;
-          border-radius: 14px;
-          cursor: pointer;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
-          transition: transform 0.12s ease, box-shadow 0.18s ease;
-          box-shadow: 0 12px 30px -10px rgba(31, 89, 255, 0.55);
-        }
-        .lh-cta:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 16px 36px -10px rgba(31, 89, 255, 0.65);
-        }
-        .lh-cta:disabled {
-          opacity: 0.55;
-          cursor: not-allowed;
-          transform: none;
-        }
-        .lh-cta .arrow { transition: transform 0.15s ease; }
-        .lh-cta:hover .arrow { transform: translateX(3px); }
-
-        .lh-microcopy {
-          margin-top: 14px;
-          font-size: 13px;
-          color: var(--text-dim);
-          text-align: center;
-        }
-
-        .lh-error {
-          margin-top: 10px;
-          font-size: 13px;
-          color: #ef4444;
-          text-align: center;
-        }
-      `}</style>
-
-      {/* Social proof — real platform users when we have them, dicebear
-          placeholders otherwise. The pile reads as authentic when these
-          are recognizable faces (founders, builders, advisors), so the
-          server-side fetch in app/page.tsx prioritizes most-active users
-          with uploaded avatars over the auto-generated identicons. */}
-      <div className="lh-proof">
-        <div className="lh-avatars" aria-hidden="true">
-          {realFaces.length >= 3 ? (
-            // Top 3 real users, eagerly loaded so they render with the
-            // hero (no lazy flicker).
-            realFaces.slice(0, 3).map((f) => (
-              <img
-                key={f.id}
-                src={f.avatar_url}
-                alt={f.name}
-                title={f.name}
-                loading="eager"
-                referrerPolicy="no-referrer"
-              />
-            ))
-          ) : (
-            <>
-              <img
-                src="https://api.dicebear.com/9.x/notionists/svg?seed=marina"
-                alt=""
-              />
-              <img
-                src="https://api.dicebear.com/9.x/notionists/svg?seed=darius"
-                alt=""
-              />
-              <img
-                src="https://api.dicebear.com/9.x/notionists/svg?seed=ari"
-                alt=""
-              />
-            </>
-          )}
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 pt-8 sm:pt-14 pb-12 sm:pb-20 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+      
+      {/* Left Column: Hero Copy & CTA */}
+      <div className="lg:col-span-6 space-y-5 sm:space-y-6 text-left">
+        
+        {/* Version Badge Pill */}
+        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-100/70 border border-purple-200 text-purple-800 text-xs font-semibold">
+          <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+          <span>SyncedIn v2 — AI networking, rebuilt</span>
         </div>
-        <div className="lh-proof-text">
-          <span className="lh-proof-headline">
-            40+ founders syncing
-          </span>
-          <span className="lh-proof-sub">
-            <span className="lh-stars">★★★★★</span>
-            <span>4.9 average</span>
-          </span>
-        </div>
-      </div>
 
-      <h1 className="lh-h1">
-        Your twin already knows
-        <br />
-        the deal you should be making.
-      </h1>
-      <p className="lh-sub">
-        Paste your handle. We build a digital twin of you in 30 seconds —
-        then it talks to other people&apos;s twins to find the highest
-        win-win between you, before either of you spends a minute on
-        a call.
-      </p>
+        {/* Main Heading */}
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-slate-900 tracking-tight leading-[1.12]">
+          Your personal <br className="hidden sm:block" />
+          <span className="purple-gradient-text">AI networking agent</span>
+        </h1>
 
-      {/* Platform pills */}
-      <div className="lh-platforms" role="tablist">
-        {PLATFORMS.map((p) => (
-          <button
-            key={p.key}
-            type="button"
-            role="tab"
-            aria-selected={platform.key === p.key}
-            onClick={() => setPlatform(p)}
-            className={`lh-pill ${platform.key === p.key ? "active" : ""}`}
+        {/* Paragraph Copy */}
+        <p className="text-slate-600 text-sm sm:text-lg leading-relaxed font-normal max-w-xl">
+          SyncedIn builds an AI Twin of your professional self in about 60 seconds. It meets other people's Twins, filters thousands of profiles, and introduces you only to the recruiters, founders, mentors and collaborators genuinely worth your time — with the reason and the first message already written.
+        </p>
+
+        {/* CTA Buttons */}
+        <div className="pt-2 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
+          <Link
+            href="/login?next=%2Fonboarding%3Fwelcome%3D1"
+            className="btn-purple-pill py-3 px-6 text-center text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-purple-600/25"
           >
-            <BrandLogo brand={p.key} size={14} />
-            <span>{p.label}</span>
+            <span>Build my AI Twin</span>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </Link>
+
+          <Link
+            href="/match-lab"
+            className="btn-secondary-pill py-3 px-6 text-center text-sm sm:text-base"
+          >
+            <span>See a live demo</span>
+          </Link>
+        </div>
+
+        {/* Quick Input Bar */}
+        <form onSubmit={handleStart} className="pt-2 max-w-lg flex flex-col sm:flex-row items-stretch gap-2">
+          <input
+            type="text"
+            value={handle}
+            onChange={(e) => setHandle(e.target.value)}
+            placeholder="Paste your LinkedIn URL or handle..."
+            className="flex-1 h-12 px-4 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-purple-600 shadow-sm"
+          />
+          <button
+            type="submit"
+            className="h-12 px-6 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors whitespace-nowrap"
+          >
+            Claim Handle
           </button>
-        ))}
+        </form>
+
+        {/* Micro-trust bullets */}
+        <div className="pt-2 flex flex-wrap items-center gap-4 sm:gap-6 text-xs text-slate-500 font-medium">
+          <span className="flex items-center gap-1.5">
+            <span className="text-purple-600 font-bold">⚡</span> ~60 second setup
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-purple-600 font-bold">🛡️</span> You approve every intro
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-purple-600 font-bold">⚡</span> No forms, no cold outreach
+          </span>
+        </div>
+
       </div>
 
-      <div className="lh-input-wrap">
-        <span className="lh-input-prefix">@</span>
-        <input
-          type="text"
-          value={handle}
-          onChange={(e) => setHandle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              void go();
-            }
-          }}
-          placeholder={placeholder}
-          className="lh-input"
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-        />
+      {/* Right Column: Live Interactive Dashboard Widget */}
+      <div className="lg:col-span-6 relative mt-4 lg:mt-0">
+        
+        {/* Glow backdrop */}
+        <div className="absolute -top-10 -right-10 w-72 h-72 bg-purple-400/20 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Browser Window Card */}
+        <div className="glass-card-elevated p-5 sm:p-7 relative z-10 space-y-4 sm:space-y-5">
+          
+          {/* Window dots & path header */}
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-xs text-slate-400 font-mono">
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-rose-400 inline-block" />
+              <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
+              <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" />
+            </div>
+            <span className="text-[11px] sm:text-xs">syncedin.app / dashboard</span>
+          </div>
+
+          {/* Twin Intelligence Box */}
+          <div className="p-4 rounded-2xl bg-purple-50/80 border border-purple-100 space-y-3">
+            <div className="flex items-center justify-between text-xs font-bold tracking-wider text-slate-700 uppercase">
+              <span>TWIN INTELLIGENCE</span>
+              <span className="text-purple-700 text-sm font-extrabold">86%</span>
+            </div>
+            
+            {/* Progress bar */}
+            <div className="w-full h-2.5 rounded-full bg-purple-200/70 overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full w-[86%]" />
+            </div>
+
+            {/* Sub metrics */}
+            <div className="grid grid-cols-4 gap-1 sm:gap-2 pt-1 text-center border-t border-purple-100/80">
+              <div>
+                <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Career</div>
+                <div className="text-xs font-black text-slate-800">82%</div>
+              </div>
+              <div>
+                <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Projects</div>
+                <div className="text-xs font-black text-slate-800">76%</div>
+              </div>
+              <div>
+                <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Skills</div>
+                <div className="text-xs font-black text-slate-800">78%</div>
+              </div>
+              <div>
+                <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Comm</div>
+                <div className="text-xs font-black text-slate-800">70%</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Match Card 1 */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 hover:border-purple-200 transition-all shadow-sm space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <img
+                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&q=80"
+                  alt="Sarah Chen"
+                  width={36}
+                  height={36}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-9 h-9 rounded-full object-cover border border-slate-200"
+                />
+                <div>
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Sarah Chen</div>
+                  <div className="text-[11px] sm:text-xs text-slate-500">Founder & CEO · Loomlane AI</div>
+                </div>
+              </div>
+              <span className="px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                94%
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-2.5 rounded-xl">
+              "Hi Sarah — our AI Twins noticed we're both building agentic products, from opposite ends of the stack. I'd love to compare notes on evals."
+            </p>
+          </div>
+
+          {/* Match Card 2 */}
+          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 hover:border-purple-200 transition-all shadow-sm space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-3">
+                <img
+                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&q=80"
+                  alt="Marcus Hale"
+                  width={36}
+                  height={36}
+                  loading="lazy"
+                  decoding="async"
+                  className="w-9 h-9 rounded-full object-cover border border-slate-200"
+                />
+                <div>
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Marcus Hale</div>
+                  <div className="text-[11px] sm:text-xs text-slate-500">Technical Recruiter · Northbeam Talent</div>
+                </div>
+              </div>
+              <span className="px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                91%
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-2.5 rounded-xl">
+              "Hi Marcus — my AI Twin flagged your open AI infra roles as a strong fit for what I've shipped. Worth a short call?"
+            </p>
+          </div>
+
+          {/* Overnight Activity Toast */}
+          <div className="p-3 rounded-xl bg-purple-700 text-white text-xs font-medium flex items-center justify-between shadow-lg shadow-purple-600/20">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px] sm:text-xs">Your Twin screened 1,284 profiles overnight</span>
+            </div>
+            <span className="font-bold text-[11px]">Active</span>
+          </div>
+
+        </div>
+
       </div>
 
-      <button
-        type="button"
-        onClick={go}
-        disabled={!handle.trim() || busy}
-        className="lh-cta"
-      >
-        <span>{busy ? "building…" : "Build my twin"}</span>
-        <span className="arrow" aria-hidden="true">→</span>
-      </button>
-
-      <p className="lh-microcopy">
-        Free. No commitment. Your twin learns your voice — you stay in
-        control of every message.
-      </p>
-
-      {err && <p className="lh-error">{err}</p>}
-    </section>
+    </div>
   );
 }
