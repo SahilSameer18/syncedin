@@ -159,51 +159,18 @@ export function FilesPanel() {
   }
 
   return (
-    <section
-      style={{
-        padding: 18,
-        borderRadius: 14,
-        border: "1px solid var(--border)",
-        background: "var(--panel-solid)",
-        marginTop: 16
-      }}
-    >
-      <header style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-            color: "#1f8bff"
-          }}
-        >
-          twin files
+    <div className="glass-card-elevated p-6 space-y-6 text-left">
+      <div className="space-y-1">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold uppercase">
+          <span>📎 TWIN KNOWLEDGE FILES</span>
         </div>
-        <h3
-          style={{
-            margin: "4px 0 6px",
-            fontSize: 17,
-            fontWeight: 800,
-            letterSpacing: "-0.005em"
-          }}
-        >
-          Drop pitch decks, resumes, lists, anything
+        <h3 className="text-xl font-extrabold text-slate-900 tracking-tight pt-1">
+          Upload Pitch Decks, Docs, or Context Files
         </h3>
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--text-dim)",
-            lineHeight: 1.5,
-            margin: 0
-          }}
-        >
-          <strong style={{ color: "var(--text)" }}>Context files</strong> get
-          fed to your twin during conversations. <strong style={{ color: "var(--text)" }}>Shareable
-          files</strong> can be sent to a counterpart mid-conversation (e.g.
-          your twin sends your pitch deck to a VC&apos;s twin).
+        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+          <strong className="text-slate-900">Context files</strong> are analyzed privately by your Twin during matching. <strong className="text-slate-900">Shareable files</strong> can be sent to counterpart twins mid-conversation (e.g. pitch deck for VCs).
         </p>
-      </header>
+      </div>
 
       <div
         onDragOver={(e) => {
@@ -213,57 +180,34 @@ export function FilesPanel() {
         onDragLeave={() => setDragOver(false)}
         onDrop={onDrop}
         onClick={() => fileInputRef.current?.click()}
-        style={{
-          border: `1.5px dashed ${
-            dragOver ? "#1f8bff" : "var(--border-bright)"
-          }`,
-          borderRadius: 12,
-          padding: 18,
-          textAlign: "center",
-          background: dragOver
-            ? "rgba(31, 139, 255, 0.06)"
-            : "var(--panel-2)",
-          cursor: "pointer",
-          transition: "all 0.15s ease",
-          marginBottom: 10
-        }}
+        className={`p-6 rounded-2xl border-2 border-dashed text-center transition-all cursor-pointer ${
+          dragOver
+            ? "bg-purple-100/60 border-purple-600 shadow-md"
+            : "bg-purple-50/50 border-purple-200 hover:border-purple-400"
+        }`}
       >
         <input
           ref={fileInputRef}
           type="file"
-          style={{ display: "none" }}
+          className="hidden"
           onChange={(e) => {
             const f = e.target.files?.[0];
             if (f) void uploadFile(f);
           }}
         />
-        <div style={{ fontSize: 24, marginBottom: 4 }} aria-hidden="true">
-          📎
-        </div>
-        <div style={{ fontSize: 13, color: "var(--text-dim)" }}>
+        <div className="text-3xl mb-2">📎</div>
+        <div className="text-xs font-bold text-slate-700">
           {uploading
-            ? "Uploading…"
-            : "Drag a file here, or click to choose. Up to 50 MB."}
+            ? "Uploading & processing..."
+            : "Drag a file here, or click to choose (PDF, doc, slides, up to 50 MB)"}
         </div>
       </div>
 
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          marginBottom: 12,
-          flexWrap: "wrap"
-        }}
-      >
+      <div className="flex flex-wrap gap-2 text-left">
         <select
           value={kind}
           onChange={(e) => setKind(e.target.value as any)}
-          className="retro-input"
-          style={{
-            fontSize: 13,
-            padding: "8px 10px",
-            width: "auto"
-          }}
+          className="p-2.5 rounded-xl bg-purple-50/50 border border-purple-100 text-xs font-bold text-slate-800 focus:outline-none focus:border-purple-600 shadow-sm"
         >
           <option value="context">Context (private)</option>
           <option value="shareable">Shareable (twin can send)</option>
@@ -273,13 +217,7 @@ export function FilesPanel() {
           value={description}
           onChange={(e) => setDescription(e.target.value.slice(0, 200))}
           placeholder="What's this file? (e.g. 'BUMP pitch deck — for VCs')"
-          className="retro-input"
-          style={{
-            flex: 1,
-            minWidth: 220,
-            fontSize: 13,
-            padding: "8px 10px"
-          }}
+          className="flex-1 min-w-[200px] p-2.5 rounded-xl bg-purple-50/50 border border-purple-100 text-xs text-slate-900 focus:outline-none focus:border-purple-600 focus:bg-white shadow-sm"
         />
       </div>
 
@@ -371,6 +309,6 @@ export function FilesPanel() {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }

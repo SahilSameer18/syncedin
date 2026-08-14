@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { GlobeHeroVisual } from "./GlobeHeroVisual";
+
 export function LandingHandleHero({
   realFaces = []
 }: {
@@ -55,7 +57,7 @@ export function LandingHandleHero({
 
         {/* Paragraph Copy */}
         <p className="text-slate-600 text-sm sm:text-lg leading-relaxed font-normal max-w-xl">
-          SyncedIn builds an AI Twin of your professional self in about 60 seconds. It meets other people's Twins, filters thousands of profiles, and introduces you only to the recruiters, founders, mentors and collaborators genuinely worth your time — with the reason and the first message already written.
+          SyncedIn builds an AI Twin of your professional self in about 60 seconds. It meets other people&apos;s Twins globally, filters thousands of profiles, and introduces you only to the founders, recruiters, mentors and collaborators genuinely worth your time.
         </p>
 
         {/* CTA Buttons */}
@@ -85,11 +87,11 @@ export function LandingHandleHero({
             value={handle}
             onChange={(e) => setHandle(e.target.value)}
             placeholder="Paste your LinkedIn URL or handle..."
-            className="flex-1 h-12 px-4 rounded-xl bg-white border border-slate-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-purple-600 shadow-sm"
+            className="flex-1 h-12 px-4 rounded-xl bg-[#f3f0ff] border border-purple-200 text-slate-900 placeholder-slate-400 text-sm focus:outline-none focus:border-purple-600 focus:bg-white shadow-sm"
           />
           <button
             type="submit"
-            className="h-12 px-6 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition-colors whitespace-nowrap"
+            className="h-12 px-6 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs transition-colors whitespace-nowrap shadow-md"
           >
             Claim Handle
           </button>
@@ -104,129 +106,15 @@ export function LandingHandleHero({
             <span className="text-purple-600 font-bold">🛡️</span> You approve every intro
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="text-purple-600 font-bold">⚡</span> No forms, no cold outreach
+            <span className="text-purple-600 font-bold">🌐</span> Global AI Twin Network
           </span>
         </div>
 
       </div>
 
-      {/* Right Column: Live Interactive Dashboard Widget */}
+      {/* Right Column: 3D Interactive Network Globe Visual */}
       <div className="lg:col-span-6 relative mt-4 lg:mt-0">
-        
-        {/* Glow backdrop */}
-        <div className="absolute -top-10 -right-10 w-72 h-72 bg-purple-400/20 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Browser Window Card */}
-        <div className="glass-card-elevated p-5 sm:p-7 relative z-10 space-y-4 sm:space-y-5">
-          
-          {/* Window dots & path header */}
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-xs text-slate-400 font-mono">
-            <div className="flex items-center gap-1.5">
-              <span className="w-3 h-3 rounded-full bg-rose-400 inline-block" />
-              <span className="w-3 h-3 rounded-full bg-amber-400 inline-block" />
-              <span className="w-3 h-3 rounded-full bg-emerald-400 inline-block" />
-            </div>
-            <span className="text-[11px] sm:text-xs">syncedin.app / dashboard</span>
-          </div>
-
-          {/* Twin Intelligence Box */}
-          <div className="p-4 rounded-2xl bg-purple-50/80 border border-purple-100 space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold tracking-wider text-slate-700 uppercase">
-              <span>TWIN INTELLIGENCE</span>
-              <span className="text-purple-700 text-sm font-extrabold">86%</span>
-            </div>
-            
-            {/* Progress bar */}
-            <div className="w-full h-2.5 rounded-full bg-purple-200/70 overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full w-[86%]" />
-            </div>
-
-            {/* Sub metrics */}
-            <div className="grid grid-cols-4 gap-1 sm:gap-2 pt-1 text-center border-t border-purple-100/80">
-              <div>
-                <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Career</div>
-                <div className="text-xs font-black text-slate-800">82%</div>
-              </div>
-              <div>
-                <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Projects</div>
-                <div className="text-xs font-black text-slate-800">76%</div>
-              </div>
-              <div>
-                <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Skills</div>
-                <div className="text-xs font-black text-slate-800">78%</div>
-              </div>
-              <div>
-                <div className="text-[9px] sm:text-[10px] text-slate-400 uppercase font-semibold">Comm</div>
-                <div className="text-xs font-black text-slate-800">70%</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Match Card 1 */}
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 hover:border-purple-200 transition-all shadow-sm space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <img
-                  src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=80&h=80&fit=crop&q=80"
-                  alt="Sarah Chen"
-                  width={36}
-                  height={36}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-9 h-9 rounded-full object-cover border border-slate-200"
-                />
-                <div>
-                  <div className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Sarah Chen</div>
-                  <div className="text-[11px] sm:text-xs text-slate-500">Founder & CEO · Loomlane AI</div>
-                </div>
-              </div>
-              <span className="px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                94%
-              </span>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-2.5 rounded-xl">
-              "Hi Sarah — our AI Twins noticed we're both building agentic products, from opposite ends of the stack. I'd love to compare notes on evals."
-            </p>
-          </div>
-
-          {/* Match Card 2 */}
-          <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-slate-100 hover:border-purple-200 transition-all shadow-sm space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-3">
-                <img
-                  src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&h=80&fit=crop&q=80"
-                  alt="Marcus Hale"
-                  width={36}
-                  height={36}
-                  loading="lazy"
-                  decoding="async"
-                  className="w-9 h-9 rounded-full object-cover border border-slate-200"
-                />
-                <div>
-                  <div className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Marcus Hale</div>
-                  <div className="text-[11px] sm:text-xs text-slate-500">Technical Recruiter · Northbeam Talent</div>
-                </div>
-              </div>
-              <span className="px-2.5 py-0.5 sm:py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                91%
-              </span>
-            </div>
-            <p className="text-xs text-slate-600 leading-relaxed italic bg-slate-50 p-2.5 rounded-xl">
-              "Hi Marcus — my AI Twin flagged your open AI infra roles as a strong fit for what I've shipped. Worth a short call?"
-            </p>
-          </div>
-
-          {/* Overnight Activity Toast */}
-          <div className="p-3 rounded-xl bg-purple-700 text-white text-xs font-medium flex items-center justify-between shadow-lg shadow-purple-600/20">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] sm:text-xs">Your Twin screened 1,284 profiles overnight</span>
-            </div>
-            <span className="font-bold text-[11px]">Active</span>
-          </div>
-
-        </div>
-
+        <GlobeHeroVisual />
       </div>
 
     </div>

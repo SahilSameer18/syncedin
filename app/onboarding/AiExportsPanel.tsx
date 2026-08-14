@@ -180,223 +180,96 @@ export function AiExportsPanel() {
   ).length;
 
   return (
-    <section
-      style={{
-        padding: 18,
-        borderRadius: 14,
-        border: "1px solid var(--border)",
-        background: "var(--panel-solid)"
-      }}
-    >
-      <style>{`
-        .aiex-tile {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-          padding: 12px 14px;
-          background: var(--panel-2);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          margin-bottom: 8px;
-          cursor: pointer;
-          transition: border-color 0.15s ease;
-        }
-        .aiex-tile:hover { border-color: #1f8bff; }
-        .aiex-tile.has-data { border-color: rgba(34, 197, 94, 0.45); }
-        .aiex-tile-left {
-          display: flex; align-items: center; gap: 10px;
-          font-weight: 700; font-size: 14px;
-        }
-        .aiex-tile-right {
-          font-size: 11px; color: var(--text-dim); letter-spacing: 0.04em;
-        }
-        .aiex-tile.has-data .aiex-tile-right {
-          color: #15803d; font-weight: 700;
-        }
-        .aiex-panel {
-          padding: 14px;
-          margin-top: -2px;
-          margin-bottom: 10px;
-          background: var(--panel-2);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-        }
-        .aiex-prompt {
-          padding: 10px 12px;
-          background: var(--panel-solid);
-          border: 1px dashed var(--border-bright);
-          border-radius: 8px;
-          font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-          font-size: 12px;
-          line-height: 1.5;
-          color: var(--text);
-          max-height: 160px;
-          overflow-y: auto;
-          white-space: pre-wrap;
-        }
-        .aiex-copy {
-          display: inline-flex; align-items: center; gap: 6px;
-          padding: 7px 12px; font-size: 12px; font-weight: 700;
-          border-radius: 8px;
-          background: rgba(31, 139, 255, 0.10);
-          color: #1f8bff;
-          border: 1px solid rgba(31, 139, 255, 0.30);
-          cursor: pointer; margin-top: 8px;
-        }
-        .aiex-copy.copied {
-          background: rgba(34, 197, 94, 0.10);
-          color: #15803d;
-          border-color: rgba(34, 197, 94, 0.30);
-        }
-      `}</style>
-
-      <header style={{ marginBottom: 12 }}>
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: 800,
-            letterSpacing: "0.16em",
-            textTransform: "uppercase",
-            color: "#1f8bff"
-          }}
-        >
-          king-level twin context
+    <div className="glass-card-elevated p-6 space-y-6 text-left">
+      <div className="space-y-1">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 border border-purple-200 text-purple-800 text-xs font-bold uppercase">
+          <span>✨ KING-LEVEL TWIN CONTEXT</span>
         </div>
-        <h3
-          style={{
-            margin: "4px 0 6px",
-            fontSize: 17,
-            fontWeight: 800,
-            letterSpacing: "-0.005em"
-          }}
-        >
+        <h3 className="text-xl font-extrabold text-slate-900 tracking-tight pt-1">
           Connect your AI tools — each one knows you differently
         </h3>
-        <p
-          style={{
-            fontSize: 13,
-            color: "var(--text-dim)",
-            lineHeight: 1.5,
-            margin: 0
-          }}
-        >
-          You probably use ChatGPT, Claude, and others daily. Each has
-          a different slice of who you are. Pull that depth into your
-          twin so it can actually represent you.{" "}
-          <strong style={{ color: "var(--text)" }}>
+        <p className="text-xs text-slate-500 font-medium leading-relaxed">
+          You use ChatGPT, Claude, Gemini, Perplexity, or Grok daily. Pull that depth into your Twin so it can actually represent you.{" "}
+          <strong className="text-purple-700 font-extrabold">
             {totalConnected} of {SOURCES.length} connected.
           </strong>
         </p>
-      </header>
+      </div>
 
-      {SOURCES.map((source) => {
-        const isOpen = openKey === source.key;
-        const value = values[source.key] || "";
-        const hasData = value.trim().length > 0;
-        return (
-          <div key={source.key}>
-            <div
-              className={`aiex-tile ${hasData ? "has-data" : ""}`}
-              onClick={() =>
-                setOpenKey((k) => (k === source.key ? null : source.key))
-              }
-            >
-              <div className="aiex-tile-left">
-                <BrandLogo brand={source.brand} size={18} />
-                <span>{source.label}</span>
+      <div className="space-y-3">
+        {SOURCES.map((source) => {
+          const isOpen = openKey === source.key;
+          const value = values[source.key] || "";
+          const hasData = value.trim().length > 0;
+          return (
+            <div key={source.key} className="space-y-2">
+              <div
+                onClick={() =>
+                  setOpenKey((k) => (k === source.key ? null : source.key))
+                }
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
+                  hasData
+                    ? "bg-emerald-50/50 border-emerald-200 text-emerald-950"
+                    : isOpen
+                    ? "bg-purple-50/60 border-purple-300 shadow-sm"
+                    : "bg-white border-purple-100 hover:border-purple-200"
+                }`}
+              >
+                <div className="flex items-center gap-2.5 font-bold text-sm text-slate-900">
+                  <BrandLogo brand={source.brand} size={20} />
+                  <span>{source.label}</span>
+                </div>
+                <span className={`text-xs font-bold ${hasData ? "text-emerald-700" : "text-slate-400"}`}>
+                  {hasData
+                    ? `✓ ${value.length.toLocaleString()} chars`
+                    : isOpen
+                    ? "Close"
+                    : "+ Add"}
+                </span>
               </div>
-              <span className="aiex-tile-right">
-                {hasData
-                  ? `✓ ${value.length.toLocaleString()} chars`
-                  : isOpen
-                    ? "open"
-                    : "add"}
-              </span>
+              {isOpen && (
+                <div className="p-4 rounded-2xl bg-purple-50/50 border border-purple-100 space-y-3">
+                  <div className="text-xs font-bold text-purple-800 uppercase tracking-wider">
+                    Step 1 — copy prompt into {source.label}
+                  </div>
+                  <pre className="p-3.5 rounded-xl bg-white border border-purple-100 text-[11px] text-slate-700 font-mono whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed">
+                    {source.prompt}
+                  </pre>
+
+                  <button
+                    type="button"
+                    onClick={() => copyPrompt(source)}
+                    className="btn-purple-pill py-2 px-4 text-xs font-bold shadow-sm"
+                  >
+                    {copied === source.key ? "✓ Copied!" : "📋 Copy Prompt"}
+                  </button>
+
+                  <div className="text-xs font-bold text-purple-800 uppercase tracking-wider pt-2">
+                    Step 2 — paste {source.label}&apos;s response here
+                  </div>
+                  <textarea
+                    value={value}
+                    onChange={(e) => {
+                      const next = e.target.value.slice(0, 60_000);
+                      setValues((s) => ({ ...s, [source.key]: next }));
+                    }}
+                    onBlur={() => save(source.key, value)}
+                    rows={6}
+                    placeholder={`Paste ${source.label}'s response here. Auto-saves on blur.`}
+                    className="w-full p-3 rounded-2xl bg-white border border-purple-100 text-xs text-slate-900 focus:outline-none focus:border-purple-600 shadow-sm"
+                  />
+                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-400">
+                    <span>{value.length.toLocaleString()} / 60,000</span>
+                    {savedAt[source.key] && (
+                      <span className="text-emerald-700 font-bold">✓ Saved</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-            {isOpen && (
-              <div className="aiex-panel">
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-dim)",
-                    marginBottom: 6,
-                    letterSpacing: "0.04em",
-                    textTransform: "uppercase",
-                    fontWeight: 700
-                  }}
-                >
-                  Step 1 — copy this prompt into {source.label}
-                </div>
-                <div className="aiex-prompt">{source.prompt}</div>
-                <button
-                  type="button"
-                  onClick={() => copyPrompt(source)}
-                  className={`aiex-copy ${copied === source.key ? "copied" : ""}`}
-                >
-                  {copied === source.key ? "✓ copied" : "⧉ copy prompt"}
-                </button>
-
-                <div
-                  style={{
-                    fontSize: 11,
-                    color: "var(--text-dim)",
-                    marginTop: 14,
-                    marginBottom: 6,
-                    letterSpacing: "0.04em",
-                    textTransform: "uppercase",
-                    fontWeight: 700
-                  }}
-                >
-                  Step 2 — paste {source.label}&apos;s response here
-                </div>
-                <textarea
-                  value={value}
-                  onChange={(e) => {
-                    const next = e.target.value.slice(0, 60_000);
-                    setValues((s) => ({ ...s, [source.key]: next }));
-                  }}
-                  onBlur={() => save(source.key, value)}
-                  rows={8}
-                  placeholder={`Paste ${source.label}'s response here. Auto-saves on blur.`}
-                  className="retro-input"
-                  style={{
-                    width: "100%",
-                    fontSize: 13.5,
-                    padding: 10,
-                    minHeight: 140
-                  }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: 6
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: "var(--text-dim)"
-                    }}
-                  >
-                    {value.length.toLocaleString()} / 60,000
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: savedAt[source.key] ? "#15803d" : "var(--text-dim)"
-                    }}
-                  >
-                    {savedAt[source.key] ? "saved ✓" : ""}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
       {loading && (
         <div
           aria-label="Loading saved exports"
@@ -411,6 +284,6 @@ export function AiExportsPanel() {
           ))}
         </div>
       )}
-    </section>
+    </div>
   );
 }

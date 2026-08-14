@@ -186,44 +186,35 @@ export function ContextSources({
   }
 
   return (
-    <div>
-      <div className="retro-label">add context from anywhere</div>
-      <p className="text-xs mt-1" style={{ color: "var(--text-dim)" }}>
-        Paste a URL, a handle, or a raw text blob. We&apos;ll fetch it,
-        clean it, and feed it to your twin. Everything you add stays
-        editable below.
-      </p>
+    <div className="space-y-4 text-left">
+      <div className="space-y-1">
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 uppercase tracking-wider">
+          CONTEXT SOURCES
+        </span>
+        <p className="text-xs text-slate-500 font-medium">
+          Paste a URL, handle, or raw text blob. We&apos;ll fetch it, clean it, and feed it to your Twin.
+        </p>
+      </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2">
         {QUICK_TYPES.map((t) => (
           <button
             key={t.key}
             type="button"
             onClick={() => setActive(t.key)}
-            className="retro-btn text-xs"
-            style={{
-              padding: "8px 14px",
-              borderColor:
-                active === t.key
-                  ? "var(--amber)"
-                  : "var(--border-bright)",
-              background:
-                active === t.key
-                  ? "var(--panel-solid)"
-                  : "var(--panel-2)",
-              boxShadow:
-                active === t.key
-                  ? "0 0 0 2px var(--accent-glow)"
-                  : undefined
-            }}
+            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+              active === t.key
+                ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                : "bg-white border border-purple-100 text-slate-700 hover:border-purple-300"
+            }`}
           >
-            <span style={{ marginRight: 6 }}>{t.icon}</span>
+            <span className="mr-1.5">{t.icon}</span>
             {t.label}
           </button>
         ))}
       </div>
 
-      <div className="mt-3 flex gap-2">
+      <div className="flex gap-2">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -234,15 +225,15 @@ export function ContextSources({
             }
           }}
           placeholder={current.placeholder}
-          className="retro-input flex-1"
+          className="flex-1 p-3 rounded-2xl bg-purple-50/50 border border-purple-100 text-xs text-slate-900 focus:outline-none focus:border-purple-600 focus:bg-white transition-all shadow-sm"
         />
         <button
           type="button"
           onClick={submitUrl}
           disabled={loading || !input.trim()}
-          className="retro-btn retro-btn-primary shrink-0"
+          className="btn-purple-pill py-2.5 px-5 text-xs font-extrabold shadow-sm shrink-0"
         >
-          {loading ? <DotsLoader label="fetching" /> : "+ add"}
+          {loading ? <DotsLoader label="fetching" /> : "+ Add"}
         </button>
       </div>
 

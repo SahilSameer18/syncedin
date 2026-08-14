@@ -547,12 +547,8 @@ export function OnboardingWizard({
         }
       `}</style>
 
-      {/* Progress strip — step pills LEFT, continue/back nav RIGHT, all in
-          a single row so the user never has to look around for "what next".
-          We deliberately drop flex-wrap on the outer row + collapse the
-          back button to a single arrow on the inline strip, so the row
-          stays one line and Continue sits flush-right of the last pill. */}
-      <div className="flex items-center justify-between gap-3 mb-6">
+      {/* Progress strip — floating glass pill bar */}
+      <div className="flex items-center justify-between gap-3 mb-6 bg-white/90 backdrop-blur-md border border-purple-100 p-3 rounded-2xl shadow-sm">
         <div
           className="flex items-center gap-2 flex-wrap"
           style={{ minWidth: 0, flex: "1 1 auto" }}
@@ -565,70 +561,29 @@ export function OnboardingWizard({
               <button
                 type="button"
                 onClick={() => setStep(i)}
-                className="flex items-center gap-2"
-                style={{
-                  background: "transparent",
-                  border: 0,
-                  padding: 0,
-                  cursor: "pointer",
-                  opacity: 1
-                }}
+                className="flex items-center gap-2 text-left"
               >
                 <span
-                  className={
+                  className={`w-7 h-7 rounded-full text-xs font-black inline-flex items-center justify-center transition-all ${
                     done
-                      ? "ob-pill ob-pill-done"
+                      ? "bg-emerald-500 text-white shadow-sm"
                       : current
-                        ? "ob-pill ob-pill-current"
-                        : "ob-pill"
-                  }
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "50%",
-                    border: `2px solid ${
-                      current || done
-                        ? "var(--amber)"
-                        : "var(--border-bright)"
-                    }`,
-                    background: done
-                      ? "var(--amber)"
-                      : current
-                      ? "var(--panel-solid)"
-                      : "transparent",
-                    color: done ? "#fff" : "var(--text)",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 12,
-                    fontWeight: 700
-                  }}
+                      ? "bg-purple-600 text-white shadow-md shadow-purple-600/30"
+                      : "bg-purple-50 text-slate-400 border border-purple-100"
+                  }`}
                 >
                   {done ? "✓" : i + 1}
                 </span>
                 <span
-                  className="text-sm"
-                  style={{
-                    color: current
-                      ? "var(--text)"
-                      : "var(--text-dim)",
-                    fontWeight: current ? 700 : 500
-                  }}
+                  className={`text-xs font-bold transition-colors ${
+                    current ? "text-purple-900 font-extrabold" : "text-slate-500 hover:text-purple-700"
+                  }`}
                 >
                   {s.label}
                 </span>
               </button>
               {i < STEPS.length - 1 && (
-                <span
-                  className={
-                    done ? "ob-connector ob-connector-done" : "ob-connector"
-                  }
-                  style={{
-                    width: 14,
-                    height: 1,
-                    background: "var(--border-bright)"
-                  }}
-                />
+                <span className="w-3 h-0.5 bg-purple-100 rounded-full" />
               )}
             </div>
           );
@@ -642,24 +597,14 @@ export function OnboardingWizard({
             type="button"
             onClick={() => setStep((s) => Math.max(0, s - 1))}
             disabled={step === 0}
-            className="retro-btn text-xs"
+            className="btn-secondary-pill px-3 py-1.5 text-xs font-bold"
             style={{
-              visibility: step === 0 ? "hidden" : "visible",
-              padding: "6px 10px"
+              visibility: step === 0 ? "hidden" : "visible"
             }}
             aria-label="Back"
           >
             ←
           </button>
-          {/* Forward button. Three states, all rendered with unique
-              key props so React always builds a fresh DOM node — this
-              is what historically blocked the "continue auto-submits"
-              bug from re-appearing. Never reuse the same key across
-              type=button and type=submit.
-
-                1. step has user content + not last → "continue →" (button)
-                2. step empty + not last → "skip →" (button, dim)
-                3. last step → "Save Twin And Start Connecting" (submit) */}
           {step < STEPS.length - 1 ? (
             stepHasContent ? (
               <button
@@ -669,8 +614,7 @@ export function OnboardingWizard({
                   setStep((s) => Math.min(STEPS.length - 1, s + 1))
                 }
                 disabled={!canAdvance}
-                className="retro-btn retro-btn-primary text-xs"
-                style={{ padding: "6px 14px" }}
+                className="btn-purple-pill px-4 py-1.5 text-xs font-bold"
               >
                 continue →
               </button>
@@ -682,8 +626,7 @@ export function OnboardingWizard({
                   setStep((s) => Math.min(STEPS.length - 1, s + 1))
                 }
                 disabled={!canAdvance}
-                className="retro-btn text-xs"
-                style={{ padding: "6px 14px" }}
+                className="btn-secondary-pill px-4 py-1.5 text-xs font-bold"
                 title="Skip this step — you can come back any time"
               >
                 skip →
@@ -696,61 +639,47 @@ export function OnboardingWizard({
               disabled={
                 !state.display_name.trim() || !state.goals.trim() || !state.deal_preferences.trim()
               }
-              className="retro-btn retro-btn-primary text-xs"
-              style={{ padding: "6px 14px" }}
+              className="btn-purple-pill px-4 py-1.5 text-xs font-bold"
             >
-              Save Twin And Start Connecting →
+              Save Twin →
             </button>
           )}
         </div>
       </div>
 
-      <div key={STEPS[step].key} className="retro-panel retro-shadow p-6 ob-step-in">
+      <div key={STEPS[step].key} className="glass-card-elevated p-6 sm:p-8 space-y-6 ob-step-in text-slate-900 text-left">
         {/* STEP 1 — You: name + photo together */}
         {STEPS[step].key === "you" && (
-          <div>
-            <div className="retro-label">step 1 of 4</div>
-            <h2 className="retro-h1 text-2xl mt-2">Let&apos;s start with you.</h2>
-            <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
-              Photo on the left, where you live and where you&apos;re from
-              on the right. All quick.
-            </p>
+          <div className="space-y-6">
+            <div className="space-y-1">
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                STEP 1 OF 4
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight pt-1">
+                Let&apos;s start with you.
+              </h2>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                Photo on the left, where you live and where you&apos;re from on the right. All quick.
+              </p>
+            </div>
 
-            <label className="block mt-5">
-              <div
-                className="text-sm font-semibold"
-                style={{ color: "var(--text)" }}
-              >
-                Your name
+            <label className="block space-y-1.5">
+              <div className="text-sm font-extrabold text-slate-900">
+                Your full name
               </div>
               <input
                 autoFocus
                 value={state.display_name}
                 onChange={(e) => set("display_name", e.target.value)}
                 placeholder="Jane Doe"
-                className="retro-input mt-1"
+                className="w-full p-3.5 rounded-2xl bg-[#f3f0ff] border border-purple-200 text-slate-900 font-bold placeholder-slate-400 focus:outline-none focus:border-purple-600 focus:bg-white focus:ring-4 focus:ring-purple-600/10 transition-all shadow-inner text-sm"
               />
             </label>
 
-            {/* Photo + locations row — Jack's call: kill the "Choose Photo"
-                button and the standalone "where you live / where you're
-                from" block. The avatar (clickable / drag-drop) sits on the
-                left, the two city inputs stack vertically next to it. */}
-            <div
-              className="mt-5"
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 18,
-                flexWrap: "wrap"
-              }}
-            >
-              <div>
-                <div
-                  className="text-xs font-semibold mb-2"
-                  style={{ color: "var(--text-dim)" }}
-                >
-                  Your photo
+            <div className="flex flex-col sm:flex-row items-start gap-6 pt-2">
+              <div className="shrink-0 space-y-1.5">
+                <div className="text-xs font-extrabold text-slate-900">
+                  Your profile photo
                 </div>
                 <AvatarUpload
                   id={userId}
@@ -759,33 +688,27 @@ export function OnboardingWizard({
                   onChange={(next) => set("avatar_url", next)}
                 />
               </div>
-              <div style={{ flex: "1 1 240px", minWidth: 240 }}>
-                <label className="block">
-                  <div
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--text)" }}
-                  >
+              <div className="flex-1 w-full space-y-4">
+                <label className="block space-y-1.5">
+                  <div className="text-sm font-extrabold text-slate-900">
                     Where do you live now?
                   </div>
                   <input
                     value={state.current_city}
                     onChange={(e) => set("current_city", e.target.value)}
-                    placeholder="San Francisco, CA"
-                    className="retro-input mt-1"
+                    placeholder="New Delhi, India"
+                    className="w-full p-3.5 rounded-2xl bg-[#f3f0ff] border border-purple-200 text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:border-purple-600 focus:bg-white focus:ring-4 focus:ring-purple-600/10 transition-all shadow-inner text-sm"
                   />
                 </label>
-                <label className="block mt-3">
-                  <div
-                    className="text-sm font-semibold"
-                    style={{ color: "var(--text)" }}
-                  >
+                <label className="block space-y-1.5">
+                  <div className="text-sm font-extrabold text-slate-900">
                     Where are you from?
                   </div>
                   <input
                     value={state.hometown}
                     onChange={(e) => set("hometown", e.target.value)}
-                    placeholder="Detroit, MI"
-                    className="retro-input mt-1"
+                    placeholder="Siwan, Bihar"
+                    className="w-full p-3.5 rounded-2xl bg-[#f3f0ff] border border-purple-200 text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:border-purple-600 focus:bg-white focus:ring-4 focus:ring-purple-600/10 transition-all shadow-inner text-sm"
                   />
                 </label>
               </div>
@@ -1138,19 +1061,9 @@ function StepFooterNext({
   onNext: () => void;
 }) {
   return (
-    <div
-      style={{
-        marginTop: 28,
-        paddingTop: 16,
-        borderTop: "1px solid var(--border)",
-        display: "flex",
-        justifyContent: "flex-end",
-        alignItems: "center",
-        gap: 8
-      }}
-    >
+    <div className="pt-6 border-t border-slate-100 flex items-center justify-end gap-3 mt-6">
       {!hasContent && (
-        <span className="retro-dim text-xs">
+        <span className="text-xs font-semibold text-slate-400">
           you can always come back to this
         </span>
       )}
@@ -1161,12 +1074,11 @@ function StepFooterNext({
         disabled={!canAdvance}
         className={
           hasContent
-            ? "retro-btn retro-btn-primary"
-            : "retro-btn"
+            ? "btn-purple-pill py-2.5 px-6 text-xs font-extrabold shadow-md shadow-purple-600/20"
+            : "btn-secondary-pill py-2.5 px-5 text-xs font-bold"
         }
-        style={{ padding: "9px 18px", fontSize: 14 }}
       >
-        {hasContent ? "next step →" : "skip →"}
+        {hasContent ? "Next Step →" : "Skip →"}
       </button>
     </div>
   );
@@ -1188,17 +1100,11 @@ function DeepField({
   onChange: (v: string) => void;
 }) {
   return (
-    <label className="block">
-      <div
-        className="text-base font-semibold"
-        style={{ color: "var(--text)" }}
-      >
+    <label className="block text-left space-y-1.5">
+      <div className="text-sm font-extrabold text-slate-900">
         {label}
       </div>
-      <div
-        className="text-xs mt-1.5 leading-relaxed"
-        style={{ color: "var(--text-dim)" }}
-      >
+      <div className="text-xs text-slate-500 leading-relaxed">
         {helper}
       </div>
       <textarea
@@ -1206,8 +1112,7 @@ function DeepField({
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
         placeholder={placeholder}
-        className="retro-input mt-2"
-        style={{ minHeight: rows * 24 }}
+        className="w-full p-3.5 rounded-2xl bg-purple-50/50 border border-purple-100 text-xs text-slate-900 focus:outline-none focus:border-purple-600 focus:bg-white transition-all shadow-sm"
       />
     </label>
   );

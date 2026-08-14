@@ -48,57 +48,59 @@ export function AiDumpHero() {
   }
 
   return (
-    <div className="retro-panel retro-shadow p-5">
-      <div className="retro-label">fastest path — about 30 seconds</div>
-      {/* Headline removed: the parent OnboardingWizard step header
-          already shows 'Let the AI you already use describe you.' Showing
-          it again here just made the page look duplicated. */}
-      <p className="mt-2 retro-dim text-sm leading-relaxed">
-        Copy the prompt, open your AI, paste its answer into the box
-        below — that&apos;s a real twin in one step.
-      </p>
-
-      <button
-        type="button"
-        onClick={copyPrompt}
-        className="retro-btn retro-btn-primary w-full mt-4"
-      >
-        {copied ? "✓ Prompt copied — now open your AI" : "1 · Copy the prompt"}
-      </button>
-
-      <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {APPS.map((a) => (
-          <a
-            key={a.name}
-            href={a.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="retro-btn text-xs flex items-center gap-2"
-          >
-            <img
-              src={a.logo}
-              alt=""
-              width={18}
-              height={18}
-              style={{
-                display: "inline-block",
-                borderRadius: 4,
-                flexShrink: 0
-              }}
-              loading="lazy"
-            />
-            <span>
-              2 · Open <span style={{ fontWeight: 700 }}>{a.name}</span>
-            </span>
-          </a>
-        ))}
+    <div className="p-6 rounded-2xl bg-purple-50/60 border border-purple-100 space-y-4 text-left">
+      <div className="flex items-center gap-2">
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
+          FASTEST PATH (~30 SECONDS)
+        </span>
       </div>
 
-      <p className="mt-3 retro-dim text-[11px]">
-        3 · Paste the AI&apos;s full answer into the box below. Don&apos;t want
-        to? A scan of your public footprint via Exa is coming as a one-click
-        alternative.
+      <p className="text-xs text-slate-600 leading-relaxed font-medium">
+        Copy the master prompt, open your preferred AI assistant (ChatGPT, Claude, Gemini, or Grok), and paste the answer into the box below — that&apos;s a fully trained AI Twin in 1 click!
       </p>
+
+      {/* Copy Prompt CTA */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+        <button
+          type="button"
+          onClick={copyPrompt}
+          className="btn-purple-pill py-2.5 px-5 text-xs font-black shadow-md shadow-purple-600/20 flex items-center justify-center gap-2 shrink-0"
+        >
+          <span>{copied ? "✓ Copied to Clipboard!" : "📋 Copy AI Master Prompt"}</span>
+        </button>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[11px] font-bold text-slate-400">Open in:</span>
+          {APPS.map((a) => (
+            <a
+              key={a.name}
+              href={a.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-purple-100 text-xs font-bold text-slate-700 hover:border-purple-300 transition-all shadow-sm"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={a.logo}
+                alt={a.name}
+                className="w-4 h-4 rounded-full"
+                loading="lazy"
+              />
+              <span>{a.name}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+
+      {/* Embedded Prompt Drawer */}
+      <details className="pt-2">
+        <summary className="text-xs font-bold text-purple-700 hover:text-purple-900 cursor-pointer select-none">
+          🔍 Preview Master AI Prompt text →
+        </summary>
+        <pre className="mt-3 p-4 rounded-xl bg-white border border-purple-100 text-[11px] text-slate-700 font-mono whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+          {AI_PROMPT}
+        </pre>
+      </details>
     </div>
   );
 }

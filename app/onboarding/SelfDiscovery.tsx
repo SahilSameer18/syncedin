@@ -197,31 +197,29 @@ export function SelfDiscovery({
   if (name.trim().split(/\s+/).length < 2) return null;
 
   return (
-    <div className="mt-4">
+    <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200 space-y-2 mt-4 text-left">
       <div className="flex items-center justify-between">
-        <div className="retro-label">is this you?</div>
+        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 uppercase tracking-wider">
+          IS THIS YOU?
+        </span>
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="retro-dim text-xs hover:text-white"
+          className="text-xs font-bold text-slate-400 hover:text-purple-700 transition-colors"
         >
-          skip
+          Skip →
         </button>
       </div>
 
       {searching && (
-        <div
-          className="retro-panel p-3 text-sm mt-2"
-          style={{ color: "var(--text-dim)" }}
-        >
-          <DotsLoader label="Looking you up on the web" />
+        <div className="p-3 rounded-xl bg-white border border-purple-100 text-xs font-bold text-slate-600">
+          <DotsLoader label="Looking you up on the web..." />
         </div>
       )}
 
       {!searching && candidates && candidates.length === 0 && (
-        <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
-          No public matches yet. That&apos;s fine — keep going and add
-          context yourself.
+        <p className="text-xs font-medium text-slate-500 pt-1 leading-relaxed">
+          No public matches yet. That&apos;s fine — keep going and add context yourself.
         </p>
       )}
 
@@ -237,24 +235,20 @@ export function SelfDiscovery({
             return (
               <li
                 key={c.url}
-                className="retro-panel retro-panel-hover p-3 flex items-start gap-3"
+                className="p-3.5 rounded-xl bg-white border border-purple-100 flex items-start justify-between gap-3 shadow-sm hover:border-purple-300 transition-all"
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="font-semibold text-sm">{c.title}</div>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="font-bold text-xs text-slate-900">{c.title}</div>
                   <a
                     href={c.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="retro-dim text-xs underline mt-0.5 inline-block"
-                    style={{ wordBreak: "break-all" }}
+                    className="text-[11px] text-purple-700 hover:underline block truncate"
                   >
                     {c.url}
                   </a>
                   {preview && (
-                    <p
-                      className="text-xs mt-1"
-                      style={{ color: "var(--text-dim)" }}
-                    >
+                    <p className="text-[11px] text-slate-500 leading-relaxed">
                       {preview}
                     </p>
                   )}
@@ -263,12 +257,12 @@ export function SelfDiscovery({
                   type="button"
                   onClick={() => confirmCandidate(c)}
                   disabled={!!confirming}
-                  className="retro-btn retro-btn-primary text-sm shrink-0"
+                  className="btn-purple-pill py-1.5 px-3 text-xs font-bold shrink-0"
                 >
                   {isLoading ? (
-                    <DotsLoader label="pulling" />
+                    <DotsLoader label="connecting" />
                   ) : (
-                    "✓ this is me"
+                    "This is me →"
                   )}
                 </button>
               </li>
