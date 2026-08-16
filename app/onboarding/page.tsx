@@ -3,12 +3,9 @@ import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { Wordmark } from "../Wordmark";
 import { OnboardingWizard } from "./OnboardingWizard";
-import { SelfMap } from "./SelfMap";
 import { LiveSyncMeter } from "./LiveSyncMeter";
 import { WelcomeSplash } from "./WelcomeSplash";
 import { TypingParticles } from "./TypingParticles";
-import { AiExportsPanel } from "./AiExportsPanel";
-import { FilesPanel } from "./FilesPanel";
 
 export default async function OnboardingPage({
   searchParams
@@ -137,32 +134,33 @@ export default async function OnboardingPage({
         )}
 
         <div className="grid lg:grid-cols-[1fr_320px] gap-8 items-start">
-          <div className="min-w-0 space-y-6">
+          <div className="min-w-0">
             <OnboardingWizard initial={initial} userId={user.id} />
-            
-            {/* AI Context Sources */}
-            <div className="space-y-6 pt-4">
-              <AiExportsPanel />
-              <FilesPanel />
-            </div>
           </div>
 
-          {/* Right Rail: Sync Meter */}
-          <div data-sync-meter className="sticky top-20">
+          {/* Right Rail: Sync Meter & Trust Card */}
+          <div className="space-y-6 lg:sticky lg:top-20">
             <LiveSyncMeter
               formSelector="#onboarding-form"
-              size={150}
               completedConversations={completedConversations}
               acceptedAgreements={acceptedAgreementsCount ?? 0}
               editCount={editCount ?? 0}
             />
+
+            {/* Quick Helper Card */}
+            <div className="glass-card-elevated p-5 space-y-3 text-left border border-purple-100/80 bg-white/90">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🔒</span>
+                <span className="text-xs font-black uppercase text-purple-900 tracking-wider">
+                  Private & Encrypted
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                Your AI Twin uses this memory to match with others privately. Your raw data is never published publicly. You approve every introduction before connecting.
+              </p>
+            </div>
           </div>
         </div>
-
-        {/* Bottom Psychometric Map */}
-        <section className="mt-12">
-          <SelfMap formSelector="#onboarding-form" />
-        </section>
 
       </div>
 

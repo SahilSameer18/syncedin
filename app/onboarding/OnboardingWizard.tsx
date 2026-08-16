@@ -65,10 +65,9 @@ type Initial = {
 };
 
 const STEPS = [
-  { key: "you", label: "You" },
-  { key: "sources", label: "Sources" },
-  { key: "ai_dump", label: "AI memory" },
-  { key: "refine", label: "Refine" }
+  { key: "you", label: "1. You" },
+  { key: "ai_memory", label: "2. AI Memory & Goals" },
+  { key: "refine", label: "3. Playbook" }
 ] as const;
 
 export function OnboardingWizard({
@@ -248,7 +247,8 @@ export function OnboardingWizard({
             s.deal_preferences.trim() || j.deal_preferences || "",
           communication_style:
             s.communication_style.trim() || j.communication_style || "",
-          deal_breakers: s.deal_breakers.trim() || j.deal_breakers || ""
+          deal_breakers: s.deal_breakers.trim() || j.deal_breakers || "",
+          achievements: s.achievements?.trim() || j.achievements || ""
         }));
       } catch {
         /* leave empty — user can write from scratch */
@@ -356,16 +356,15 @@ export function OnboardingWizard({
     switch (STEPS[step].key) {
       case "you":
         return state.display_name.trim().length > 0;
-      case "sources":
-        return state.goals.trim().length > 0;
+      case "ai_memory":
+        return state.goals.trim().length > 0 || aiDump.trim().length > 0;
       default:
         return true;
     }
   })();
 
   // Per-step "has the user added any real signal yet?" — drives the
-  // skip / continue label swap on the top nav button. Required-field
-  // gates still live in canAdvance; this is purely cosmetic.
+  // skip / continue label swap on the top nav button.
   const stepHasContent = (() => {
     switch (STEPS[step].key) {
       case "you":
@@ -375,13 +374,12 @@ export function OnboardingWizard({
           state.current_city.trim().length > 0 ||
           state.hometown.trim().length > 0
         );
-      case "sources":
+      case "ai_memory":
         return (
           state.goals.trim().length > 0 ||
+          aiDump.trim().length > 0 ||
           snippets.length > 0
         );
-      case "ai_dump":
-        return aiDump.trim().length > 0;
       case "refine":
         return (
           state.deal_preferences.trim().length > 0 ||
@@ -653,7 +651,7 @@ export function OnboardingWizard({
           <div className="space-y-6">
             <div className="space-y-1">
               <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
-                STEP 1 OF 4
+                STEP 1 OF 3
               </span>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight pt-1">
                 Let&apos;s start with you.
@@ -737,143 +735,61 @@ export function OnboardingWizard({
           </div>
         )}
 
-        {/* STEP 2 — Sources: goals + URL-based context */}
-        {STEPS[step].key === "sources" && (
-          <div>
-            <div className="retro-label">step 2 of 4</div>
-            <h2 className="retro-h1 text-2xl mt-2">
-              Where can your twin learn about you?
-            </h2>
-            {/* Jack's call: drop the 'add LinkedIn / X / Instagram' helper
-                line. ContextSources already shows those affordances inside
-                its own UI, so the line was duplicating what's already
-                visible below. */}
-
-            <div className="mt-6 space-y-6">
-              <label className="block">
-                <div
-                  className="text-sm font-semibold"
-                  style={{ color: "var(--text)" }}
-                >
-                  What&apos;s your main goal in life right now?
-                </div>
-                <p
-                  className="text-xs mt-1"
-                  style={{ color: "var(--text-dim)" }}
-                >
-                  I&apos;ll find the perfect person to make it happen.
-                  Feel free to list multiple.
-                </p>
-                <textarea
-                  value={state.goals}
-                  onChange={(e) => set("goals", e.target.value)}
-                  rows={4}
-                  placeholder="e.g. Raising my Series A. Hiring a Head of Design. Finding builders to take over my open-source projects."
-                  className="retro-input mt-2"
-                  style={{ minHeight: 110 }}
-                />
-              </label>
-
-              {/* Goal-aware follow-ups. When the user types a real goal,
-                  Claude generates 3-5 tailored questions to sharpen the
-                  twin context. Answers append to the goals string so no
-                  schema changes needed. Intent comes from the landing
-                  page tile (?intent=cofounder|investors|advisors|idea). */}
-              <GoalFollowUpQuestions
-                goal={state.goals}
-                intent={
-                  typeof window !== "undefined"
-                    ? new URLSearchParams(window.location.search).get(
-                        "intent"
-                      ) ?? ""
-                    : ""
-                }
-                onAnswersChange={(block) => {
-                  // Stash the answers block in state so step-save merges
-                  // it into goals before persisting. We store the raw
-                  // block + the user's typed goals separately so further
-                  // edits don't duplicate.
-                  setFollowUpBlock(block);
-                }}
-              />
-
-              <ContextSources
-                snippets={snippets}
-                onChange={setSnippets}
-              />
+        {/* STEP 2 — AI Memory & Goals */}
+        {STEPS[step].key === "ai_memory" && (
+          <div className="space-y-6">
+            <div className="space-y-1">
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                STEP 2 OF 3
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight pt-1">
+                Train your AI Twin in ~30 seconds.
+              </h2>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                The AI you already talk to (ChatGPT / Claude / Gemini) knows your voice, projects, and goals best. Copy the prompt, paste the answer, and your Twin is trained.
+              </p>
             </div>
 
-            <StepFooterNext
-              canAdvance={canAdvance}
-              hasContent={stepHasContent}
-              onNext={() =>
-                setStep((s) => Math.min(STEPS.length - 1, s + 1))
-              }
-            />
-          </div>
-        )}
-
-        {/* STEP 3 — AI memory: paste from ChatGPT/Claude/Gemini/Grok */}
-        {STEPS[step].key === "ai_dump" && (
-          <div>
-            <div className="retro-label">step 3 of 4</div>
-            <h2 className="retro-h1 text-2xl mt-2">
-              Let the AI you already use describe you.
-            </h2>
-            <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
-              The AI you already talk to knows your goals, voice, and how
-              you think. Copy the prompt, open your AI, paste the answer
-              below. Skip if you already added enough from sources.
-            </p>
-
-            {/* If they've already pasted something in a prior session, don't
-                blast them with the full "how to do this" hero on re-entry —
-                show a tiny "redo it" chip and put the textarea front-and-
-                center. New users (empty dump) still see the full hero. */}
-            {aiDump.trim().length > 0 ? (
-              <div className="mt-5">
-                <details>
-                  <summary
-                    className="text-xs cursor-pointer inline-flex items-center gap-2 retro-panel"
-                    style={{
-                      padding: "8px 12px",
-                      color: "var(--text-dim)",
-                      listStyle: "none"
-                    }}
-                  >
-                    <span style={{ color: "var(--green)" }}>✓</span>
-                    <span>
-                      AI memory saved ({aiDump.trim().length.toLocaleString()}{" "}
-                      chars). Click to redo with a fresh prompt.
-                    </span>
-                  </summary>
-                  <div className="mt-3">
-                    <AiDumpHero />
-                  </div>
-                </details>
+            {/* Primary Goal Field */}
+            <label className="block space-y-1.5">
+              <div className="text-sm font-extrabold text-slate-900">
+                What is your primary professional goal right now?
               </div>
-            ) : (
-              <div className="mt-5">
-                <AiDumpHero />
-              </div>
-            )}
+              <p className="text-xs text-slate-500 font-medium">
+                Your twin uses this to screen for the right co-founders, investors, or collaborators.
+              </p>
+              <textarea
+                value={state.goals}
+                onChange={(e) => set("goals", e.target.value)}
+                rows={3}
+                placeholder="e.g. Raising $1.5M Seed for my AI startup. Hiring a Lead Full-Stack Engineer. Looking for early design partners."
+                className="w-full p-3.5 rounded-2xl bg-[#f3f0ff] border border-purple-200 text-slate-900 font-medium placeholder-slate-400 focus:outline-none focus:border-purple-600 focus:bg-white focus:ring-4 focus:ring-purple-600/10 transition-all shadow-inner text-sm"
+              />
+            </label>
 
-            <label className="block mt-5">
-              <div
-                className="text-sm font-semibold"
-                style={{ color: "var(--text)" }}
-              >
-                {aiDump.trim().length > 0
-                  ? "Your AI memory (edit anytime)"
-                  : "Paste the AI's full answer"}
+            {/* AI Dump Master Prompt Hero */}
+            <div className="pt-2">
+              <AiDumpHero />
+            </div>
+
+            {/* Paste Box for AI Memory */}
+            <label className="block space-y-1.5 pt-2">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-extrabold text-slate-900">
+                  {aiDump.trim().length > 0
+                    ? "✓ AI Memory Stored (Edit anytime)"
+                    : "Paste AI Response Here"}
+                </div>
+                {aiDump.trim().length > 0 && (
+                  <span className="text-xs font-bold text-emerald-700">
+                    {aiDump.trim().length.toLocaleString()} characters
+                  </span>
+                )}
               </div>
               <textarea
                 value={aiDump}
                 onChange={(e) => setAiDump(e.target.value)}
                 onBlur={() => {
-                  // Force-flush the latest draft immediately when the
-                  // textarea loses focus — guards against losing a fresh
-                  // paste if the user navigates within the 700ms debounce.
                   try {
                     const payload = latestPayload.current;
                     if (!payload) return;
@@ -890,12 +806,24 @@ export function OnboardingWizard({
                     /* never throw */
                   }
                 }}
-                rows={10}
-                placeholder="Paste here. Snippets you added on the Sources step are kept separately and remain editable there."
-                className="retro-input mt-1 font-mono text-sm"
-                style={{ minHeight: 240 }}
+                rows={6}
+                placeholder="Paste the answer from ChatGPT / Claude here. It gives your Twin your real communication style and project details instantly."
+                className="w-full p-3.5 rounded-2xl bg-[#f3f0ff] border border-purple-200 text-slate-900 font-mono text-xs placeholder-slate-400 focus:outline-none focus:border-purple-600 focus:bg-white focus:ring-4 focus:ring-purple-600/10 transition-all shadow-inner"
               />
             </label>
+
+            {/* Optional Additional Profile URLs Drawer */}
+            <details className="pt-1">
+              <summary className="text-xs font-bold text-purple-700 hover:text-purple-900 cursor-pointer select-none">
+                + Add LinkedIn, X, or Website context (Optional)
+              </summary>
+              <div className="mt-3 p-4 rounded-2xl bg-purple-50/50 border border-purple-100">
+                <ContextSources
+                  snippets={snippets}
+                  onChange={setSnippets}
+                />
+              </div>
+            </details>
 
             <StepFooterNext
               canAdvance={canAdvance}
@@ -907,32 +835,31 @@ export function OnboardingWizard({
           </div>
         )}
 
-        {/* STEP 4 — Refine: high-signal seeds for twin-to-twin conversations.
-            Questions rewritten to surface CONCRETE asks + offers that
-            twin conversations can actually trade on. The smart prefill
-            (useEffect above) drafts answers from the user's existing
-            goals + ai_export_blob so they edit instead of write blank. */}
+        {/* STEP 3 — Playbook & Deal Rules */}
         {STEPS[step].key === "refine" && (
-          <div>
-            <div className="retro-label">step 4 of 4</div>
-            <h2 className="retro-h1 text-2xl mt-2">
-              The three lines your twin actually negotiates on.
-            </h2>
-            <p className="text-sm mt-2" style={{ color: "var(--text-dim)" }}>
-              These three answers seed every twin-to-twin conversation —
-              the ask, the offer, and the line you won&apos;t cross. We
-              drafted suggestions from what you already told us. Edit them
-              so they sound like you.
-            </p>
-            {refineLoading && (
-              <p
-                className="text-xs mt-2"
-                style={{ color: "var(--amber-bright)" }}
-              >
-                drafting answers from your goals + AI memory…
+          <div className="space-y-6">
+            <div className="space-y-1">
+              <span className="inline-block px-3 py-1 rounded-full text-xs font-black bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                STEP 3 OF 3
+              </span>
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight pt-1">
+                Your Twin&apos;s Playbook & Deal Rules
+              </h2>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                These rules govern every autonomous Twin-to-Twin conversation: what you offer, how you sound, and what makes you walk away.
               </p>
+            </div>
+            {refineLoading ? (
+              <div className="p-3.5 rounded-2xl bg-purple-50 border border-purple-200 flex items-center gap-2.5 text-xs font-bold text-purple-800 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-purple-600 animate-ping" />
+                <span>✨ AI is synthesizing tailored answers from your AI memory & goals...</span>
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex items-center gap-2 text-xs font-bold text-emerald-800">
+                <span>✨ AI auto-drafted your Playbook from your memory. Review or tweak below before activating!</span>
+              </div>
             )}
-            <div className="mt-5 space-y-5">
+            <div className="space-y-5">
               <DeepField
                 label="What can you OFFER the network right now?"
                 helper="Concrete things you can introduce, fund, build, advise on, host, or open doors for. The more specific the offer, the more matches your twin can make. Treat this as the bait other people can grab."
@@ -977,29 +904,12 @@ export function OnboardingWizard({
                 with a divider so an accidental misclick can't reach it.
                 Unique key forces a fresh DOM node so React reconciliation
                 can never swap a "continue" button into this position. */}
-            <div
-              style={{
-                marginTop: 32,
-                paddingTop: 24,
-                borderTop: "1px solid var(--border)",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "flex-start",
-                gap: 8
-              }}
-            >
-              <div
-                className="retro-label"
-                style={{ color: "var(--amber-bright)" }}
-              >
-                ready to ship?
-              </div>
-              <p
-                className="text-sm"
-                style={{ color: "var(--text-dim)", maxWidth: 540 }}
-              >
-                Everything above gets saved as your twin&apos;s playbook.
-                You can edit any of it later from this same page.
+            <div className="pt-6 border-t border-purple-100 flex flex-col items-start gap-3 mt-6">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 uppercase tracking-wider">
+                READY TO ACTIVATE?
+              </span>
+              <p className="text-xs text-slate-500 font-medium max-w-lg leading-relaxed">
+                Everything above gets saved into your digital Twin&apos;s active neural playbook. Your Twin will begin screening high-synergy matches immediately.
               </p>
               <button
                 key="save-twin-final"
@@ -1007,10 +917,9 @@ export function OnboardingWizard({
                 disabled={
                   !state.display_name.trim() || !state.goals.trim() || !state.deal_preferences.trim()
                 }
-                className="retro-btn retro-btn-primary"
-                style={{ padding: "10px 18px", marginTop: 6 }}
+                className="btn-purple-pill py-3 px-8 text-sm font-black shadow-lg shadow-purple-600/25 flex items-center gap-2 mt-2"
               >
-                save twin & go to dashboard →
+                <span>Save Twin & Enter Dashboard →</span>
               </button>
             </div>
           </div>

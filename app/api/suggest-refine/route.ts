@@ -64,29 +64,29 @@ export async function POST(req: Request) {
     });
   }
 
-  const system = `You draft three specific, useful answers about a user based on context they've provided. Each answer is what THEY would say about themselves, in their voice. The user will edit, so prioritize concreteness over politeness.
+  const system = `You draft four specific, useful answers about a user based on context they've provided (AI memory dump, goals, name, location). Each answer is what THEY would say about themselves in first-person, in their authentic voice. The user will review/edit, so prioritize concreteness over politeness.
 
 Output STRICT JSON:
 {
-  "deal_preferences": "<2-3 sentences. The kinds of opportunities / people / conversations they'd say YES to instantly. Concrete patterns drawn from their goals or background. No vague filler.>",
-  "communication_style": "<2-3 sentences. How they want to be approached, talked to, pushed back on. Length, tone, formality. If their goals mention building/shipping, lean direct. If they mention investing or strategy, lean considered.>",
-  "deal_breakers": "<2-3 sentences. What makes them disengage. Specific behaviors, not abstract values. Pull from any signals in their background; if none, default to common-sense filters for their stated role.>"
+  "deal_preferences": "<2-3 sentences. What they can OFFER the network right now. Concrete value: warm intros, funding, architecture advice, growth hacks, angel checks.>",
+  "communication_style": "<2-3 sentences. How their twin should SHOW UP: direct vs diplomatic, pushback level, fast-paced vs considered.>",
+  "deal_breakers": "<2-3 sentences. What makes them immediately WALK AWAY: agency spam, pitch decks before a conversation, vague networking, uninvited sales.>",
+  "achievements": "<2-4 bullet points or lines. Greatest life & career proof points: companies built, rounds raised, key metrics hit, recognizable milestones.>"
 }
 
 Rules:
-- First person, casual, 2-3 sentences each.
-- NO em-dashes, NO markdown, NO emojis, NO hashtags.
-- NEVER reference follower counts or audience size.
-- If their existing draft for a field is non-empty, REFINE it rather than discard — keep their voice.
-- Return ONLY the JSON, nothing else.`;
+- First person, concrete, specific to the user's stated background.
+- NO markdown formatting other than simple line breaks. NO emojis, NO hashtags.
+- If existing draft is provided, refine and sharpen it.
+- Return ONLY the valid JSON object.`;
 
   const userContent = `User context:
 Name: ${name || "(unspecified)"}
 Current goals: ${goals || "(none stated)"}
 Location: ${body.current_city || body.hometown || "(unspecified)"}
-About-me / AI memory (raw): ${blob.slice(0, 2000) || "(none)"}
+About-me / AI memory dump (raw): ${blob.slice(0, 3000) || "(none)"}
 
-Existing drafts (if user already wrote something here, KEEP their voice):
+Existing drafts:
 - deal_preferences: ${body.existing?.deal_preferences || "(empty)"}
 - communication_style: ${body.existing?.communication_style || "(empty)"}
 - deal_breakers: ${body.existing?.deal_breakers || "(empty)"}
@@ -96,7 +96,7 @@ Return the JSON now.`;
   try {
     const r = await anthropic.messages.create({
       model: TWIN_MODEL,
-      max_tokens: 800,
+      max_tokens: 1000,
       system,
       messages: [{ role: "user", content: userContent }]
     });
@@ -111,18 +111,21 @@ Return the JSON now.`;
       return NextResponse.json({
         deal_preferences: "",
         communication_style: "",
-        deal_breakers: ""
+        deal_breakers: "",
+        achievements: ""
       });
     }
     const parsed = JSON.parse(text.slice(start, end + 1)) as {
       deal_preferences?: string;
       communication_style?: string;
       deal_breakers?: string;
+      achievements?: string;
     };
     return NextResponse.json({
       deal_preferences: (parsed.deal_preferences || "").trim(),
       communication_style: (parsed.communication_style || "").trim(),
-      deal_breakers: (parsed.deal_breakers || "").trim()
+      deal_breakers: (parsed.deal_breakers || "").trim(),
+      achievements: (parsed.achievements || "").trim()
     });
   } catch (e: any) {
     return NextResponse.json(
@@ -130,6 +133,7 @@ Return the JSON now.`;
         deal_preferences: "",
         communication_style: "",
         deal_breakers: "",
+        achievements: "",
         error: String(e?.message ?? e)
       },
       { status: 200 }

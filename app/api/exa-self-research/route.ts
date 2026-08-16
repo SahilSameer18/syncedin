@@ -83,10 +83,9 @@ Return only the dossier text.`;
     const candidates = await exaPeopleSearch(query, 6);
     return NextResponse.json({ candidates });
   } catch (e: any) {
-    console.error("self-research search error", e);
-    return NextResponse.json(
-      { error: "search_failed", detail: e?.message ?? String(e) },
-      { status: 500 }
-    );
+    // If Exa API key is not configured or query fails, return empty candidates gracefully
+    return NextResponse.json({ candidates: [] }, { status: 200 });
   }
 }
+
+
