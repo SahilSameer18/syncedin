@@ -826,18 +826,17 @@ export function TwinChatUI({
           removing usable space" — fixed by reserving the strip's
           height in the scroller budget AND giving it a real surface
           so the visual stop is clear. */}
+      {/* SUGGESTION CHIPS */}
       <div
         style={{
           position: "fixed",
           left: 0,
           right: 0,
-          // Sit flush on top of the composer with no overlap gap.
           bottom: "calc(60px + env(safe-area-inset-bottom, 0px))",
           padding: "7px 14px 7px",
-          background: "var(--panel-solid)",
-          // Subtle hairline so the strip reads as part of the composer
-          // dock, not a floating layer over the chat.
-          borderTop: "1px solid var(--border)",
+          background: "rgba(255, 255, 255, 0.92)",
+          backdropFilter: "blur(8px)",
+          borderTop: "1px solid rgba(124, 58, 237, 0.1)",
           pointerEvents: "none",
           zIndex: 29
         }}
@@ -848,9 +847,8 @@ export function TwinChatUI({
             maxWidth: 1100,
             margin: "0 auto",
             display: "flex",
-            gap: 5,
+            gap: 6,
             overflowX: "auto",
-            // Tail gradient hint so the user knows there's more →
             paddingRight: 28,
             pointerEvents: "auto",
             scrollbarWidth: "none",
@@ -873,25 +871,9 @@ export function TwinChatUI({
               type="button"
               onClick={() => void sendText(q)}
               disabled={sending}
-              style={{
-                flexShrink: 0,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "5px 12px",
-                fontSize: 12,
-                fontWeight: 600,
-                borderRadius: 999,
-                border: "1px solid var(--border)",
-                background: "var(--panel)",
-                color: "var(--text-dim)",
-                cursor: sending ? "default" : "pointer",
-                whiteSpace: "nowrap",
-                opacity: sending ? 0.5 : 1,
-                height: 28
-              }}
+              className="px-3 py-1 rounded-full text-xs font-bold bg-purple-50 hover:bg-purple-600 text-purple-900 hover:text-white border border-purple-200/80 transition-all shrink-0 shadow-xs"
             >
-              <span style={{ fontSize: 15, lineHeight: 1 }} aria-hidden>
+              <span className="mr-1.5" aria-hidden>
                 {e}
               </span>
               {q}
@@ -900,30 +882,29 @@ export function TwinChatUI({
         </div>
       </div>
 
-      {/* FIXED COMPOSER — matches the /conversations PersistentCompose
-          pattern: unified 40px control heights, single visual strip,
-          no outer panel border. Adds mic dictation for parity. */}
+      {/* FIXED COMPOSER */}
       <div
         style={{
           position: "fixed",
           bottom: 0,
           left: 0,
           right: 0,
-          background: "var(--panel-solid)",
-          borderTop: "1px solid var(--border)",
+          background: "rgba(255, 255, 255, 0.96)",
+          backdropFilter: "blur(12px)",
+          borderTop: "1px solid rgba(124, 58, 237, 0.12)",
           padding: "10px 14px",
           paddingBottom:
             "calc(10px + env(safe-area-inset-bottom, 0px))",
           zIndex: 30
         }}
-        className="twin-composer"
+        className="twin-composer shadow-lg shadow-purple-950/5"
       >
         <div
           style={{
             maxWidth: 1100,
             margin: "0 auto",
             display: "flex",
-            gap: 6,
+            gap: 8,
             alignItems: "flex-end"
           }}
         >
@@ -931,32 +912,19 @@ export function TwinChatUI({
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Talk to your twin…"
+            placeholder="Talk to your AI Twin…"
             rows={1}
-            className="retro-input"
+            className="flex-1 p-2.5 px-3.5 rounded-2xl bg-[#f3f0ff] border border-purple-200 text-slate-900 text-xs font-medium placeholder-slate-400 focus:outline-none focus:border-purple-600 focus:bg-white transition-all resize-none shadow-inner"
             style={{
-              flex: 1,
-              fontSize: 14,
-              padding: "10px 12px",
-              resize: "none",
               minHeight: 40,
-              maxHeight: 160,
-              borderRadius: 12
+              maxHeight: 140
             }}
           />
           <button
             type="button"
             onClick={send}
             disabled={sending || !text.trim()}
-            className="retro-btn retro-btn-primary"
-            style={{
-              height: 40,
-              padding: "0 16px",
-              fontSize: 13,
-              fontWeight: 700,
-              borderRadius: 10,
-              flexShrink: 0
-            }}
+            className="btn-purple-pill px-5 h-10 text-xs font-black shadow-md shadow-purple-600/25 shrink-0"
           >
             {sending ? "…" : "Send →"}
           </button>
@@ -1103,21 +1071,21 @@ function Bubble({
           }}
           title="Click to edit · refining this is training data"
           style={{
-            padding: "10px 14px",
-            borderRadius: 18,
+            padding: "12px 16px",
+            borderRadius: mine ? "20px 20px 4px 20px" : "20px 20px 20px 4px",
             background: mine
-              ? "linear-gradient(135deg, #2358ff 0%, #4a3dff 100%)"
-              : "var(--panel-solid)",
-            color: mine ? "#fff" : "var(--text)",
+              ? "linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)"
+              : "#ffffff",
+            color: mine ? "#ffffff" : "#0f172a",
             border: mine
               ? "none"
-              : "1px solid var(--border)",
-            // renderMarkdown handles paragraph + list breaks itself, so
-            // we don't need whiteSpace: "pre-wrap" here. Leaving it on
-            // would double-render newlines as extra vertical space.
+              : "1px solid rgba(124, 58, 237, 0.14)",
+            boxShadow: mine
+              ? "0 4px 14px -3px rgba(124, 58, 237, 0.25)"
+              : "0 2px 8px -2px rgba(124, 58, 237, 0.06)",
             wordBreak: "break-word",
-            fontSize: 14,
-            lineHeight: 1.5,
+            fontSize: 13.5,
+            lineHeight: 1.55,
             cursor: "pointer",
             transition: "transform 80ms ease, box-shadow 80ms ease",
             position: "relative"
@@ -1309,88 +1277,46 @@ function ActionCard({
       return { primary: "#10b981", glow: "rgba(16,185,129,0.35)" };
     if (action.type === "deny_proposal")
       return { primary: "#ef4444", glow: "rgba(239,68,68,0.30)" };
-    return { primary: "#2358ff", glow: "rgba(35,88,255,0.30)" };
+    return { primary: "#7c3aed", glow: "rgba(124,58,237,0.30)" };
   })();
 
   return (
     <div
-      style={{
-        border: `1px solid ${state === "done" ? "#10b981" : "var(--border)"}`,
-        borderRadius: 12,
-        padding: 12,
-        background: "var(--panel-solid)",
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        maxWidth: "min(86%, 580px)"
-      }}
+      className={`glass-card-elevated p-3.5 space-y-2.5 max-w-[min(88%,580px)] border ${
+        state === "done"
+          ? "border-emerald-300 bg-emerald-50/40"
+          : "border-purple-100/90 bg-white"
+      }`}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          fontSize: 12,
-          fontWeight: 700,
-          color: "var(--text)",
-          textTransform: "uppercase",
-          letterSpacing: "0.06em"
-        }}
-      >
+      <div className="flex items-center gap-2 text-xs font-black text-slate-900 uppercase tracking-wider">
         <span
           aria-hidden
-          style={{
-            width: 8,
-            height: 8,
-            borderRadius: 2,
-            background: palette.primary,
-            flexShrink: 0
-          }}
+          className="w-2 h-2 rounded-full shrink-0"
+          style={{ background: palette.primary }}
         />
         {label}
       </div>
       {previewText && (
-        <div
-          style={{
-            fontSize: 13,
-            lineHeight: 1.45,
-            color: "var(--text)",
-            padding: "8px 10px",
-            background: "rgba(120,130,160,0.08)",
-            borderRadius: 8,
-            wordBreak: "break-word",
-            maxHeight: 200,
-            overflowY: "auto"
-          }}
-        >
+        <div className="text-xs text-slate-600 font-medium leading-relaxed p-2.5 rounded-xl bg-purple-50/40 border border-purple-50 max-h-48 overflow-y-auto">
           {previewText}
         </div>
       )}
       {state === "done" ? (
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            color: "#10b981",
-            display: "flex",
-            alignItems: "center",
-            gap: 6
-          }}
-        >
+        <div className="text-xs font-black text-emerald-700 flex items-center gap-1.5 pt-0.5">
           {action.type === "create_invite" && resultUrl ? (
-            <span style={{ wordBreak: "break-all" }}>
+            <span className="break-all">
               ✓ Invite ready —{" "}
               <a
                 href={resultUrl}
                 target="_blank"
-                rel="noopener noreferrer"
-                style={{ color: "#10b981", textDecoration: "underline" }}
+                rel="noreferrer"
+                className="underline text-purple-700"
               >
                 {resultUrl}
               </a>
             </span>
           ) : action.type === "start_conversation" && resultUrl ? (
-            <span>
+            <span className="break-all">
               ✓ Conversation ready —{" "}
               <a
                 href={resultUrl}
@@ -1408,61 +1334,27 @@ function ActionCard({
           )}
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            type="button"
-            onClick={() => void approve()}
-            disabled={state === "running"}
-            style={{
-              flex: 1,
-              padding: "8px 14px",
-              borderRadius: 10,
-              border: "none",
-              background:
-                state === "running"
-                  ? "var(--border)"
-                  : `linear-gradient(135deg, ${palette.primary} 0%, ${palette.primary} 100%)`,
-              color: "#fff",
-              fontWeight: 700,
-              fontSize: 13,
-              cursor: state === "running" ? "default" : "pointer",
-              boxShadow:
-                state === "running"
-                  ? "none"
-                  : `0 6px 20px -8px ${palette.glow}`
-            }}
-          >
-            {state === "running" ? "Shipping…" : "✓ Approve"}
-          </button>
+        <div className="flex gap-2 items-center justify-end pt-1">
           <button
             type="button"
             onClick={() => setState("done")}
             disabled={state === "running"}
-            style={{
-              flex: "0 0 auto",
-              padding: "8px 12px",
-              borderRadius: 10,
-              border: "1px solid var(--border)",
-              background: "transparent",
-              color: "var(--text-dim)",
-              fontSize: 13,
-              cursor: "pointer"
-            }}
+            className="px-3 py-1.5 rounded-full text-xs font-bold text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
           >
             Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={() => void approve()}
+            disabled={state === "running"}
+            className="btn-purple-pill py-1.5 px-4 text-xs font-black shadow-sm"
+          >
+            {state === "running" ? "Executing…" : "✓ Approve Action"}
           </button>
         </div>
       )}
       {state === "error" && errMsg && (
-        <div
-          style={{
-            fontSize: 12,
-            color: "#ef4444",
-            background: "rgba(239,68,68,0.08)",
-            padding: "6px 8px",
-            borderRadius: 6
-          }}
-        >
+        <div className="p-2 rounded-xl bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200">
           {errMsg}
         </div>
       )}

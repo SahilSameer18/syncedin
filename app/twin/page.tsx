@@ -1,16 +1,11 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { AppShell } from "../AppShell";
 import { TwinChatUI } from "./TwinChatUI";
 import { PendingProposalsRail } from "./PendingProposalsRail";
 import { pickBestFirstMatch } from "@/lib/matchmaking";
 
-/**
- * Talk to your own twin (#159). A 1:1 chat surface where the user can
- * triage pending proposals, refine the twin's voice, or just think out
- * loud. The twin pulls live context from the user's twin_profiles row
- * + their pending proposals on every send.
- */
 export const dynamic = "force-dynamic";
 
 export default async function TwinPage({
@@ -35,9 +30,6 @@ export default async function TwinPage({
     ((profile as any)?.email as string)?.split("@")[0] ||
     "you";
 
-  // First-arrival welcome — the twin greets the user, orients them, and
-  // names the best match it found. We compute the match server-side so the
-  // greeting can be specific. Best-effort; greeting still fires without it.
   const isWelcome = (searchParams?.welcome ?? "") === "1";
   let welcomeMatch: string | null = null;
   if (isWelcome) {
@@ -61,66 +53,54 @@ export default async function TwinPage({
 
   return (
     <AppShell>
-      {/* Compact header — Jack: "shorten that so it's only a single line,
-          remove the blue top chat, give me the maximal amount of view."
-          Dropped the eyebrow label + collapsed the 2-line blurb to one
-          line + shrank the h1 so the chat scroller reclaims the vertical
-          space (the scroller's height reservation in TwinChatUI was cut
-          to match). */}
-      <section className="mt-1">
-        <h1 className="retro-h1 text-xl sm:text-2xl leading-tight">
-          Chat with your twin.{" "}
-          <span
-            className="text-sm sm:text-base align-middle"
-            style={{ color: "var(--text)", fontWeight: 600 }}
-          >
-            Your home base. Ask who to reach out to, triage proposals, draft
-            anything.
-          </span>
-        </h1>
+      <section className="space-y-4">
+        {/* Modern Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-purple-100">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                Live Twin Dojo
+              </span>
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+              Chat with your AI Twin
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+              Your private command home. Ask who to reach out to, test its responses, or triage proposals.
+            </p>
+          </div>
 
-        {/* Desktop: 2-col grid — chat fills the wide center, pending
-            proposals live in a sticky right rail with Accept/Deny
-            buttons so the user can move on real action without leaving
-            this page. Mobile: stacks (chat first, proposals below). */}
-        <div
-          className="mt-3 grid gap-6 twin-grid"
-          style={{
-            gridTemplateColumns: "minmax(0, 1fr)"
-          }}
-        >
-          <div style={{ minWidth: 0 }}>
+          {/* Sub-Nav Tabs */}
+          <div className="flex items-center gap-2 bg-purple-100/60 p-1.5 rounded-2xl border border-purple-200/80 shrink-0 self-start sm:self-auto">
+            <Link
+              href="/twin"
+              className="px-4 py-2 rounded-xl text-xs font-black bg-white text-purple-900 shadow-sm transition-all"
+            >
+              💬 Chat Dojo
+            </Link>
+            <Link
+              href="/twin/knowledge"
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 hover:text-purple-900 transition-all"
+            >
+              🧠 Knowledge & Files
+            </Link>
+          </div>
+        </div>
+
+        {/* 2-Column Grid: Chat on Left, Proposals Rail on Right */}
+        <div className="grid gap-6 lg:grid-cols-[1fr_320px] items-start">
+          <div className="min-w-0">
             <TwinChatUI
               selfName={selfName}
               welcome={isWelcome}
               welcomeMatch={welcomeMatch}
             />
           </div>
-          <div className="twin-rail" style={{ minWidth: 0 }}>
+          <div className="hidden lg:block lg:sticky lg:top-20">
             <PendingProposalsRail />
           </div>
         </div>
-
-        <style>{`
-          /* Drop breakpoint from 1024 → 900 so the right rail engages
-             on 13" laptops + smaller windows. Jack: "the whole right
-             side is empty — use that space." Below 900px the rail
-             stacks below the chat (mobile flow). */
-          @media (min-width: 900px) {
-            .twin-grid {
-              grid-template-columns: minmax(0, 1fr) 300px !important;
-            }
-          }
-          @media (max-width: 899px) {
-            .twin-rail { display: none; }
-          }
-          /* Composer is position:fixed at viewport bottom — pad the
-             chat column bottom so the last bubble + the chip strip
-             don't sit underneath the composer. */
-          .twin-grid > div:first-child {
-            padding-bottom: 140px;
-          }
-        `}</style>
       </section>
     </AppShell>
   );

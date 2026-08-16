@@ -690,537 +690,294 @@ export default async function DashboardPage() {
       {/* Scrolls to top when arriving with ?saved=1 (post-onboarding). */}
       <ScrollTopOnSaved />
 
-      <>
-        {/* COMMAND CENTER header + feed — Jack's rebrand. Real numbers only. */}
-        <section className="mt-2">
-          <div
-            style={{
-              fontSize: 12,
-              fontWeight: 800,
-              letterSpacing: "0.14em",
-              textTransform: "uppercase",
-              color: "var(--amber-bright)"
-            }}
-          >
-            Command Center
-          </div>
-          <h1
-            className="retro-h1"
-            style={{ fontSize: 30, fontWeight: 850, letterSpacing: "-0.02em", marginTop: 4 }}
-          >
-            Good {greetPart}, {firstName}.
-          </h1>
-          <p style={{ color: "var(--text-dim)", marginTop: 2, fontSize: 15 }}>
-            Your twin is scanning, prioritizing, and opening doors.
-          </p>
+      <div className="space-y-8">
+        {/* HEADER SECTION */}
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-purple-100">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-full text-[11px] font-black bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wider">
+                  <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+                  Twin Match Engine Active
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
+                Good {greetPart}, {firstName} 👋
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
+                Your AI Twin is actively scanning, evaluating synergy, and pre-clearing high-value introductions.
+              </p>
+            </div>
 
-          <div
-            style={{
-              marginTop: 18,
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              gap: 14
-            }}
-          >
+            <Link
+              href="/twin"
+              className="btn-purple-pill py-2 px-5 text-xs font-black self-start sm:self-auto shadow-md shadow-purple-600/20 flex items-center gap-2"
+            >
+              <span>💬 Open Twin Dojo</span>
+            </Link>
+          </div>
+
+          {/* 3 KPI STAT CARDS */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {commandFeed.map((c) => (
               <Link
                 key={c.label}
                 href={c.href}
-                className="retro-panel retro-panel-hover"
-                style={{
-                  padding: 16,
-                  textDecoration: "none",
-                  color: "var(--text)",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10
-                }}
+                className="glass-card-elevated p-5 flex items-center justify-between hover:scale-[1.01] hover:border-purple-300 transition-all border border-purple-100/90 bg-white"
               >
-                <span
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 20,
-                    background: `${c.tint}1f`
-                  }}
-                  aria-hidden
-                >
+                <div className="space-y-1">
+                  <div className="text-2xl font-black text-slate-900 tracking-tight">
+                    {c.value}
+                  </div>
+                  <div className="text-xs font-bold text-slate-500">
+                    {c.label}
+                  </div>
+                </div>
+                <span className="w-11 h-11 rounded-2xl bg-purple-50 border border-purple-100/80 flex items-center justify-center text-xl shrink-0">
                   {c.icon}
                 </span>
-                <div style={{ fontSize: 28, fontWeight: 850, lineHeight: 1 }}>
-                  {c.value}
-                </div>
-                <div style={{ fontSize: 13, color: "var(--text-dim)", fontWeight: 600 }}>
-                  {c.label}
-                </div>
               </Link>
             ))}
           </div>
-
-          {ccTop && (
-            <Link
-              href={`/conversations/${ccTop.id}`}
-              className="retro-panel retro-panel-hover"
-              style={{
-                display: "flex",
-                gap: 18,
-                alignItems: "center",
-                padding: 20,
-                marginTop: 14,
-                textDecoration: "none",
-                color: "var(--text)",
-                background:
-                  "linear-gradient(135deg, rgba(99,102,241,0.07), rgba(139,92,246,0.07))",
-                borderColor: "var(--amber)"
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    letterSpacing: "0.14em",
-                    textTransform: "uppercase",
-                    color: "var(--amber-bright)",
-                    marginBottom: 6
-                  }}
-                >
-                  ✦ AI recommendation · top priority
-                </div>
-                <div style={{ fontSize: 22, fontWeight: 850, letterSpacing: "-0.01em" }}>
-                  {ccTop.name}
-                </div>
-                <div
-                  style={{
-                    fontSize: 14,
-                    color: "var(--text-dim)",
-                    marginTop: 6,
-                    lineHeight: 1.45,
-                    display: "-webkit-box",
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden"
-                  }}
-                >
-                  {ccTop.summary ||
-                    "Your twin flagged this as your highest-leverage conversation. Open it and lock the next step."}
-                </div>
-                <div style={{ marginTop: 12, display: "inline-flex", gap: 16, fontSize: 13 }}>
-                  <span style={{ color: "var(--green)", fontWeight: 800 }}>
-                    {ccTop.sync}% fit
-                  </span>
-                  <span style={{ color: "var(--amber-bright)", fontWeight: 700 }}>
-                    Open conversation →
-                  </span>
-                </div>
-              </div>
-              <Avatar
-                id={ccTop.id}
-                name={ccTop.name}
-                avatarUrl={ccTop.avatar}
-                size={84}
-              />
-            </Link>
-          )}
-
-          {/* TODAY'S OPPORTUNITIES — top real matches not yet in a
-              conversation. Real pair scores; one-tap "connect" via the
-              startConversationWithUser server action. */}
-          {ccOpportunities.length > 0 && (
-            <div style={{ marginTop: 26 }}>
-              <div
-                style={{
-                  fontSize: 12,
-                  fontWeight: 800,
-                  letterSpacing: "0.14em",
-                  textTransform: "uppercase",
-                  color: "var(--amber-bright)",
-                  marginBottom: 12
-                }}
-              >
-                Today's opportunities
-              </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    "repeat(auto-fit, minmax(240px, 1fr))",
-                  gap: 14
-                }}
-              >
-                {ccOpportunities.map((o) => (
-                  <div
-                    key={o.id}
-                    className="retro-panel"
-                    style={{
-                      padding: 16,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 12
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12
-                      }}
-                    >
-                      <Avatar
-                        id={o.id}
-                        name={o.name}
-                        avatarUrl={o.avatar}
-                        size={44}
-                      />
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div
-                          style={{
-                            fontSize: 15,
-                            fontWeight: 800,
-                            letterSpacing: "-0.01em",
-                            whiteSpace: "nowrap",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis"
-                          }}
-                        >
-                          {o.name}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 11,
-                            fontWeight: 800,
-                            color: o.tier.color,
-                            letterSpacing: "0.02em"
-                          }}
-                        >
-                          {o.score}% · {o.tier.label}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6, minHeight: 36 }}>
-                      {([
-                        { label: "About", value: o.about },
-                        { label: "Wants / needs", value: o.wants },
-                        { label: "Offers", value: o.offers }
-                      ] as { label: string; value: string | null }[])
-                        .filter((r) => r.value)
-                        .map((r) => (
-                          <div key={r.label}>
-                            <span
-                              style={{
-                                fontSize: 10,
-                                fontWeight: 800,
-                                letterSpacing: "0.08em",
-                                textTransform: "uppercase",
-                                color: "var(--text-dim)"
-                              }}
-                            >
-                              {r.label}:{" "}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: 12.5,
-                                color: "var(--text)",
-                                lineHeight: 1.4
-                              }}
-                            >
-                              {(r.value as string).length > 110
-                                ? `${(r.value as string).slice(0, 110).trim()}…`
-                                : r.value}
-                            </span>
-                          </div>
-                        ))}
-                      {!o.about && !o.wants && !o.offers && (
-                        <span style={{ fontSize: 12.5, color: "var(--text-dim)", fontStyle: "italic" }}>
-                          Twin still forming.
-                        </span>
-                      )}
-                    </div>
-                    <form action={startConversationWithUser}>
-                      <input type="hidden" name="userId" value={o.id} />
-                      <button
-                        type="submit"
-                        className="retro-btn retro-btn-primary"
-                        style={{
-                          width: "100%",
-                          fontSize: 13,
-                          padding: "9px 12px"
-                        }}
-                      >
-                        Connect →
-                      </button>
-                    </form>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* YOUR ROOMS & CONFERENCES — 100% private to user */}
-          {myRooms.length > 0 && (
-            <div style={{ marginTop: 26 }}>
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-                <div>
-                  <div
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 800,
-                      letterSpacing: "0.14em",
-                      textTransform: "uppercase",
-                      color: "var(--amber-bright)"
-                    }}
-                  >
-                    Your Rooms &amp; Conferences
-                  </div>
-                  <div style={{ fontSize: 13, color: "var(--text-dim)", marginTop: 2 }}>
-                    Spaces you host or belong to (private to your account)
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Link
-                    href="/conferences/new"
-                    className="retro-btn text-xs py-1 px-2.5 inline-flex items-center gap-1"
-                  >
-                    + Sync Conference
-                  </Link>
-                  <Link
-                    href="/communities/new"
-                    className="retro-btn text-xs py-1 px-2.5 inline-flex items-center gap-1"
-                  >
-                    + Sync Community
-                  </Link>
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-                  gap: 14
-                }}
-              >
-                {myRooms.map((r) => {
-                  const url = r.kind === "community" ? `/communities/${r.slug}` : `/conferences/${r.slug}`;
-                  return (
-                    <Link
-                      key={r.slug}
-                      href={url}
-                      className="retro-panel retro-panel-hover"
-                      style={{
-                        padding: 16,
-                        textDecoration: "none",
-                        display: "flex",
-                        flexDirection: "column",
-                        justifyContent: "space-between",
-                        gap: 12
-                      }}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span
-                            className="font-mono text-[10px] uppercase font-bold px-2 py-0.5 rounded"
-                            style={{
-                              background: r.isOwner ? "rgba(224, 138, 0, 0.15)" : "var(--panel-2)",
-                              color: r.isOwner ? "var(--amber-bright)" : "var(--text-dim)",
-                              border: "1px solid var(--border)"
-                            }}
-                          >
-                            {r.isOwner ? "★ Host" : "Member"}
-                          </span>
-                          <span className="font-mono text-[11px] text-[var(--text-dim)]">
-                            {r.kind === "community" ? "Community" : "Conference"}
-                          </span>
-                        </div>
-                        <h3 className="font-bold text-base text-[var(--text)] line-clamp-1">
-                          {r.name}
-                        </h3>
-                        {r.city && (
-                          <p className="text-xs text-[var(--text-dim)] mt-0.5">
-                            📍 {r.city}
-                          </p>
-                        )}
-                      </div>
-
-                      <div
-                        className="flex items-center justify-between pt-2 border-t text-xs font-mono"
-                        style={{ borderColor: "var(--border)" }}
-                      >
-                        <span className="text-[var(--text-dim)]">
-                          👥 {r.memberCount} {r.memberCount === 1 ? "attendee" : "attendees"}
-                        </span>
-                        <span style={{ color: "var(--amber-bright)", fontWeight: 700 }}>
-                          Open Room →
-                        </span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </section>
 
-        {!twinComplete && (
-          <div
-            className="mt-6 retro-panel p-4 text-sm"
-            style={{ borderColor: "var(--amber)" }}
-          >
-            <span className="retro-amber font-semibold">! </span>
-            Your twin is incomplete.{" "}
-            <Link href="/onboarding" className="retro-amber underline">
-              Finish onboarding
-            </Link>{" "}
-            so it has enough context to represent you.
-          </div>
-        )}
-
-        {/* Single-column main content. The Clone Sync widget lives in
-            the sidebar column now (via AppShell's sidebarExtra slot),
-            so the right column is full-width. */}
-        <div className="mt-6">
-        {/* Hidden legacy left-rail block kept for layout-equiv. */}
-        <aside className="hidden" aria-hidden="true">
-          <SyncMeter
-            inputs={syncInputs}
-            size={150}
-            avatarUrl={(myProfile as any)?.avatar_url ?? null}
-            userId={user.id}
-          />
-          <Link
-            href="/onboarding"
-            className="retro-btn retro-btn-primary w-full text-center"
-          >
-            + add context
-          </Link>
-          <div
-            className="retro-dim text-xs text-center"
-            style={{ maxWidth: 240 }}
-          >
-            Sync your clone to{" "}
-            <span style={{ color: "var(--amber-bright)", fontWeight: 700 }}>
-              99%
-            </span>
-            . The last 1% is on purpose — a twin is never truly finished.
-          </div>
-        </aside>
-
-        {/* RIGHT — main content. Order per Jack: Your conversations
-            FIRST (the highest-value daily destination — these are the
-            real outcomes the user came back for), then DiscoverSearch
-            (Already on SyncedIn + Find people) below it. */}
-        <div className="space-y-8">
-
-          {/* Real conversations — handed off to a client component
-              that exposes a SYNC SCORE header, the (i) tooltip, the
-              filter dropdown (excitement / sync / recent active /
-              recent convo), and per-row SocialIconRow buttons. */}
-          {realConversations.length > 0 && (() => {
-            const rows: ConversationRow[] = realConversations.map((c) => {
-              const otherId =
-                c.participant_a === user.id
-                  ? c.participant_b
-                  : c.participant_a;
-              const otherTwin = (twinByUser.get(otherId) as any) ?? null;
-              const sync_score = computePairScore(twin ?? {}, otherTwin ?? {});
-              return {
-                id: c.id,
-                other_id: otherId,
-                other_name: nameById.get(otherId) ?? "Unknown",
-                other_avatar: avatarById.get(otherId) ?? null,
-                other_socials: socialsById.get(otherId) ?? null,
-                other_last_active_at: lastActiveById.get(otherId) ?? null,
-                status: statusForConv(c),
-                counterpart_summary: c.counterpart_summary ?? null,
-                summary: c.summary ?? null,
-                created_at: c.created_at,
-                excitement_score: c.excitement_score ?? null,
-                excitement_locked: c.excitement_locked ?? null,
-                sync_score,
-                sync_score_override: (c as any).sync_score_override ?? null,
-                last_message_at: lastMsgByConv.get(c.id) ?? null
-              };
-            });
-            return <ConversationsList rows={rows} />;
-          })()}
-
-          {/* Sample twins */}
-          {twinComplete && (testPersonas?.length ?? 0) > 0 && (
-        <section>
-          <div className="retro-label">test against a sample twin</div>
-          <p className="mt-1 retro-dim text-xs">
-            Pre-built twins that auto-reply. Stress-test yours before bringing
-            real people in.
-          </p>
-          <div className="mt-3 grid sm:grid-cols-2 gap-2">
-            {(testPersonas ?? []).map((p) => (
-              <form action={startTestConversation} key={p.id}>
-                <input type="hidden" name="personaId" value={p.id} />
-                <button
-                  type="submit"
-                  className="w-full text-left retro-panel retro-panel-hover p-3"
-                >
-                  <div className="font-semibold text-sm">
-                    {p.display_name ?? p.email}
+        {/* 2-COLUMN MAIN DASHBOARD GRID */}
+        <div className="grid lg:grid-cols-[1fr_340px] gap-8 items-start">
+          {/* LEFT / MAIN COLUMN (65%) */}
+          <div className="space-y-8 min-w-0">
+            {/* 1. TOP AI RECOMMENDATION CARD */}
+            {ccTop && (
+              <Link
+                href={`/conversations/${ccTop.id}`}
+                className="block glass-card-elevated p-6 bg-gradient-to-br from-white via-purple-50/40 to-indigo-50/30 border border-purple-200/90 hover:border-purple-400 hover:shadow-lg transition-all group relative overflow-hidden"
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
+                  <Avatar
+                    id={ccTop.id}
+                    name={ccTop.name}
+                    avatarUrl={ccTop.avatar}
+                    size={68}
+                  />
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-purple-600 text-white uppercase tracking-wider">
+                        ✦ Top Priority Match
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        {ccTop.sync}% Compatibility
+                      </span>
+                    </div>
+                    <div className="text-xl font-black text-slate-900 tracking-tight group-hover:text-purple-700 transition-colors">
+                      {ccTop.name}
+                    </div>
+                    <p className="text-xs text-slate-600 font-medium leading-relaxed line-clamp-2">
+                      {ccTop.summary ||
+                        "Your twin flagged this as your highest-leverage conversation. Open it to review the pre-negotiated handshake."}
+                    </p>
                   </div>
-                  <div className="retro-dim text-[11px] mt-1 line-clamp-2">
-                    {personaGoal.get(p.id) || ""}
-                  </div>
-                </button>
-              </form>
-            ))}
-          </div>
-          {testConversations.length > 0 && (
-            <div className="mt-2 space-y-1.5">
-              {testConversations.map((c) => {
+                  <span className="btn-purple-pill py-2 px-5 text-xs font-black shrink-0 hidden sm:inline-flex shadow-sm">
+                    Open Handshake →
+                  </span>
+                </div>
+              </Link>
+            )}
+
+            {/* 2. ACTIVE CONVERSATIONS & INTROS */}
+            {realConversations.length > 0 && (() => {
+              const rows: ConversationRow[] = realConversations.map((c) => {
                 const otherId =
                   c.participant_a === user.id
                     ? c.participant_b
                     : c.participant_a;
-                return (
-                  <Link
-                    key={c.id}
-                    href={`/conversations/${c.id}`}
-                    className="block retro-panel retro-panel-hover px-3 py-2 text-xs"
-                  >
-                    <span className="retro-dim">resume: </span>
-                    {nameById.get(otherId) ?? "Unknown"}
-                  </Link>
-                );
-              })}
+                const otherTwin = (twinByUser.get(otherId) as any) ?? null;
+                const sync_score = computePairScore(twin ?? {}, otherTwin ?? {});
+                return {
+                  id: c.id,
+                  other_id: otherId,
+                  other_name: nameById.get(otherId) ?? "Unknown",
+                  other_avatar: avatarById.get(otherId) ?? null,
+                  other_socials: socialsById.get(otherId) ?? null,
+                  other_last_active_at: lastActiveById.get(otherId) ?? null,
+                  status: statusForConv(c),
+                  counterpart_summary: c.counterpart_summary ?? null,
+                  summary: c.summary ?? null,
+                  created_at: c.created_at,
+                  excitement_score: c.excitement_score ?? null,
+                  excitement_locked: c.excitement_locked ?? null,
+                  sync_score,
+                  sync_score_override: (c as any).sync_score_override ?? null,
+                  last_message_at: lastMsgByConv.get(c.id) ?? null
+                };
+              });
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                      Active Introductions &amp; Negotiations
+                    </h2>
+                    <span className="text-xs font-bold text-slate-400">
+                      {rows.length} Total
+                    </span>
+                  </div>
+                  <ConversationsList rows={rows} />
+                </div>
+              );
+            })()}
+
+            {/* 3. TODAY'S HIGH-SYNERGY OPPORTUNITIES */}
+            {ccOpportunities.length > 0 && (
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                      Today&apos;s High-Synergy Discoveries
+                    </h2>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      New peers discovered by the 768-dim embedding engine that match your goals.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  {ccOpportunities.map((o) => (
+                    <div
+                      key={o.id}
+                      className="glass-card-elevated p-5 border border-purple-100 bg-white space-y-3 flex flex-col justify-between"
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3">
+                          <Avatar
+                            id={o.id}
+                            name={o.name}
+                            avatarUrl={o.avatar}
+                            size={44}
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-black text-slate-900 truncate">
+                              {o.name}
+                            </div>
+                            <div
+                              className="text-[11px] font-extrabold"
+                              style={{ color: o.tier.color }}
+                            >
+                              {o.score}% Match · {o.tier.label}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs text-slate-600 bg-purple-50/40 p-3 rounded-xl border border-purple-50">
+                          {([
+                            { label: "Wants", value: o.wants },
+                            { label: "Offers", value: o.offers }
+                          ] as { label: string; value: string | null }[])
+                            .filter((r) => r.value)
+                            .map((r) => (
+                              <div key={r.label} className="line-clamp-2">
+                                <span className="font-bold text-slate-900">
+                                  {r.label}:{" "}
+                                </span>
+                                <span>{r.value}</span>
+                              </div>
+                            ))}
+                          {!o.wants && !o.offers && (
+                            <span className="text-slate-400 italic">
+                              Twin newly initialized.
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <form action={startConversationWithUser} className="pt-1">
+                        <input type="hidden" name="userId" value={o.id} />
+                        <button
+                          type="submit"
+                          className="w-full btn-purple-pill py-2 px-4 text-xs font-black shadow-sm"
+                        >
+                          Connect Twin →
+                        </button>
+                      </form>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 4. DISCOVER SEARCH */}
+            <div className="pt-4 border-t border-purple-100">
+              <DiscoverSearch directory={directory} />
             </div>
-          )}
-        </section>
-      )}
+          </div>
 
-          {/* DiscoverSearch — Already on SyncedIn directory + Find
-              people twin-search. Lifted below the conversations list
-              so the user's existing relationships are the first thing
-              they see on the dashboard. */}
-          <DiscoverSearch directory={directory} />
+          {/* RIGHT SIDEBAR COLUMN (35%) */}
+          <div className="space-y-6 lg:sticky lg:top-20">
+            {/* TWIN LEVEL-UP & KNOWLEDGE CARD */}
+            <div className="glass-card-elevated p-6 space-y-4 border border-purple-200/90 bg-gradient-to-br from-white via-purple-50/50 to-white text-left">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black uppercase text-purple-900 tracking-wider">
+                  🧠 AI Twin Readiness
+                </span>
+                <span className="text-xs font-black px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                  Precision Level
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 font-medium leading-relaxed">
+                Add pitch decks, resumes, or Claude/ChatGPT exports in your Knowledge Vault to boost match precision.
+              </p>
+              <Link
+                href="/twin/knowledge"
+                className="w-full btn-purple-pill py-2.5 px-4 text-xs font-black flex items-center justify-center gap-2 shadow-sm"
+              >
+                <span>Boost Twin Precision →</span>
+              </Link>
+            </div>
 
-          {/* Premium-unlock progress — 3 completed referrals = Premium
-              free. completedReferrals computed up top so the build
-              doesn't trip on an async-IIFE-inside-JSX pattern. */}
-          <PremiumProgressCard
-            completedReferrals={completedReferrals}
-          />
+            {/* YOUR PRIVATE ROOMS & COMMUNITIES */}
+            {myRooms.length > 0 && (
+              <div className="glass-card-elevated p-5 border border-purple-100 bg-white space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-purple-900 tracking-wider">
+                    Spaces &amp; Rooms
+                  </span>
+                  <Link
+                    href="/conferences/new"
+                    className="text-[11px] font-bold text-purple-600 hover:text-purple-800"
+                  >
+                    + Sync New
+                  </Link>
+                </div>
+                <div className="space-y-2">
+                  {myRooms.map((r) => {
+                    const url = r.kind === "community" ? `/communities/${r.slug}` : `/conferences/${r.slug}`;
+                    return (
+                      <Link
+                        key={r.slug}
+                        href={url}
+                        className="block p-3 rounded-xl border border-purple-50 bg-purple-50/30 hover:bg-purple-100/50 transition-all text-left"
+                      >
+                        <div className="text-xs font-black text-slate-900 truncate">
+                          {r.name}
+                        </div>
+                        <div className="text-[10px] text-slate-500 font-medium mt-0.5 flex items-center justify-between">
+                          <span>{r.kind === "community" ? "Community" : "Conference"}</span>
+                          <span>👥 {r.memberCount} members</span>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-          {/* Invite */}
-          <section>
-            <BulkReachToolkit appUrl={appUrl} variant="card" />
-          </section>
+            {/* INVITE TOOLKIT */}
+            <div className="glass-card-elevated p-5 border border-purple-100 bg-white">
+              <BulkReachToolkit appUrl={appUrl} variant="card" />
+            </div>
 
-          {/* Always-visible feedback capture. Tag with surface so we know
-              this came from the main dashboard (vs. a mobile drawer or
-              the conversation page) when we read the feedback table. */}
-          <QuickFeedbackWidget surface="dashboard" />
+            {/* QUICK FEEDBACK WIDGET */}
+            <QuickFeedbackWidget surface="dashboard" />
+          </div>
         </div>
-        </div>
-      </>
+      </div>
     </AppShell>
   );
 }
